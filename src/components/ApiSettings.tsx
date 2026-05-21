@@ -9,9 +9,10 @@ interface ApiSettingsModalProps {
 }
 
 export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProps) {
-  const { theme } = useThemeStore();
+  const { theme, style } = useThemeStore();
   const { settings, loading, error, load, save, loaded } = useApiKeysStore();
   const isDark = theme === 'dark';
+  const isPixel = style === 'pixel';
 
   const [zhenzhenKey, setZhenzhenKey] = useState('');
   const [rhKey, setRhKey] = useState('');
@@ -54,29 +55,56 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
     }, 800);
   };
 
-  const inputCls = `flex-1 px-3 py-2 rounded-md text-sm outline-none border ${
-    isDark
-      ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/30'
-      : 'bg-black/5 border-black/10 text-zinc-900 placeholder:text-zinc-400 focus:border-black/30'
-  }`;
+  const inputCls = isPixel
+    ? 'flex-1 px-3 py-2 rounded-[10px] text-sm outline-none px-input'
+    : `flex-1 px-3 py-2 rounded-md text-sm outline-none border ${
+        isDark
+          ? 'bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-white/30'
+          : 'bg-black/5 border-black/10 text-zinc-900 placeholder:text-zinc-400 focus:border-black/30'
+      }`;
 
-  const labelCls = isDark ? 'text-white/70' : 'text-zinc-700';
-  const hintCls = isDark ? 'text-white/40' : 'text-zinc-500';
+  const labelCls = isPixel
+    ? 'text-[var(--px-ink)]'
+    : isDark ? 'text-white/70' : 'text-zinc-700';
+  const hintCls = isPixel
+    ? 'text-[var(--px-ink-soft)]'
+    : isDark ? 'text-white/40' : 'text-zinc-500';
+  const eyeBtnCls = isPixel
+    ? 'px-btn px-btn--icon px-btn--ghost'
+    : `p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm ${
+        isPixel ? 'px-modal-mask' : 'bg-black/60'
+      }`}
+    >
       <div
-        className={`w-full max-w-2xl mx-4 rounded-2xl shadow-2xl overflow-hidden ${
-          isDark ? 'bg-zinc-900 border border-white/10' : 'bg-white border border-black/10'
-        }`}
+        className={
+          isPixel
+            ? 'w-full max-w-2xl mx-4 px-card overflow-hidden'
+            : `w-full max-w-2xl mx-4 rounded-2xl shadow-2xl overflow-hidden ${
+                isDark ? 'bg-zinc-900 border border-white/10' : 'bg-white border border-black/10'
+              }`
+        }
       >
         {/* 头部 */}
-        <div className={`flex items-center gap-3 px-5 py-4 border-b ${
-          isDark ? 'border-white/10' : 'border-black/10'
-        }`}>
-          <KeyRound size={18} className={isDark ? 'text-white/80' : 'text-zinc-700'} />
+        <div
+          className={`flex items-center gap-3 px-5 py-4 border-b ${
+            isPixel
+              ? 'border-[var(--px-ink)] bg-[var(--px-yellow)]'
+              : isDark
+                ? 'border-white/10'
+                : 'border-black/10'
+          }`}
+        >
+          <KeyRound size={18} className={isPixel ? 'text-[var(--px-ink)]' : isDark ? 'text-white/80' : 'text-zinc-700'} />
           <div className="flex-1">
-            <h2 className={`text-base font-semibold ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+            <h2
+              className={`text-base font-semibold ${
+                isPixel ? 'px-title text-[var(--px-ink)]' : isDark ? 'text-white' : 'text-zinc-900'
+              }`}
+            >
               API Key 设置(三套独立)
             </h2>
             <p className={`text-xs mt-0.5 ${hintCls}`}>
@@ -85,7 +113,11 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+            className={
+              isPixel
+                ? 'px-btn px-btn--icon px-btn--ghost'
+                : `p-1.5 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`
+            }
           >
             <X size={18} />
           </button>
@@ -112,7 +144,7 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
               />
               <button
                 onClick={() => setShowZ(!showZ)}
-                className={`p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+                className={eyeBtnCls}
               >
                 {showZ ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -139,7 +171,7 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
               />
               <button
                 onClick={() => setShowR(!showR)}
-                className={`p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+                className={eyeBtnCls}
               >
                 {showR ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -168,7 +200,7 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
               />
               <button
                 onClick={() => setShowL(!showL)}
-                className={`p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+                className={eyeBtnCls}
               >
                 {showL ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -186,21 +218,35 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
         </div>
 
         {/* 底部按钮 */}
-        <div className={`flex items-center justify-end gap-2 px-5 py-3 border-t ${
-          isDark ? 'border-white/10 bg-white/[0.02]' : 'border-black/10 bg-black/[0.02]'
-        }`}>
+        <div
+          className={`flex items-center justify-end gap-2 px-5 py-3 border-t ${
+            isPixel
+              ? 'border-[var(--px-ink)] bg-[var(--px-muted)]'
+              : isDark
+                ? 'border-white/10 bg-white/[0.02]'
+                : 'border-black/10 bg-black/[0.02]'
+          }`}
+        >
           <button
             onClick={onClose}
-            className={`px-4 py-2 text-sm rounded-md ${
-              isDark ? 'hover:bg-white/10 text-white/80' : 'hover:bg-black/5 text-zinc-700'
-            }`}
+            className={
+              isPixel
+                ? 'px-btn'
+                : `px-4 py-2 text-sm rounded-md ${
+                    isDark ? 'hover:bg-white/10 text-white/80' : 'hover:bg-black/5 text-zinc-700'
+                  }`
+            }
           >
             取消
           </button>
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-4 py-2 text-sm rounded-md bg-emerald-500 hover:bg-emerald-600 text-white flex items-center gap-2 disabled:opacity-50"
+            className={
+              isPixel
+                ? 'px-btn px-btn--mint disabled:opacity-50 flex items-center gap-2'
+                : 'px-4 py-2 text-sm rounded-md bg-emerald-500 hover:bg-emerald-600 text-white flex items-center gap-2 disabled:opacity-50'
+            }
           >
             {loading ? (
               <Loader2 size={14} className="animate-spin" />

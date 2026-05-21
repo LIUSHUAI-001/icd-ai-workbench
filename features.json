@@ -1,12 +1,50 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "lastUpdated": "2026-05-22",
   "layout": {
     "mode": "single-column-sidebar",
     "description": "画布管理 + 节点列表合并为一列 Sidebar，主体变为两栏布局(Sidebar + Canvas)，紧凑化节省约 96px 横向空间。",
     "sidebarWidth": 256,
     "canvasPanel": { "collapsible": true, "defaultOpen": true, "maxHeight": 224 }
+  },
+  "themes": {
+    "description": "双视觉风格 × 双明暗模式 = 4 套皮肤，由 zustand theme store 持久化，data-theme-style + data-theme-mode 注入到 html 根。切换按钮位于顶部工具条左侧（Sparkles / Cpu 图标）。",
+    "styles": {
+      "tech": {
+        "label": "科技风",
+        "description": "原 zinc 玻璃拟态深色 / 浅色，sky 色 accent",
+        "default": true
+      },
+      "pixel": {
+        "label": "像素糖果风",
+        "description": "Pindou Studio 风格：奶油底 + 2px 黑描边 + 糖果色块 + 大圆角胶囊 + 硬阴影 (neo-brutalism)",
+        "palette": {
+          "bg": "#FAF3E7",
+          "surface": "#FFFFFF",
+          "muted": "#F1E8D5",
+          "ink": "#1A1410",
+          "accents": {
+            "mint": "#A8E6C9",
+            "mintDeep": "#4ECDC4",
+            "pink": "#FFB5C5",
+            "pinkDeep": "#FF89A7",
+            "yellow": "#FFE08A",
+            "violet": "#C7B8F0",
+            "peach": "#FFCBA4",
+            "sky": "#B8DCEC"
+          }
+        },
+        "primaryAccent": "mint",
+        "radius": { "pill": 9999, "card": 16 },
+        "borderWidth": 2,
+        "shadow": { "hard": "3px 3px 0 #1A1410", "press": "1px 1px 0 #1A1410" },
+        "fonts": ["M PLUS Rounded 1c", "DotGothic16"]
+      }
+    },
+    "modes": ["dark", "light"],
+    "persistKey": "t8-canvas-theme",
+    "htmlAttrs": ["data-theme-style", "data-theme-mode"]
   },
   "repository": "https://github.com/T8mars/T8-penguin-canvas",
   "totalNodes": 24,
@@ -18,7 +56,8 @@
     "phase4": { "label": "全部 24 节点上线", "status": "complete", "items": ["辅助 / 数据组织 / 特殊 / 画板 / 浏览器 / 抽帧"] },
     "phase5": { "label": "画布交互", "status": "complete", "items": ["Undo/Redo", "复制/粘贴/删除", "导入导出 JSON", "工作流模板", "CanvasToolbar"] },
     "phase6": { "label": "批量执行 + 对齐辅助", "status": "complete", "items": ["运行总线 zustand store", "useRunTrigger 节点接入", "拓扑排序串行批量运行", "snap-to-grid + 智能对齐辅助线"] },
-    "phase7": { "label": "侧边栏合并", "status": "complete", "items": ["CanvasManager 收纳到 Sidebar 顶部可折叠区", "移除独立画布管理列", "三栏→两栏布局"] }
+    "phase7": { "label": "侧边栏合并", "status": "complete", "items": ["CanvasManager 收纳到 Sidebar 顶部可折叠区", "移除独立画布管理列", "三栏→两栏布局"] },
+    "phase8": { "label": "像素糖果风主题", "status": "complete", "items": ["theme store 扩展 themeStyle(tech|pixel) 双轨", "theme-pixel.css 全套 CSS 变量 + 工具类(px-card/px-btn/px-chip/px-input/px-row/px-modal-mask)", "Sidebar / CanvasToolbar / ApiSettings 框架级像素化", "24 节点零侵入 CSS 兜底层(react-flow__node 全局覆盖)", "ReactFlow 背景点 / 边线 / 对齐辅助线 像素化校色", "顶部 Sparkles/Cpu 切换按钮 + localStorage 持久化"] }
   },
   "categories": {
     "core": {

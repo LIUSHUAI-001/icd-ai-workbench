@@ -36,8 +36,9 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ onAddNode }: SidebarProps) {
-  const { theme } = useThemeStore();
+  const { theme, style } = useThemeStore();
   const isDark = theme === 'dark';
+  const isPixel = style === 'pixel';
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [keyword, setKeyword] = useState('');
 
@@ -93,15 +94,33 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
         key={n.type}
         onClick={() => onAddNode(n.type)}
         title={n.description}
-        className={`w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-xs ${
-          isDark
-            ? 'hover:bg-white/10 text-zinc-200'
-            : 'hover:bg-black/5 text-zinc-800'
+        className={`w-full text-left flex items-center gap-2 px-2 py-1.5 transition-colors text-xs ${
+          isPixel
+            ? 'px-row'
+            : `rounded-md ${
+                isDark
+                  ? 'hover:bg-white/10 text-zinc-200'
+                  : 'hover:bg-black/5 text-zinc-800'
+              }`
         }`}
       >
         <span
-          className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0"
-          style={{ background: colorHex + '22', color: colorHex, boxShadow: `inset 0 0 0 1px ${colorHex}55` }}
+          className={`w-6 h-6 flex items-center justify-center flex-shrink-0 ${
+            isPixel ? 'rounded-[6px] border-2' : 'rounded'
+          }`}
+          style={
+            isPixel
+              ? {
+                  background: colorHex,
+                  color: '#1A1410',
+                  borderColor: '#1A1410',
+                }
+              : {
+                  background: colorHex + '22',
+                  color: colorHex,
+                  boxShadow: `inset 0 0 0 1px ${colorHex}55`,
+                }
+          }
         >
           <Icon size={13} />
         </span>
@@ -125,20 +144,32 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
   return (
     <div
       className={`w-64 flex flex-col border-r overflow-hidden ${
-        isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-black/10'
+        isPixel
+          ? 'px-panel'
+          : isDark
+            ? 'bg-zinc-900 border-white/10'
+            : 'bg-white border-black/10'
       }`}
     >
       {/* 画布管理(可折叠) */}
-      <div className={`border-b ${isDark ? 'border-white/10' : 'border-black/10'}`}>
+      <div
+        className={`border-b ${
+          isPixel ? 'border-[#1A1410]/80' : isDark ? 'border-white/10' : 'border-black/10'
+        }`}
+      >
         <div
           className={`flex items-center gap-1 px-2 py-2 ${
-            isDark ? 'text-white/70' : 'text-zinc-700'
+            isPixel ? '' : isDark ? 'text-white/70' : 'text-zinc-700'
           }`}
         >
           <button
             onClick={() => setCanvasPanelOpen((v) => !v)}
             className={`flex items-center gap-1 flex-1 text-left text-[11px] font-semibold uppercase tracking-wider ${
-              isDark ? 'hover:text-white' : 'hover:text-zinc-900'
+              isPixel
+                ? 'px-group-title'
+                : isDark
+                  ? 'hover:text-white'
+                  : 'hover:text-zinc-900'
             }`}
           >
             {canvasPanelOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -148,11 +179,15 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
           </button>
           <button
             onClick={handleCreateCanvas}
-            className={`p-1 rounded-md ${
-              isDark
-                ? 'hover:bg-white/10 text-white/70 hover:text-white'
-                : 'hover:bg-black/10 text-zinc-700'
-            }`}
+            className={
+              isPixel
+                ? 'px-btn px-btn--icon px-btn--mint'
+                : `p-1 rounded-md ${
+                    isDark
+                      ? 'hover:bg-white/10 text-white/70 hover:text-white'
+                      : 'hover:bg-black/10 text-zinc-700'
+                  }`
+            }
             title="新建画布"
           >
             <Plus size={13} />
@@ -163,7 +198,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
             {canvasLoading && (
               <div
                 className={`flex items-center gap-2 px-2 py-2 text-[11px] ${
-                  isDark ? 'text-white/40' : 'text-zinc-500'
+                  isPixel ? '' : isDark ? 'text-white/40' : 'text-zinc-500'
                 }`}
               >
                 <Loader2 size={12} className="animate-spin" /> 加载中...
@@ -172,13 +207,17 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
             {!canvasLoading && canvases.length === 0 && (
               <div
                 className={`text-center py-3 text-[11px] ${
-                  isDark ? 'text-white/40' : 'text-zinc-500'
+                  isPixel ? '' : isDark ? 'text-white/40' : 'text-zinc-500'
                 }`}
               >
                 <p>还没有画布</p>
                 <button
                   onClick={handleCreateCanvas}
-                  className="mt-1.5 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] hover:bg-emerald-500/30"
+                  className={
+                    isPixel
+                      ? 'mt-1.5 px-btn px-btn--sm px-btn--mint'
+                      : 'mt-1.5 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] hover:bg-emerald-500/30'
+                  }
                 >
                   + 新建第一个画布
                 </button>
@@ -192,14 +231,18 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                 <div
                   key={c.id}
                   onClick={() => !isEditing && setActive(c.id)}
-                  className={`group rounded-md px-2 py-1 cursor-pointer text-[11px] transition-colors ${
-                    isActive
-                      ? isDark
-                        ? 'bg-white/10 text-white'
-                        : 'bg-black/10 text-zinc-900'
-                      : isDark
-                        ? 'text-white/70 hover:bg-white/5'
-                        : 'text-zinc-700 hover:bg-black/5'
+                  className={`group px-2 py-1 cursor-pointer text-[11px] transition-colors ${
+                    isPixel
+                      ? `px-row ${isActive ? 'is-active' : ''}`
+                      : `rounded-md ${
+                          isActive
+                            ? isDark
+                              ? 'bg-white/10 text-white'
+                              : 'bg-black/10 text-zinc-900'
+                            : isDark
+                              ? 'text-white/70 hover:bg-white/5'
+                              : 'text-zinc-700 hover:bg-black/5'
+                        }`
                   }`}
                 >
                   {isEditing ? (
@@ -296,20 +339,30 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
       </div>
 
       {/* 搜索框 */}
-      <div className={`p-2 border-b ${isDark ? 'border-white/10' : 'border-black/10'}`}>
+      <div
+        className={`p-2 border-b ${
+          isPixel ? 'border-[#1A1410]/80' : isDark ? 'border-white/10' : 'border-black/10'
+        }`}
+      >
         <div
-          className={`flex items-center gap-2 px-2 py-1.5 rounded-md ${
-            isDark ? 'bg-white/5' : 'bg-black/5'
+          className={`flex items-center gap-2 px-2 py-1.5 ${
+            isPixel
+              ? 'px-input rounded-[10px]'
+              : `rounded-md ${isDark ? 'bg-white/5' : 'bg-black/5'}`
           }`}
         >
-          <Search size={14} className="opacity-50" />
+          <Search size={14} className="opacity-60" />
           <input
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             placeholder="搜索节点..."
             className={`flex-1 bg-transparent outline-none text-xs ${
-              isDark ? 'text-white placeholder:text-white/30' : 'text-zinc-900 placeholder:text-zinc-400'
+              isPixel
+                ? ''
+                : isDark
+                  ? 'text-white placeholder:text-white/30'
+                  : 'text-zinc-900 placeholder:text-zinc-400'
             }`}
           />
         </div>
@@ -326,7 +379,11 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
               <button
                 onClick={() => toggle(key)}
                 className={`w-full flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider ${
-                  isDark ? 'text-white/50 hover:text-white/80' : 'text-zinc-500 hover:text-zinc-800'
+                  isPixel
+                    ? 'px-group-title'
+                    : isDark
+                      ? 'text-white/50 hover:text-white/80'
+                      : 'text-zinc-500 hover:text-zinc-800'
                 }`}
               >
                 {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
@@ -340,10 +397,20 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
       </div>
 
       {/* 底部版本信息 */}
-      <div className={`px-3 py-2 border-t text-[10px] ${
-        isDark ? 'border-white/10 text-white/30' : 'border-black/10 text-zinc-400'
-      }`}>
-        T8-penguin-canvas · v1.0.0
+      <div
+        className={`px-3 py-2 border-t text-[10px] ${
+          isPixel
+            ? 'border-[#1A1410]/80'
+            : isDark
+              ? 'border-white/10 text-white/30'
+              : 'border-black/10 text-zinc-400'
+        }`}
+      >
+        {isPixel ? (
+          <span className="px-chip px-chip--muted">T8 · v1.0.1</span>
+        ) : (
+          <>T8-penguin-canvas · v1.0.1</>
+        )}
       </div>
     </div>
   );

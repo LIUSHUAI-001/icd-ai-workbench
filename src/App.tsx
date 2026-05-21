@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Moon, Settings, Sun, Wifi, WifiOff } from 'lucide-react';
+import { Moon, Settings, Sun, Wifi, WifiOff, Sparkles, Cpu } from 'lucide-react';
 import { useThemeStore } from './stores/theme';
 import { useApiKeysStore } from './stores/apiKeys';
 import Sidebar from './components/Sidebar';
@@ -13,12 +13,19 @@ import type { NodeType } from './types/canvas';
  * 布局: [侧边栏(画布管理 + 节点列表)] [画布主体] + 头部状态栏
  */
 function App() {
-  const { theme, toggleTheme } = useThemeStore();
+  const { theme, style, toggleTheme, toggleStyle } = useThemeStore();
   const { load: loadSettings } = useApiKeysStore();
   const [backendStatus, setBackendStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [settingsOpen, setSettingsOpen] = useState(false);
   // 画布接收节点添加的 ref(从 Sidebar -> Canvas)
   const addNodeRef = useRef<((type: NodeType) => void) | null>(null);
+
+  // 将主题状态注入 <html> 供 CSS 选择器使用
+  useEffect(() => {
+    const root = document.documentElement;
+    root.setAttribute('data-theme-style', style);
+    root.setAttribute('data-theme-mode', theme);
+  }, [style, theme]);
 
   // 启动探测后端
   useEffect(() => {
@@ -37,6 +44,7 @@ function App() {
   }, [loadSettings]);
 
   const isDark = theme === 'dark';
+  const isPixel = style === 'pixel';
 
   const handleAddNode = (type: NodeType) => {
     addNodeRef.current?.(type);
@@ -45,51 +53,107 @@ function App() {
   return (
     <div
       className={`h-screen flex flex-col overflow-hidden ${
-        isDark ? 'bg-zinc-950 text-white' : 'bg-zinc-50 text-zinc-900'
+        isPixel
+          ? isDark
+            ? 'bg-[#1F1A14] text-[#F5EBD7]'
+            : 'bg-[#FAF3E7] text-[#1A1410]'
+          : isDark
+            ? 'bg-zinc-950 text-white'
+            : 'bg-zinc-50 text-zinc-900'
       }`}
     >
       {/* 头部状态栏 */}
       <header
         className={`flex items-center justify-between px-4 py-2 border-b ${
-          isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-black/10'
+          isPixel
+            ? 'px-panel'
+            : isDark
+              ? 'bg-zinc-900 border-white/10'
+              : 'bg-white border-black/10'
         }`}
       >
         <div className="flex items-center gap-3">
           <span className="text-xl">🐧</span>
-          <h1 className="text-sm font-semibold">T8 企鹅画布</h1>
-          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-            isDark ? 'bg-white/10 text-white/60' : 'bg-black/5 text-zinc-500'
-          }`}>
-            v1.0.0
+          <h1 className={`text-sm font-semibold ${isPixel ? 'px-title' : ''}`}>T8 企鹅画布</h1>
+          <span
+            className={
+              isPixel
+                ? 'px-chip px-chip--mint text-[10px]'
+                : `text-[10px] px-1.5 py-0.5 rounded ${
+                    isDark ? 'bg-white/10 text-white/60' : 'bg-black/5 text-zinc-500'
+                  }`
+            }
+          >
+            v1.0.1
           </span>
           {/* 后端状态 */}
-          <div className={`flex items-center gap-1.5 text-[11px] ${
-            backendStatus === 'ok'
-              ? 'text-emerald-400'
-              : backendStatus === 'error'
-                ? 'text-red-400'
-                : 'text-yellow-400'
-          }`}>
-            {backendStatus === 'ok' ? <Wifi size={12} /> : <WifiOff size={12} />}
-            {backendStatus === 'ok' && '后端已连接'}
-            {backendStatus === 'error' && '后端未连接'}
-            {backendStatus === 'checking' && '检测中...'}
-          </div>
+          {isPixel ? (
+            <span
+              className={`px-chip ${
+                backendStatus === 'ok'
+                  ? 'px-chip--mint'
+                  : backendStatus === 'error'
+                    ? 'px-chip--pink'
+                    : 'px-chip--yellow'
+              }`}
+            >
+              {backendStatus === 'ok' ? <Wifi size={11} /> : <WifiOff size={11} />}
+              {backendStatus === 'ok' && '后端已连接'}
+              {backendStatus === 'error' && '后端未连接'}
+              {backendStatus === 'checking' && '检测中...'}
+            </span>
+          ) : (
+            <div
+              className={`flex items-center gap-1.5 text-[11px] ${
+                backendStatus === 'ok'
+                  ? 'text-emerald-400'
+                  : backendStatus === 'error'
+                    ? 'text-red-400'
+                    : 'text-yellow-400'
+              }`}
+            >
+              {backendStatus === 'ok' ? <Wifi size={12} /> : <WifiOff size={12} />}
+              {backendStatus === 'ok' && '后端已连接'}
+              {backendStatus === 'error' && '后端未连接'}
+              {backendStatus === 'checking' && '检测中...'}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
+          {/* 风格切换(tech ↔ pixel) */}
+          <button
+            onClick={toggleStyle}
+            className={
+              isPixel
+                ? 'px-btn px-btn--sm px-btn--pink'
+                : `p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`
+            }
+            title={isPixel ? '切换到科技风' : '切换到像素风'}
+          >
+            {isPixel ? <Cpu size={14} /> : <Sparkles size={16} />}
+            {isPixel && <span className="text-[11px]">科技风</span>}
+          </button>
           <button
             onClick={() => setSettingsOpen(true)}
-            className={`p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+            className={
+              isPixel
+                ? 'px-btn px-btn--icon px-btn--ghost'
+                : `p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`
+            }
             title="API 设置"
           >
-            <Settings size={16} />
+            <Settings size={isPixel ? 14 : 16} />
           </button>
           <button
             onClick={toggleTheme}
-            className={`p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+            className={
+              isPixel
+                ? 'px-btn px-btn--icon px-btn--ghost'
+                : `p-2 rounded-md ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`
+            }
             title={`切换到${isDark ? '浅色' : '深色'}主题`}
           >
-            {isDark ? <Sun size={16} /> : <Moon size={16} />}
+            {isDark ? <Sun size={isPixel ? 14 : 16} /> : <Moon size={isPixel ? 14 : 16} />}
           </button>
         </div>
       </header>

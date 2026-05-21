@@ -62,8 +62,9 @@ export default function CanvasToolbar({
   snapEnabled,
   onToggleSnap,
 }: CanvasToolbarProps) {
-  const { theme } = useThemeStore();
+  const { theme, style } = useThemeStore();
   const isDark = theme === 'dark';
+  const isPixel = style === 'pixel';
   const [tplOpen, setTplOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const tplRef = useRef<HTMLDivElement>(null);
@@ -80,21 +81,31 @@ export default function CanvasToolbar({
     return () => window.removeEventListener('mousedown', onClick);
   }, [tplOpen]);
 
-  const baseBtn = `relative flex items-center justify-center w-8 h-8 rounded-md transition-colors ${
-    isDark ? 'text-zinc-200 hover:bg-white/10' : 'text-zinc-700 hover:bg-black/5'
-  }`;
+  const baseBtn = isPixel
+    ? 'relative flex items-center justify-center w-8 h-8 rounded-full transition-colors hover:bg-[var(--px-muted)] text-[var(--px-ink)]'
+    : `relative flex items-center justify-center w-8 h-8 rounded-md transition-colors ${
+        isDark ? 'text-zinc-200 hover:bg-white/10' : 'text-zinc-700 hover:bg-black/5'
+      }`;
   const disabledCls = 'opacity-30 cursor-not-allowed pointer-events-none';
-  const sep = `w-px self-stretch mx-1 ${isDark ? 'bg-white/10' : 'bg-black/10'}`;
+  const sep = isPixel
+    ? 'w-px self-stretch mx-1 bg-[var(--px-ink)]/30'
+    : `w-px self-stretch mx-1 ${isDark ? 'bg-white/10' : 'bg-black/10'}`;
 
-  const containerCls = `flex items-center gap-0.5 px-1.5 py-1 rounded-lg backdrop-blur shadow-lg border ${
-    isDark ? 'bg-zinc-900/90 border-white/10' : 'bg-white/95 border-black/10'
-  }`;
+  const containerCls = isPixel
+    ? 'flex items-center gap-0.5 px-2 py-1 px-card'
+    : `flex items-center gap-0.5 px-1.5 py-1 rounded-lg backdrop-blur shadow-lg border ${
+        isDark ? 'bg-zinc-900/90 border-white/10' : 'bg-white/95 border-black/10'
+      }`;
 
-  const runningCls = isRunning
-    ? 'text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25'
-    : isDark
-    ? 'text-emerald-300 hover:bg-emerald-500/15'
-    : 'text-emerald-600 hover:bg-emerald-500/10';
+  const runningCls = isPixel
+    ? isRunning
+      ? 'bg-[var(--px-mint)] text-[var(--px-ink)] hover:bg-[var(--px-mint)]'
+      : 'text-[var(--px-mint-deep)] hover:bg-[var(--px-mint)]/40'
+    : isRunning
+      ? 'text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25'
+      : isDark
+      ? 'text-emerald-300 hover:bg-emerald-500/15'
+      : 'text-emerald-600 hover:bg-emerald-500/10';
 
   return (
     <div className="absolute top-3 right-3 z-20 flex items-start gap-2 select-none">
@@ -108,7 +119,13 @@ export default function CanvasToolbar({
           >
             <Square size={14} fill="currentColor" />
             {batchTotal > 0 && (
-              <span className="absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded bg-emerald-500 text-black">
+              <span
+                className={
+                  isPixel
+                    ? 'absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded-full border-2 border-[var(--px-ink)] bg-[var(--px-yellow)] text-[var(--px-ink)] font-bold'
+                    : 'absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded bg-emerald-500 text-black'
+                }
+              >
                 {batchDone}/{batchTotal}
               </span>
             )}
@@ -125,7 +142,15 @@ export default function CanvasToolbar({
 
         {/* 吸附开关 */}
         <button
-          className={`${baseBtn} ${snapEnabled ? (isDark ? 'text-amber-300 bg-amber-500/15' : 'text-amber-600 bg-amber-500/10') : ''}`}
+          className={`${baseBtn} ${
+            snapEnabled
+              ? isPixel
+                ? 'bg-[var(--px-yellow)] text-[var(--px-ink)]'
+                : isDark
+                  ? 'text-amber-300 bg-amber-500/15'
+                  : 'text-amber-600 bg-amber-500/10'
+              : ''
+          }`}
           onClick={onToggleSnap}
           title={snapEnabled ? '关闭网格吸附 + 对齐辅助线' : '开启网格吸附 + 对齐辅助线'}
         >
@@ -160,7 +185,13 @@ export default function CanvasToolbar({
         >
           <Copy size={16} />
           {selectedCount > 0 && (
-            <span className="absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded bg-amber-500 text-black">
+            <span
+              className={
+                isPixel
+                  ? 'absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded-full border-2 border-[var(--px-ink)] bg-[var(--px-pink)] text-[var(--px-ink)] font-bold'
+                  : 'absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded bg-amber-500 text-black'
+              }
+            >
               {selectedCount}
             </span>
           )}
@@ -203,14 +234,22 @@ export default function CanvasToolbar({
           </button>
           {tplOpen && (
             <div
-              className={`absolute right-0 mt-1.5 w-64 rounded-lg shadow-xl border overflow-hidden ${
-                isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-black/10'
-              }`}
+              className={
+                isPixel
+                  ? 'absolute right-0 mt-1.5 w-64 px-card overflow-hidden'
+                  : `absolute right-0 mt-1.5 w-64 rounded-lg shadow-xl border overflow-hidden ${
+                      isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-black/10'
+                    }`
+              }
             >
               <div
-                className={`px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${
-                  isDark ? 'text-white/50 bg-white/5' : 'text-zinc-500 bg-black/5'
-                }`}
+                className={
+                  isPixel
+                    ? 'px-3 py-2 text-[11px] font-semibold uppercase tracking-wider px-group-title bg-[var(--px-muted)] border-b-2 border-[var(--px-ink)]'
+                    : `px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${
+                        isDark ? 'text-white/50 bg-white/5' : 'text-zinc-500 bg-black/5'
+                      }`
+                }
               >
                 选择模板插入画布
               </div>
@@ -222,12 +261,22 @@ export default function CanvasToolbar({
                       onApplyTemplate(tpl);
                       setTplOpen(false);
                     }}
-                    className={`w-full text-left px-3 py-2 ${
-                      isDark ? 'hover:bg-white/10 text-zinc-100' : 'hover:bg-black/5 text-zinc-800'
-                    }`}
+                    className={
+                      isPixel
+                        ? 'w-full text-left px-3 py-2 hover:bg-[var(--px-muted)]'
+                        : `w-full text-left px-3 py-2 ${
+                            isDark ? 'hover:bg-white/10 text-zinc-100' : 'hover:bg-black/5 text-zinc-800'
+                          }`
+                    }
                   >
                     <div className="text-xs font-medium">{tpl.name}</div>
-                    <div className={`text-[10px] mt-0.5 ${isDark ? 'text-white/50' : 'text-zinc-500'}`}>
+                    <div
+                      className={
+                        isPixel
+                          ? 'text-[10px] mt-0.5 text-[var(--px-ink-soft)]'
+                          : `text-[10px] mt-0.5 ${isDark ? 'text-white/50' : 'text-zinc-500'}`
+                      }
+                    >
                       {tpl.description}
                     </div>
                   </button>
@@ -250,18 +299,28 @@ export default function CanvasToolbar({
       {/* 帮助弹窗 */}
       {helpOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className={`fixed inset-0 z-50 flex items-center justify-center ${
+            isPixel ? 'px-modal-mask' : 'bg-black/40'
+          }`}
           onClick={() => setHelpOpen(false)}
         >
           <div
-            className={`w-[420px] rounded-lg shadow-2xl border ${
-              isDark ? 'bg-zinc-900 border-white/10 text-white' : 'bg-white border-black/10 text-zinc-900'
-            }`}
+            className={
+              isPixel
+                ? 'w-[420px] px-card'
+                : `w-[420px] rounded-lg shadow-2xl border ${
+                    isDark ? 'bg-zinc-900 border-white/10 text-white' : 'bg-white border-black/10 text-zinc-900'
+                  }`
+            }
             onClick={(e) => e.stopPropagation()}
           >
             <div
               className={`flex items-center justify-between px-4 py-3 border-b ${
-                isDark ? 'border-white/10' : 'border-black/10'
+                isPixel
+                  ? 'border-[var(--px-ink)]'
+                  : isDark
+                    ? 'border-white/10'
+                    : 'border-black/10'
               }`}
             >
               <div className="flex items-center gap-2 text-sm font-semibold">
@@ -270,7 +329,11 @@ export default function CanvasToolbar({
               </div>
               <button
                 onClick={() => setHelpOpen(false)}
-                className={`p-1 rounded ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+                className={
+                  isPixel
+                    ? 'px-btn px-btn--icon px-btn--ghost'
+                    : `p-1 rounded ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`
+                }
               >
                 <X size={14} />
               </button>
@@ -285,23 +348,41 @@ export default function CanvasToolbar({
                 ['Delete / Backspace', '删除选中节点 / 连线'],
                 ['Ctrl + A', '全选节点'],
                 ['鼠标拖拽连接桩', '连接节点'],
-                ['滚轮 / 触控板', '缩放画布'],
+                ['滾轮 / 触控板', '缩放画布'],
                 ['空格 + 拖拽', '平移画布'],
               ].map(([k, v]) => (
                 <div
                   key={k}
                   className={`flex items-center justify-between px-3 py-1.5 rounded ${
-                    isDark ? 'bg-white/5' : 'bg-black/5'
+                    isPixel
+                      ? 'bg-[var(--px-muted)] border-2 border-[var(--px-ink)] rounded-[10px]'
+                      : isDark
+                        ? 'bg-white/5'
+                        : 'bg-black/5'
                   }`}
                 >
                   <kbd
                     className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                      isDark ? 'bg-white/10' : 'bg-white border border-black/10'
+                      isPixel
+                        ? 'bg-[var(--px-surface)] border-2 border-[var(--px-ink)] text-[var(--px-ink)]'
+                        : isDark
+                          ? 'bg-white/10'
+                          : 'bg-white border border-black/10'
                     }`}
                   >
                     {k}
                   </kbd>
-                  <span className={isDark ? 'text-white/70' : 'text-zinc-600'}>{v}</span>
+                  <span
+                    className={
+                      isPixel
+                        ? 'text-[var(--px-ink-soft)]'
+                        : isDark
+                          ? 'text-white/70'
+                          : 'text-zinc-600'
+                    }
+                  >
+                    {v}
+                  </span>
                 </div>
               ))}
             </div>

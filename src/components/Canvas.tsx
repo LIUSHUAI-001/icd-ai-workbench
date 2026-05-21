@@ -127,7 +127,7 @@ interface CanvasInnerProps {
 
 function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   const { activeId } = useCanvasStore();
-  const { theme } = useThemeStore();
+  const { theme, style } = useThemeStore();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -586,7 +586,15 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   }, [histUndo, histRedo, handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, selectedCount]);
 
   const isDark = theme === 'dark';
-  const bgColor = isDark ? '#0a0a0b' : '#fafafa';
+    const isPixel = style === 'pixel';
+    const guideColor = isPixel ? '#FF89A7' : '#fb923c';
+    const edgeStroke = isPixel ? '#1A1410' : isDark ? '#71717a' : '#a1a1aa';
+    const dotColor = isPixel
+      ? isDark ? '#5C4D3E' : '#C8B89A'
+      : isDark ? '#27272a' : '#d4d4d8';
+  const bgColor = isPixel
+    ? isDark ? '#1F1A14' : '#FAF3E7'
+    : isDark ? '#0a0a0b' : '#fafafa';
 
   const memoNodeTypes = useMemo(() => nodeTypes, []);
 
@@ -648,15 +656,15 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{
-          style: { stroke: isDark ? '#71717a' : '#a1a1aa', strokeWidth: 2 },
+          style: { stroke: edgeStroke, strokeWidth: isPixel ? 2.5 : 2 },
           animated: false,
         }}
       >
         <Background
           variant={BackgroundVariant.Dots}
           gap={20}
-          size={1.2}
-          color={isDark ? '#27272a' : '#d4d4d8'}
+          size={isPixel ? 1.6 : 1.2}
+          color={dotColor}
         />
         {/* 对齐辅助线:在世界坐标系中随视口变换 */}
         {(guides.vertical.length > 0 || guides.horizontal.length > 0) && (
@@ -680,9 +688,9 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
                   y1={-100000}
                   x2={x}
                   y2={100000}
-                  stroke="#fb923c"
-                  strokeWidth={1}
-                  strokeDasharray="6 4"
+                  stroke={guideColor}
+                  strokeWidth={isPixel ? 1.5 : 1}
+                  strokeDasharray={isPixel ? '8 4' : '6 4'}
                   vectorEffect="non-scaling-stroke"
                 />
               ))}
@@ -693,9 +701,9 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
                   y1={y}
                   x2={100000}
                   y2={y}
-                  stroke="#fb923c"
-                  strokeWidth={1}
-                  strokeDasharray="6 4"
+                  stroke={guideColor}
+                  strokeWidth={isPixel ? 1.5 : 1}
+                  strokeDasharray={isPixel ? '8 4' : '6 4'}
                   vectorEffect="non-scaling-stroke"
                 />
               ))}
