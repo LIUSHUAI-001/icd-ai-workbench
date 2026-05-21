@@ -331,6 +331,85 @@ html[data-theme-style="pixel"] .react-flow__node button {
   font-family: var(--px-font-display) !important;
 }
 
+/* 节点内主操作按钮(全宽 / 主要 CTA)统一像素胶囊 mint 风格,
+   修复 bg-orange-500/20 text-orange-200 等浅色按钮在奶油底上对比度过低问题 */
+html[data-theme-style="pixel"] .react-flow__node button.w-full {
+  background: var(--px-mint) !important;
+  background-image: none !important;
+  color: var(--px-ink) !important;
+  border: var(--px-border-w) solid var(--px-ink) !important;
+  border-radius: var(--px-radius-pill) !important;
+  box-shadow: 2px 2px 0 var(--px-ink) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px !important;
+  transition: transform 0.08s, box-shadow 0.08s, background-color 0.12s !important;
+}
+html[data-theme-style="pixel"] .react-flow__node button.w-full:hover:not(:disabled) {
+  background: var(--px-mint-deep) !important;
+  color: var(--px-ink) !important;
+}
+html[data-theme-style="pixel"] .react-flow__node button.w-full:active:not(:disabled) {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 0 0 0 var(--px-ink) !important;
+}
+html[data-theme-style="pixel"] .react-flow__node button.w-full:disabled {
+  background: var(--px-muted) !important;
+  color: var(--px-ink-dim) !important;
+  opacity: 1 !important;
+  box-shadow: 2px 2px 0 var(--px-ink-dim) !important;
+  cursor: not-allowed !important;
+}
+html[data-theme-style="pixel"] .react-flow__node button.w-full svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+}
+
+/* 节点内浅色文字(text-orange-200/cyan-200/emerald-200/red-300 等)统一变 ink */
+html[data-theme-style="pixel"] .react-flow__node [class*="text-orange-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-amber-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-yellow-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-cyan-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-sky-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-blue-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-emerald-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-green-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-purple-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-violet-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-pink-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-rose-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="text-red-"] {
+  color: var(--px-ink) !important;
+}
+
+/* 节点内浅色半透明色块背景(bg-orange-500/20 等)统一变 muted,避免与奶油底糊一起 */
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-orange-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-amber-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-yellow-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-cyan-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-sky-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-blue-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-emerald-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-green-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-purple-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-violet-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-pink-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-rose-"],
+html[data-theme-style="pixel"] .react-flow__node [class*="bg-red-"] {
+  background-color: var(--px-muted) !important;
+  background-image: none !important;
+}
+
+/* 主操作按钮强制覆盖颜色背景(优先级高于上面的 bg-* 兜底) */
+html[data-theme-style="pixel"] .react-flow__node button.w-full[class*="bg-"] {
+  background-color: var(--px-mint) !important;
+}
+html[data-theme-style="pixel"] .react-flow__node button.w-full[class*="bg-"]:hover:not(:disabled) {
+  background-color: var(--px-mint-deep) !important;
+}
+html[data-theme-style="pixel"] .react-flow__node button.w-full[class*="bg-"]:disabled {
+  background-color: var(--px-muted) !important;
+}
+
 /* 节点内部 bg-zinc-*/bg-white/* 背景调为浅奥利 */
 html[data-theme-style="pixel"] .react-flow__node [class*="bg-zinc-"],
 html[data-theme-style="pixel"] .react-flow__node [class*="bg-white/"],
