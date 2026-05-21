@@ -6,15 +6,16 @@ import type { NodeMeta } from '../types/canvas';
  * 图标使用 lucide-react 名称(运行时由 Sidebar 动态查找)
  */
 export const NODE_REGISTRY: NodeMeta[] = [
-  // ========== Core 核心节点(8) ==========
+  // ========== Core 核心节点(5) ==========
   { type: 'text', label: '文本', category: 'core', description: '提示词文本节点', icon: 'Type', color: 'sky' },
-  { type: 'image', label: 'ZhenzhenMagic', category: 'core', description: '图像生成 - GPT Image 2 / Nano Banana', icon: 'Image', color: 'amber' },
   { type: 'video', label: '视频', category: 'core', description: 'Veo 3.1 / Grok Video', icon: 'Video', color: 'rose' },
   { type: 'seedance', label: 'SD2.0', category: 'core', description: 'Seedance 2.0 视频分镜', icon: 'Film', color: 'fuchsia' },
   { type: 'audio', label: '音频', category: 'core', description: 'Suno V5.5 全模式(生成/翻唱/续写)', icon: 'Music', color: 'violet' },
   { type: 'llm', label: 'LLM', category: 'core', description: 'GPT-5 / Claude 4.5 / Gemini 2.5(独立 Key)', icon: 'Brain', color: 'emerald' },
-  { type: 'runninghub', label: 'RunningHub', category: 'core', description: 'RH 工作流主节点', icon: 'Workflow', color: 'cyan' },
-  { type: 'rh-config', label: 'RH 配置', category: 'core', description: 'RH 工作流参数注入', icon: 'Settings2', color: 'cyan' },
+
+  // ========== RH RunningHub 节点(2) ==========
+  { type: 'runninghub', label: 'RunningHub', category: 'rh', description: 'RH 工作流主节点', icon: 'Workflow', color: 'cyan' },
+  { type: 'rh-config', label: 'RH 配置', category: 'rh', description: 'RH 工作流参数注入', icon: 'Settings2', color: 'cyan' },
 
   // ========== Special 特殊节点(5) ==========
   { type: 'multi-angle-3d', label: '多角度 3D', category: 'special', description: '3D 多视角生成', icon: 'Box', color: 'indigo' },
@@ -49,6 +50,7 @@ export const NODE_REGISTRY: NodeMeta[] = [
 // 按分类分组,便于 Sidebar 渲染
 export const NODE_GROUPS: Record<string, { label: string; nodes: NodeMeta[] }> = {
   core: { label: '核心节点', nodes: NODE_REGISTRY.filter((n) => n.category === 'core') },
+  rh: { label: 'RH', nodes: NODE_REGISTRY.filter((n) => n.category === 'rh') },
   special: { label: '特殊节点', nodes: NODE_REGISTRY.filter((n) => n.category === 'special') },
   utility: { label: '工具节点', nodes: NODE_REGISTRY.filter((n) => n.category === 'utility') },
   auxiliary: { label: '辅助节点', nodes: NODE_REGISTRY.filter((n) => n.category === 'auxiliary') },

@@ -1,6 +1,6 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "lastUpdated": "2026-05-22",
   "layout": {
     "mode": "single-column-sidebar",
@@ -57,21 +57,35 @@
     "phase5": { "label": "画布交互", "status": "complete", "items": ["Undo/Redo", "复制/粘贴/删除", "导入导出 JSON", "工作流模板", "CanvasToolbar"] },
     "phase6": { "label": "批量执行 + 对齐辅助", "status": "complete", "items": ["运行总线 zustand store", "useRunTrigger 节点接入", "拓扑排序串行批量运行", "snap-to-grid + 智能对齐辅助线"] },
     "phase7": { "label": "侧边栏合并", "status": "complete", "items": ["CanvasManager 收纳到 Sidebar 顶部可折叠区", "移除独立画布管理列", "三栏→两栏布局"] },
-    "phase8": { "label": "像素糖果风主题", "status": "complete", "items": ["theme store 扩展 themeStyle(tech|pixel) 双轨", "theme-pixel.css 全套 CSS 变量 + 工具类(px-card/px-btn/px-chip/px-input/px-row/px-modal-mask)", "Sidebar / CanvasToolbar / ApiSettings 框架级像素化", "24 节点零侵入 CSS 兜底层(react-flow__node 全局覆盖)", "ReactFlow 背景点 / 边线 / 对齐辅助线 像素化校色", "顶部 Sparkles/Cpu 切换按钮 + localStorage 持久化"] }
+    "phase8": { "label": "像素糖果风主题", "status": "complete", "items": ["theme store 扩展 themeStyle(tech|pixel) 双轨", "theme-pixel.css 全套 CSS 变量 + 工具类(px-card/px-btn/px-chip/px-input/px-row/px-modal-mask)", "Sidebar / CanvasToolbar / ApiSettings 框架级像素化", "24 节点零侵入 CSS 兜底层(react-flow__node 全局覆盖)", "ReactFlow 背景点 / 边线 / 对齐辅助线 像素化校色", "顶部 Sparkles/Cpu 切换按钮 + localStorage 持久化"] },
+    "phase9": { "label": "侧边栏分类重整", "status": "complete", "items": ["移除 ZhenzhenMagic(image)从侧边栏新建入口(节点运行时仍保留)", "runninghub + rh-config 从 core 抽出,新建独立 'RH' 分类", "NodeCategory 类型增加 'rh' 枚举值"] }
   },
   "categories": {
     "core": {
       "label": "核心节点",
-      "count": 8,
+      "count": 5,
       "nodes": [
         { "type": "text", "label": "文本节点", "description": "提示词文本" },
-        { "type": "image", "label": "图像节点", "description": "ZhenzhenMagic - 多模型(gpt-image-2 / nano-banana-2 / nano-banana-pro)" },
         { "type": "video", "label": "视频节点", "description": "veo-3.1 / grok-video" },
         { "type": "seedance", "label": "SD2.0 节点", "description": "Seedance 2.0 视频分镜" },
         { "type": "audio", "label": "音频节点", "description": "🆕 Suno V5.5(generate / cover / extend),全模式" },
-        { "type": "llm", "label": "LLM/Vision 节点", "description": "gpt-5 / claude-4.5 / gemini-2.5,使用独立 LLM Key" },
+        { "type": "llm", "label": "LLM/Vision 节点", "description": "gpt-5 / claude-4.5 / gemini-2.5,使用独立 LLM Key" }
+      ]
+    },
+    "rh": {
+      "label": "RH 节点",
+      "count": 2,
+      "nodes": [
         { "type": "runninghub", "label": "RunningHub 节点", "description": "RH 工作流主节点(与 rh-config 组合)" },
         { "type": "rh-config", "label": "RH 配置节点", "description": "RunningHub 工作流参数注入" }
+      ]
+    },
+    "hidden": {
+      "label": "隐藏节点(运行时保留,不在侧边栏展示)",
+      "count": 1,
+      "description": "已从侧边栏新建入口移除,但节点类型/渲染逻辑仍保留,避免已有画布中该节点丢失。",
+      "nodes": [
+        { "type": "image", "label": "ZhenzhenMagic", "description": "图像生成 - 已从侧边栏新建入口移除;逻辑被 special 、 edit 、 multi-angle-3d 等节点复用" }
       ]
     },
     "special": {

@@ -43,6 +43,7 @@ export type NodeType =
 // 节点分类
 export type NodeCategory =
   | 'core'
+  | 'rh'
   | 'special'
   | 'utility'
   | 'auxiliary'
