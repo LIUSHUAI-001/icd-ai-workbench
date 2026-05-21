@@ -1,0 +1,186 @@
+{
+  "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
+  "version": "1.0.0",
+  "lastUpdated": "2026-05-22",
+  "repository": "https://github.com/T8mars/T8-penguin-canvas",
+  "totalNodes": 24,
+  "phases": {
+    "phase0": { "label": "基础设施", "status": "complete", "items": ["Vite + React 19 + TS", "Tailwind", "前端 5180 / 后端 18766 代理", "Express 后端骨架"] },
+    "phase1": { "label": "画布主体", "status": "complete", "items": ["xyflow 画布", "Sidebar 节点添加", "画布 CRUD", "三套 API Key 设置"] },
+    "phase2": { "label": "核心生成节点", "status": "complete", "items": ["贞贞工坊 / LLM 代理", "图像/视频/音频/LLM 节点"] },
+    "phase3": { "label": "异步任务节点", "status": "complete", "items": ["视频轮询", "Suno 三模式", "RunningHub 工作流", "sharp 工具箱"] },
+    "phase4": { "label": "全部 24 节点上线", "status": "complete", "items": ["辅助 / 数据组织 / 特殊 / 画板 / 浏览器 / 抽帧"] },
+    "phase5": { "label": "画布交互", "status": "complete", "items": ["Undo/Redo", "复制/粘贴/删除", "导入导出 JSON", "工作流模板", "CanvasToolbar"] },
+    "phase6": { "label": "批量执行 + 对齐辅助", "status": "complete", "items": ["运行总线 zustand store", "useRunTrigger 节点接入", "拓扑排序串行批量运行", "snap-to-grid + 智能对齐辅助线"] }
+  },
+  "categories": {
+    "core": {
+      "label": "核心节点",
+      "count": 8,
+      "nodes": [
+        { "type": "text", "label": "文本节点", "description": "提示词文本" },
+        { "type": "image", "label": "图像节点", "description": "ZhenzhenMagic - 多模型(gpt-image-2 / nano-banana-2 / nano-banana-pro)" },
+        { "type": "video", "label": "视频节点", "description": "veo-3.1 / grok-video" },
+        { "type": "seedance", "label": "SD2.0 节点", "description": "Seedance 2.0 视频分镜" },
+        { "type": "audio", "label": "音频节点", "description": "🆕 Suno V5.5(generate / cover / extend),全模式" },
+        { "type": "llm", "label": "LLM/Vision 节点", "description": "gpt-5 / claude-4.5 / gemini-2.5,使用独立 LLM Key" },
+        { "type": "runninghub", "label": "RunningHub 节点", "description": "RH 工作流主节点(与 rh-config 组合)" },
+        { "type": "rh-config", "label": "RH 配置节点", "description": "RunningHub 工作流参数注入" }
+      ]
+    },
+    "special": {
+      "label": "特殊节点",
+      "count": 5,
+      "nodes": [
+        { "type": "multi-angle-3d", "label": "多角度 3D", "description": "3D 多视角生成" },
+        { "type": "panorama-720", "label": "720 全景", "description": "720° 全景图生成" },
+        { "type": "penguin-portrait", "label": "企鹅肖像", "description": "肖像专用流程" },
+        { "type": "portrait-metadata", "label": "肖像元数据", "description": "肖像参数管理" },
+        { "type": "storyboard-grid", "label": "分镜网格", "description": "分镜九宫格布局" }
+      ]
+    },
+    "utility": {
+      "label": "工具节点",
+      "count": 9,
+      "nodes": [
+        { "type": "drawing-board", "label": "画板", "description": "手绘 / 涂抹" },
+        { "type": "browser", "label": "浏览器", "description": "网页内嵌" },
+        { "type": "image-compare", "label": "图片对比", "description": "前后对比" },
+        { "type": "frame-extractor", "label": "抽帧", "description": "视频抽帧" },
+        { "type": "resize", "label": "尺寸调整", "description": "图像尺寸调整" },
+        { "type": "combine", "label": "合并", "description": "图像合并" },
+        { "type": "remove-bg", "label": "抠图", "description": "去除背景" },
+        { "type": "upscale", "label": "放大", "description": "图像放大" },
+        { "type": "grid-crop", "label": "九宫格", "description": "网格切图" }
+      ]
+    },
+    "auxiliary": {
+      "label": "辅助节点",
+      "count": 4,
+      "nodes": [
+        { "type": "edit", "label": "编辑节点", "description": "图像编辑/局部" },
+        { "type": "idea", "label": "灵感节点", "description": "灵感记录" },
+        { "type": "bp", "label": "BP 节点", "description": "Blueprint 蓝图" },
+        { "type": "relay", "label": "中继节点", "description": "数据中转" },
+        { "type": "video-output", "label": "视频输出", "description": "视频结果展示" }
+      ]
+    },
+    "toolbox": {
+      "label": "工具箱",
+      "count": 2,
+      "nodes": [
+        { "type": "cinematic", "label": "电影感工具箱", "description": "影视化效果" },
+        { "type": "video-motion", "label": "视频运镜工具箱", "description": "运镜参数" }
+      ]
+    }
+  },
+  "removed": {
+    "description": "以下节点在重构中被明确移除,不可再加入",
+    "nodes": [
+      { "type": "rh-magic", "reason": "企鹅云 magic 流程已移除" },
+      { "type": "rh-video-s", "reason": "RH 视频特化流程已移除" },
+      { "type": "rh-character-extract", "reason": "RH 角色提取已移除" },
+      { "type": "comic-config", "reason": "漫剧流程已移除" }
+    ]
+  },
+  "modelRegistry": {
+    "image": [
+      { "id": "gpt-image-2", "label": "GPT Image 2", "provider": "zhenzhen", "endpoint": "/v1/images/generations" },
+      { "id": "nano-banana-2", "label": "Nano Banana 2", "provider": "zhenzhen", "endpoint": "/v1/images/generations" },
+      { "id": "nano-banana-pro", "label": "Nano Banana Pro", "provider": "zhenzhen", "endpoint": "/v1/images/generations" }
+    ],
+    "video": [
+      { "id": "veo-3.1", "label": "Veo 3.1", "provider": "zhenzhen", "endpoint": "/v1/videos/generations" },
+      { "id": "grok-video", "label": "Grok Video", "provider": "zhenzhen", "endpoint": "/v1/videos/generations" },
+      { "id": "seedance-2.0", "label": "Seedance 2.0(SD2.0)", "provider": "zhenzhen", "endpoint": "/v1/videos/seedance" }
+    ],
+    "audio": [
+      { "id": "suno-v5.5-generate", "label": "Suno V5.5 生成", "provider": "zhenzhen", "endpoint": "/v1/audio/suno/generate" },
+      { "id": "suno-v5.5-cover", "label": "Suno V5.5 翻唱", "provider": "zhenzhen", "endpoint": "/v1/audio/suno/cover" },
+      { "id": "suno-v5.5-extend", "label": "Suno V5.5 续写", "provider": "zhenzhen", "endpoint": "/v1/audio/suno/extend" }
+    ],
+    "llm": [
+      { "id": "gpt-5", "label": "GPT-5", "provider": "llm-direct", "endpoint": "/v1/chat/completions" },
+      { "id": "claude-4.5", "label": "Claude 4.5", "provider": "llm-direct", "endpoint": "/v1/chat/completions" },
+      { "id": "gemini-2.5", "label": "Gemini 2.5", "provider": "llm-direct", "endpoint": "/v1/chat/completions" }
+    ]
+  },
+  "apiKeys": {
+    "zhenzhen": {
+      "label": "贞贞工坊 API Key",
+      "baseUrl": "https://ai.t8star.org",
+      "fixed": true,
+      "scope": ["image", "video", "audio"]
+    },
+    "runninghub": {
+      "label": "RunningHub API Key",
+      "baseUrl": "https://www.runninghub.cn",
+      "fixed": false,
+      "scope": ["runninghub", "rh-config"]
+    },
+    "llm": {
+      "label": "LLM 独立 API Key",
+      "baseUrl": "https://ai.t8star.org",
+      "fixed": true,
+      "scope": ["llm", "vision"],
+      "note": "额度隔离,base URL 与贞贞工坊一致但 Key 独立"
+    }
+  },
+  "backendRoutes": {
+    "baseUrl": "http://127.0.0.1:18766",
+    "prefix": "/api",
+    "groups": {
+      "status": ["GET /api/status — 健康检查"],
+      "canvas": [
+        "GET /api/canvas — 列出画布",
+        "POST /api/canvas — 创建画布",
+        "GET /api/canvas/:id — 读取画布数据",
+        "PUT /api/canvas/:id — 保存画布数据(防空覆盖)",
+        "DELETE /api/canvas/:id — 删除画布",
+        "PATCH /api/canvas/:id/name — 重命名"
+      ],
+      "settings": [
+        "GET /api/settings — 三套 Key 设置(脱敏)",
+        "GET /api/settings/raw — 内部明文(代理调用使用)",
+        "POST /api/settings — 更新设置"
+      ],
+      "files": [
+        "POST /api/files/upload — 文件上传",
+        "GET /api/files/list — 列出 output 媒体",
+        "POST /api/files/upload-base64 — base64 dataURL 转存"
+      ],
+      "image": [
+        "POST /api/image/resize — sharp 尺寸调整",
+        "POST /api/image/upscale — lanczos3 放大",
+        "POST /api/image/grid-crop — 九宫格切图",
+        "POST /api/image/combine — 横/纵向拼接",
+        "POST /api/image/remove-bg — 抠图(占位)"
+      ],
+      "proxy": [
+        "POST /api/proxy/image — 图像生成(贞贞工坊,自动转存)",
+        "POST /api/proxy/llm — LLM Chat(独立 Key)",
+        "POST /api/proxy/video/submit — 视频任务提交",
+        "GET /api/proxy/video/query?taskId — 视频任务轮询(转存)",
+        "POST /api/proxy/audio/submit — Suno 提交(generate/cover/extend)",
+        "GET /api/proxy/audio/query?clipIds — Suno 轮询",
+        "POST /api/proxy/runninghub/submit — RH 工作流提交",
+        "GET /api/proxy/runninghub/query?taskId — RH 任务轮询(转存)",
+        "GET /api/proxy/runninghub/app-info?webappId — RH 应用信息"
+      ]
+    }
+  },
+  "executableNodeTypes": [
+    "image", "edit",
+    "multi-angle-3d", "panorama-720", "penguin-portrait",
+    "video", "seedance", "audio", "llm", "runninghub",
+    "resize", "upscale", "grid-crop", "remove-bg", "combine",
+    "frame-extractor"
+  ],
+  "shortcuts": {
+    "Ctrl+Z": "撤销",
+    "Ctrl+Shift+Z / Ctrl+Y": "重做",
+    "Ctrl+C / Ctrl+V / Ctrl+D": "复制 / 粘贴 / 快速复制",
+    "Delete / Backspace": "删除选中",
+    "Ctrl+A": "全选"
+  }
+}

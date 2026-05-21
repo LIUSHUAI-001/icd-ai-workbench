@@ -1,0 +1,313 @@
+import { useEffect, useRef, useState } from 'react';
+import {
+  Undo2,
+  Redo2,
+  Copy,
+  ClipboardPaste,
+  Trash2,
+  Download,
+  Upload,
+  Sparkles,
+  HelpCircle,
+  X,
+  Play,
+  Square,
+  Magnet,
+} from 'lucide-react';
+import { useThemeStore } from '../stores/theme';
+import { CANVAS_TEMPLATES, type CanvasTemplate } from '../config/canvasTemplates';
+
+interface CanvasToolbarProps {
+  canUndo: boolean;
+  canRedo: boolean;
+  selectedCount: number;
+  clipboardCount: number;
+  onUndo: () => void;
+  onRedo: () => void;
+  onCopy: () => void;
+  onPaste: () => void;
+  onDelete: () => void;
+  onExport: () => void;
+  onImport: () => void;
+  onApplyTemplate: (tpl: CanvasTemplate) => void;
+  // 批量运行
+  onRunAll: () => void;
+  onCancelRun: () => void;
+  isRunning: boolean;
+  batchTotal: number;
+  batchDone: number;
+  // 吸附开关
+  snapEnabled: boolean;
+  onToggleSnap: () => void;
+}
+
+export default function CanvasToolbar({
+  canUndo,
+  canRedo,
+  selectedCount,
+  clipboardCount,
+  onUndo,
+  onRedo,
+  onCopy,
+  onPaste,
+  onDelete,
+  onExport,
+  onImport,
+  onApplyTemplate,
+  onRunAll,
+  onCancelRun,
+  isRunning,
+  batchTotal,
+  batchDone,
+  snapEnabled,
+  onToggleSnap,
+}: CanvasToolbarProps) {
+  const { theme } = useThemeStore();
+  const isDark = theme === 'dark';
+  const [tplOpen, setTplOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const tplRef = useRef<HTMLDivElement>(null);
+
+  // 点击外部关闭模板下拉
+  useEffect(() => {
+    if (!tplOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (tplRef.current && !tplRef.current.contains(e.target as Node)) {
+        setTplOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onClick);
+    return () => window.removeEventListener('mousedown', onClick);
+  }, [tplOpen]);
+
+  const baseBtn = `relative flex items-center justify-center w-8 h-8 rounded-md transition-colors ${
+    isDark ? 'text-zinc-200 hover:bg-white/10' : 'text-zinc-700 hover:bg-black/5'
+  }`;
+  const disabledCls = 'opacity-30 cursor-not-allowed pointer-events-none';
+  const sep = `w-px self-stretch mx-1 ${isDark ? 'bg-white/10' : 'bg-black/10'}`;
+
+  const containerCls = `flex items-center gap-0.5 px-1.5 py-1 rounded-lg backdrop-blur shadow-lg border ${
+    isDark ? 'bg-zinc-900/90 border-white/10' : 'bg-white/95 border-black/10'
+  }`;
+
+  const runningCls = isRunning
+    ? 'text-emerald-300 bg-emerald-500/15 hover:bg-emerald-500/25'
+    : isDark
+    ? 'text-emerald-300 hover:bg-emerald-500/15'
+    : 'text-emerald-600 hover:bg-emerald-500/10';
+
+  return (
+    <div className="absolute top-3 right-3 z-20 flex items-start gap-2 select-none">
+      <div className={containerCls}>
+        {/* 批量运行 */}
+        {isRunning ? (
+          <button
+            className={`${baseBtn} ${runningCls}`}
+            onClick={onCancelRun}
+            title={`停止批量运行 (${batchDone}/${batchTotal})`}
+          >
+            <Square size={14} fill="currentColor" />
+            {batchTotal > 0 && (
+              <span className="absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded bg-emerald-500 text-black">
+                {batchDone}/{batchTotal}
+              </span>
+            )}
+          </button>
+        ) : (
+          <button
+            className={`${baseBtn} ${runningCls}`}
+            onClick={onRunAll}
+            title="批量运行画布（拓扑顺序串行可执行节点）"
+          >
+            <Play size={15} fill="currentColor" />
+          </button>
+        )}
+
+        {/* 吸附开关 */}
+        <button
+          className={`${baseBtn} ${snapEnabled ? (isDark ? 'text-amber-300 bg-amber-500/15' : 'text-amber-600 bg-amber-500/10') : ''}`}
+          onClick={onToggleSnap}
+          title={snapEnabled ? '关闭网格吸附 + 对齐辅助线' : '开启网格吸附 + 对齐辅助线'}
+        >
+          <Magnet size={15} />
+        </button>
+
+        <div className={sep} />
+
+        {/* Undo / Redo */}
+        <button
+          className={`${baseBtn} ${!canUndo ? disabledCls : ''}`}
+          onClick={onUndo}
+          title="撤销 (Ctrl+Z)"
+        >
+          <Undo2 size={16} />
+        </button>
+        <button
+          className={`${baseBtn} ${!canRedo ? disabledCls : ''}`}
+          onClick={onRedo}
+          title="重做 (Ctrl+Shift+Z)"
+        >
+          <Redo2 size={16} />
+        </button>
+
+        <div className={sep} />
+
+        {/* Copy / Paste / Delete */}
+        <button
+          className={`${baseBtn} ${selectedCount === 0 ? disabledCls : ''}`}
+          onClick={onCopy}
+          title={`复制选中节点 (Ctrl+C)${selectedCount > 0 ? ` · ${selectedCount} 个` : ''}`}
+        >
+          <Copy size={16} />
+          {selectedCount > 0 && (
+            <span className="absolute -top-1 -right-1 text-[9px] leading-none px-1 py-0.5 rounded bg-amber-500 text-black">
+              {selectedCount}
+            </span>
+          )}
+        </button>
+        <button
+          className={`${baseBtn} ${clipboardCount === 0 ? disabledCls : ''}`}
+          onClick={onPaste}
+          title={`粘贴 (Ctrl+V)${clipboardCount > 0 ? ` · 剪贴板 ${clipboardCount} 个` : ''}`}
+        >
+          <ClipboardPaste size={16} />
+        </button>
+        <button
+          className={`${baseBtn} ${selectedCount === 0 ? disabledCls : ''}`}
+          onClick={onDelete}
+          title="删除选中 (Delete)"
+        >
+          <Trash2 size={16} />
+        </button>
+
+        <div className={sep} />
+
+        {/* Import / Export */}
+        <button className={baseBtn} onClick={onImport} title="导入画布 JSON">
+          <Upload size={16} />
+        </button>
+        <button className={baseBtn} onClick={onExport} title="导出画布 JSON">
+          <Download size={16} />
+        </button>
+
+        <div className={sep} />
+
+        {/* 模板 */}
+        <div className="relative" ref={tplRef}>
+          <button
+            className={baseBtn}
+            onClick={() => setTplOpen((v) => !v)}
+            title="工作流模板"
+          >
+            <Sparkles size={16} />
+          </button>
+          {tplOpen && (
+            <div
+              className={`absolute right-0 mt-1.5 w-64 rounded-lg shadow-xl border overflow-hidden ${
+                isDark ? 'bg-zinc-900 border-white/10' : 'bg-white border-black/10'
+              }`}
+            >
+              <div
+                className={`px-3 py-2 text-[11px] font-semibold uppercase tracking-wider ${
+                  isDark ? 'text-white/50 bg-white/5' : 'text-zinc-500 bg-black/5'
+                }`}
+              >
+                选择模板插入画布
+              </div>
+              <div className="max-h-72 overflow-y-auto">
+                {CANVAS_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => {
+                      onApplyTemplate(tpl);
+                      setTplOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 ${
+                      isDark ? 'hover:bg-white/10 text-zinc-100' : 'hover:bg-black/5 text-zinc-800'
+                    }`}
+                  >
+                    <div className="text-xs font-medium">{tpl.name}</div>
+                    <div className={`text-[10px] mt-0.5 ${isDark ? 'text-white/50' : 'text-zinc-500'}`}>
+                      {tpl.description}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 帮助 */}
+        <button
+          className={baseBtn}
+          onClick={() => setHelpOpen(true)}
+          title="快捷键说明"
+        >
+          <HelpCircle size={16} />
+        </button>
+      </div>
+
+      {/* 帮助弹窗 */}
+      {helpOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setHelpOpen(false)}
+        >
+          <div
+            className={`w-[420px] rounded-lg shadow-2xl border ${
+              isDark ? 'bg-zinc-900 border-white/10 text-white' : 'bg-white border-black/10 text-zinc-900'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`flex items-center justify-between px-4 py-3 border-b ${
+                isDark ? 'border-white/10' : 'border-black/10'
+              }`}
+            >
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <HelpCircle size={16} />
+                快捷键说明
+              </div>
+              <button
+                onClick={() => setHelpOpen(false)}
+                className={`p-1 rounded ${isDark ? 'hover:bg-white/10' : 'hover:bg-black/5'}`}
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <div className="p-4 space-y-2 text-xs">
+              {[
+                ['Ctrl + Z', '撤销'],
+                ['Ctrl + Shift + Z / Ctrl + Y', '重做'],
+                ['Ctrl + C', '复制选中节点'],
+                ['Ctrl + V', '粘贴节点(自动偏移)'],
+                ['Ctrl + D', '快速复制选中节点'],
+                ['Delete / Backspace', '删除选中节点 / 连线'],
+                ['Ctrl + A', '全选节点'],
+                ['鼠标拖拽连接桩', '连接节点'],
+                ['滚轮 / 触控板', '缩放画布'],
+                ['空格 + 拖拽', '平移画布'],
+              ].map(([k, v]) => (
+                <div
+                  key={k}
+                  className={`flex items-center justify-between px-3 py-1.5 rounded ${
+                    isDark ? 'bg-white/5' : 'bg-black/5'
+                  }`}
+                >
+                  <kbd
+                    className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                      isDark ? 'bg-white/10' : 'bg-white border border-black/10'
+                    }`}
+                  >
+                    {k}
+                  </kbd>
+                  <span className={isDark ? 'text-white/70' : 'text-zinc-600'}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
