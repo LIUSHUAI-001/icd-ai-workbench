@@ -145,9 +145,9 @@ const OutputNode = ({ id, data, selected }: NodeProps) => {
     <div
       className="relative rounded-xl border-2 transition-colors"
       style={{
-        background: isDark ? 'rgba(20,20,22,.92)' : 'rgba(255,255,255,.96)',
-        backdropFilter: 'blur(8px)',
+        background: isDark ? 'rgb(20,20,22)' : 'rgb(255,255,255)',
         width: 320,
+        overflow: 'hidden',
         borderColor: selected ? accent : isDark ? 'rgba(255,255,255,.15)' : 'rgba(0,0,0,.1)',
       }}
     >
@@ -156,7 +156,16 @@ const OutputNode = ({ id, data, selected }: NodeProps) => {
         type="target"
         position={Position.Left}
         className="!border-0"
-        style={{ background: HANDLE, width: 10, height: 10 }}
+        style={{
+          background: HANDLE,
+          width: 10,
+          height: 10,
+          minWidth: 10,
+          minHeight: 10,
+          top: '50%',
+          left: -5,
+          transform: 'translateY(-50%)',
+        }}
         title="文本 / 图像 / 视频 / 音频 任意类型可连入"
       />
 
