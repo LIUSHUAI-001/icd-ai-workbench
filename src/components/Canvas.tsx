@@ -1677,6 +1677,13 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       } else if (ctrl && e.key.toLowerCase() === 'd') {
         e.preventDefault();
         handleDuplicate();
+      } else if (ctrl && !e.shiftKey && e.key.toLowerCase() === 'g') {
+        // Ctrl+G: 快捷打组 (默认浏览器会拦截为「查找下一个」，必须 preventDefault)
+        e.preventDefault();
+        const selIds = nodes
+          .filter((n) => n.selected && n.type !== 'groupBox')
+          .map((n) => n.id);
+        if (selIds.length >= 1) handleCreateGroup(selIds);
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         // xyflow 内置 Backspace 删除,但在节点未选中时仍可能删除连线;
         // 我们手动处理仅删除选中,避免输入边缘情况
@@ -1691,7 +1698,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [histUndo, histRedo, handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, selectedCount]);
+  }, [histUndo, histRedo, handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, handleCreateGroup, nodes, selectedCount]);
 
   // 全局滚轮拦截 —— 自动给所有节点内的 input / textarea / select / contenteditable
   // 挂上 wheel.stopPropagation()，让用户在文本框内可用鼠标滚轮滚动文字而不触发画布缩放。
@@ -2095,7 +2102,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
                 }}
               >
                 <FolderPlus size={13} />
-                <span>打组 (选中后)</span>
+                <span>打组 (Ctrl+G)</span>
               </button>
               <button
                 className={menuItemCls}
