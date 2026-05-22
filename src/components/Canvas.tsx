@@ -188,7 +188,7 @@ interface CanvasInnerProps {
 function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   const { activeId } = useCanvasStore();
   const { theme, style } = useThemeStore();
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, setCenter, getViewport } = useReactFlow();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -1691,10 +1691,16 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         <MiniMap
           pannable
           zoomable
+          onClick={(_e, position) => {
+            // 点击小地图任意位置 → 平滑居中到该 flow 坐标,保持当前缩放级别
+            const { zoom } = getViewport();
+            setCenter(position.x, position.y, { zoom, duration: 400 });
+          }}
           style={{
             background: isDark ? 'rgba(20,20,22,.9)' : 'rgba(255,255,255,.9)',
             border: `1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}`,
             borderRadius: 8,
+            cursor: 'pointer',
           }}
           maskColor={isDark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.6)'}
           nodeColor={() => (isDark ? '#a1a1aa' : '#52525b')}
