@@ -20,6 +20,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Play, Copy, CopyPlus, Trash2, FolderPlus } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 import { useCanvasStore } from '../stores/canvas';
 import { useThemeStore } from '../stores/theme';
 import { useRunBusStore } from '../stores/runBus';
@@ -196,6 +197,12 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
     ids: string[];
   } | null>(null);
 
+  // 画布空白区右键菜单(快速添加节点)
+  const [paneMenu, setPaneMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   // 历史栈
   const applySnapshot = useCallback((snap: { nodes: Node[]; edges: Edge[] }) => {
     setNodes(snap.nodes);
@@ -275,24 +282,32 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   }, [nodes, edges, activeId, loaded]);
 
   // 添加节点(供 Sidebar 调用) —— 默认落在当前视口中心
+  // 可选 atScreen 传入屏幕坐标，节点会落在该点(用于右键画布空白区添加)
   const addNode = useCallback(
-    (type: NodeType) => {
+    (type: NodeType, atScreen?: { x: number; y: number }) => {
       const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      // 以 ReactFlow 画布容器中心为默认插入点；拿不到则 fallback 到 window 中心
-      const flowEl =
-        document.querySelector('.react-flow') as HTMLElement | null;
-      const rect = flowEl?.getBoundingClientRect();
-      const cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
-      const cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+      let cx: number;
+      let cy: number;
+      if (atScreen) {
+        cx = atScreen.x;
+        cy = atScreen.y;
+      } else {
+        // 以 ReactFlow 画布容器中心为默认插入点；拿不到则 fallback 到 window 中心
+        const flowEl =
+          document.querySelector('.react-flow') as HTMLElement | null;
+        const rect = flowEl?.getBoundingClientRect();
+        cx = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
+        cy = rect ? rect.top + rect.height / 2 : window.innerHeight / 2;
+      }
       const center = screenToFlowPosition({ x: cx, y: cy });
-      // 小的随机偏移避免连续添加时完全重叠
-      const jitter = () => (Math.random() - 0.5) * 80;
+      // 仅默认插入(无 atScreen)时加随机拖动，右键插入需精准在点击位置
+      const jitter = atScreen ? 0 : (Math.random() - 0.5) * 80;
       const newNode: Node = {
         id,
         type,
         position: {
-          x: center.x - 160 + jitter(),
-          y: center.y - 100 + jitter(),
+          x: center.x - 160 + jitter,
+          y: center.y - 100 + (atScreen ? 0 : (Math.random() - 0.5) * 80),
         },
         data: { ...(INITIAL_DATA[type] || {}) },
       };
@@ -738,6 +753,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
 
   // ===== 右键菜单 =====
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const closePaneMenu = useCallback(() => setPaneMenu(null), []);
 
   // 选区右键(框选 ≥ 1 个节点后右键)
   const onSelectionContextMenu = useCallback(
@@ -767,11 +783,14 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
     [nodes]
   );
 
-  // 空白处右键: 关闭菜单
+  // 空白处右键: 弹出快速添加节点菜单(同时关闭选区菜单)
   const onPaneContextMenu = useCallback(
     (e: React.MouseEvent | MouseEvent) => {
       e.preventDefault();
       setContextMenu(null);
+      const x = (e as MouseEvent).clientX;
+      const y = (e as MouseEvent).clientY;
+      setPaneMenu({ x, y });
     },
     []
   );
@@ -1434,6 +1453,96 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
                 <Trash2 size={13} />
                 <span>删除 (Delete)</span>
               </button>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* 画布空白区右键菜单: 快速添加节点 */}
+      {paneMenu && (() => {
+        const QUICK_NODES = NODE_REGISTRY.filter(
+          (n) => n.category === 'input' || n.category === 'core'
+        );
+        const COLOR_HEX: Record<string, string> = {
+          sky: '#7dd3fc', amber: '#fcd34d', rose: '#fda4af', fuchsia: '#f0abfc',
+          violet: '#c4b5fd', emerald: '#6ee7b7', cyan: '#67e8f9', indigo: '#a5b4fc',
+          orange: '#fdba74', pink: '#f9a8d4', slate: '#cbd5e1',
+        };
+        const itemCls = isPixel
+          ? 'w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--px-yellow)]'
+          : `w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 ${
+              isDark ? 'text-zinc-100 hover:bg-white/10' : 'text-zinc-800 hover:bg-black/5'
+            }`;
+        return (
+          <>
+            {/* 遮罩层 */}
+            <div
+              className="absolute inset-0 z-30"
+              onClick={closePaneMenu}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                closePaneMenu();
+              }}
+            />
+            <div
+              className="absolute z-40 overflow-hidden"
+              style={{
+                left: Math.min(paneMenu.x, window.innerWidth - 220),
+                top: Math.min(paneMenu.y, window.innerHeight - 360),
+                width: 200,
+                background: isPixel
+                  ? '#FFFFFF'
+                  : isDark ? 'rgba(20,20,22,.96)' : 'rgba(255,255,255,.98)',
+                border: isPixel
+                  ? '2px solid #1A1410'
+                  : `1px solid ${isDark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.1)'}`,
+                borderRadius: isPixel ? 12 : 8,
+                boxShadow: isPixel ? '4px 4px 0 #1A1410' : '0 12px 40px rgba(0,0,0,.35)',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <div
+                className="px-3 py-2 text-[11px] font-semibold"
+                style={{
+                  color: isPixel ? '#1A1410' : isDark ? '#fff' : '#18181b',
+                  borderBottom: isPixel
+                    ? '2px solid #1A1410'
+                    : `1px solid ${isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)'}`,
+                  background: isPixel ? '#A8E6C9' : 'transparent',
+                }}
+              >
+                快速添加节点
+              </div>
+              {QUICK_NODES.map((meta) => {
+                const Icon = (LucideIcons as any)[meta.icon] || LucideIcons.Box;
+                const color = COLOR_HEX[meta.color] || COLOR_HEX.slate;
+                return (
+                  <button
+                    key={meta.type}
+                    className={itemCls}
+                    onClick={() => {
+                      const at = { x: paneMenu.x, y: paneMenu.y };
+                      closePaneMenu();
+                      addNode(meta.type as NodeType, at);
+                    }}
+                  >
+                    <span
+                      className="flex items-center justify-center"
+                      style={{
+                        width: 22, height: 22,
+                        borderRadius: isPixel ? 5 : 6,
+                        background: isPixel ? color : `${color}33`,
+                        color: isPixel ? '#1A1410' : color,
+                        border: isPixel ? '2px solid #1A1410' : 'none',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <Icon size={13} />
+                    </span>
+                    <span className="flex-1 truncate">{meta.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </>
         );
