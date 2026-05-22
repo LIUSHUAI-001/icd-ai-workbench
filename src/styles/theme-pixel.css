@@ -269,7 +269,7 @@ html[data-theme-style="pixel"] .px-node-header--utility { background: var(--px-m
  * 节点全局兼容层(不改各节点代码,CSS 接管)
  * 思路:节点根 div 强制覆盖背景与边框,并让内部表单变奥利白底
  * =========================================== */
-html[data-theme-style="pixel"] .react-flow__node > div:first-child {
+html[data-theme-style="pixel"] .react-flow__node:not(.react-flow__node-groupBox) > div:first-child {
   background: var(--px-surface) !important;
   background-color: var(--px-surface) !important;
   background-image: none !important;
@@ -282,7 +282,7 @@ html[data-theme-style="pixel"] .react-flow__node > div:first-child {
 }
 
 /* 选中节点 */
-html[data-theme-style="pixel"] .react-flow__node.selected > div:first-child {
+html[data-theme-style="pixel"] .react-flow__node.selected:not(.react-flow__node-groupBox) > div:first-child {
   outline: 3px dashed var(--px-pink-deep) !important;
   outline-offset: 3px !important;
   box-shadow: var(--px-shadow-hard-lg) !important;

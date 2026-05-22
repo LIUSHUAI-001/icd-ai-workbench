@@ -73,9 +73,10 @@ const GroupBoxNode = ({ id, data, selected }: NodeProps) => {
     : isDark
       ? 'rgba(28,28,32,0.92)'
       : 'rgba(255,255,255,0.92)';
-  // 半透明底色: 30% alpha 让紫/绿/粉色块在任何背景上都明显可见
+  // 半透明底色: 15% alpha (科技风透明度正好)
   // (节点本身 zIndex 在 groupBox 之上，groupBox zIndex=-1000 + elevateNodesOnSelect=false 保证不被遮挡)
-  const bodyBg = `${color}4D`; // 30% alpha
+  // 像素风需在 theme-pixel.css 排除 .react-flow__node-groupBox，避免全局白底规则覆盖
+  const bodyBg = `${color}26`; // 15% alpha
   const borderColor = selected ? '#3B82F6' : color;
   const textColor = isPixel ? '#1A1410' : isDark ? '#fafafa' : '#18181b';
   const subTextColor = isPixel
