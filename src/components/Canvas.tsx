@@ -6,6 +6,7 @@ import {
   Controls,
   MiniMap,
   ReactFlowProvider,
+  SelectionMode,
   ViewportPortal,
   addEdge,
   applyEdgeChanges,
@@ -18,6 +19,7 @@ import {
   type EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { Play, Copy, CopyPlus, Trash2 } from 'lucide-react';
 import { useCanvasStore } from '../stores/canvas';
 import { useThemeStore } from '../stores/theme';
 import { useRunBusStore } from '../stores/runBus';
@@ -182,6 +184,13 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   const cancelRunRef = useRef(false);
   const batchTotal = useRunBusStore((s) => s.batchTotal);
   const batchDone = useRunBusStore((s) => s.batchDoneCount);
+
+  // 选区右键菜单(框选后右键 或 节点上右键)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    ids: string[];
+  } | null>(null);
 
   // 历史栈
   const applySnapshot = useCallback((snap: { nodes: Node[]; edges: Edge[] }) => {
@@ -419,6 +428,48 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   }, []);
 
   // ===== 批量运行 =====
+  // 通用: 在指定节点子集上拓扑排序 + 串行调 runBus
+  const runNodesByOrder = useCallback(
+    async (subNodes: Node[], subEdges: Edge[]) => {
+      const order = topologicalSort(subNodes, subEdges, EXECUTABLE_NODE_TYPES);
+      if (order.length === 0) return 0;
+      cancelRunRef.current = false;
+      setIsRunning(true);
+      const { triggerRun, setBatchProgress, cancelAll } = useRunBusStore.getState();
+      setBatchProgress(order.length, 0);
+      try {
+        for (let i = 0; i < order.length; i++) {
+          if (cancelRunRef.current) break;
+          const id = order[i];
+          await new Promise<void>((resolve) => {
+            let done = false;
+            const finish = () => {
+              if (done) return;
+              done = true;
+              unsub();
+              window.clearTimeout(timer);
+              resolve();
+            };
+            const unsub = useRunBusStore.subscribe((state) => {
+              if (state.lastDone && state.lastDone.id === id) finish();
+              if (cancelRunRef.current) finish();
+            });
+            // 安全超时 5 分钟(轮询任务可能较长)
+            const timer = window.setTimeout(finish, 5 * 60 * 1000);
+            triggerRun(id, 'batch');
+          });
+          setBatchProgress(order.length, i + 1);
+        }
+      } finally {
+        cancelAll();
+        setIsRunning(false);
+        cancelRunRef.current = false;
+      }
+      return order.length;
+    },
+    []
+  );
+
   const handleRunAll = useCallback(async () => {
     if (isRunning) return;
     const order = topologicalSort(nodes, edges, EXECUTABLE_NODE_TYPES);
@@ -426,39 +477,25 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       alert('画布上没有可执行节点');
       return;
     }
-    cancelRunRef.current = false;
-    setIsRunning(true);
-    const { triggerRun, setBatchProgress, cancelAll } = useRunBusStore.getState();
-    setBatchProgress(order.length, 0);
-    try {
-      for (let i = 0; i < order.length; i++) {
-        if (cancelRunRef.current) break;
-        const id = order[i];
-        await new Promise<void>((resolve) => {
-          let done = false;
-          const finish = () => {
-            if (done) return;
-            done = true;
-            unsub();
-            window.clearTimeout(timer);
-            resolve();
-          };
-          const unsub = useRunBusStore.subscribe((state) => {
-            if (state.lastDone && state.lastDone.id === id) finish();
-            if (cancelRunRef.current) finish();
-          });
-          // 安全超时 5 分钟(轮询任务可能较长)
-          const timer = window.setTimeout(finish, 5 * 60 * 1000);
-          triggerRun(id, 'batch');
-        });
-        setBatchProgress(order.length, i + 1);
+    await runNodesByOrder(nodes, edges);
+  }, [isRunning, nodes, edges, runNodesByOrder]);
+
+  // 组执行: 仅在选中的节点子集上运行(仅保留子集内部边作为依赖)
+  const handleRunGroup = useCallback(
+    async (ids: string[]) => {
+      if (isRunning) return;
+      const idSet = new Set(ids);
+      const subNodes = nodes.filter((n) => idSet.has(n.id));
+      const subEdges = edges.filter((e) => idSet.has(e.source) && idSet.has(e.target));
+      const executable = subNodes.filter((n) => n.type && EXECUTABLE_NODE_TYPES.has(n.type));
+      if (executable.length === 0) {
+        alert('所选节点中没有可执行节点');
+        return;
       }
-    } finally {
-      cancelAll();
-      setIsRunning(false);
-      cancelRunRef.current = false;
-    }
-  }, [isRunning, nodes, edges]);
+      await runNodesByOrder(subNodes, subEdges);
+    },
+    [isRunning, nodes, edges, runNodesByOrder]
+  );
 
   const handleCancelRun = useCallback(() => {
     cancelRunRef.current = true;
@@ -538,6 +575,46 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   const onNodeDragStop = useCallback(() => {
     setGuides({ vertical: [], horizontal: [] });
   }, []);
+
+  // ===== 右键菜单 =====
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+
+  // 选区右键(框选 ≥ 1 个节点后右键)
+  const onSelectionContextMenu = useCallback(
+    (e: React.MouseEvent, sels: Node[]) => {
+      e.preventDefault();
+      const ids = sels.map((n) => n.id);
+      if (ids.length === 0) return;
+      setContextMenu({ x: e.clientX, y: e.clientY, ids });
+    },
+    []
+  );
+
+  // 节点上右键: 若未选中则仅选中此节点
+  const onNodeContextMenu = useCallback(
+    (e: React.MouseEvent, node: Node) => {
+      e.preventDefault();
+      let ids: string[];
+      const currentSelected = nodes.filter((n) => n.selected).map((n) => n.id);
+      if (currentSelected.includes(node.id) && currentSelected.length > 1) {
+        ids = currentSelected;
+      } else {
+        setNodes((prev) => prev.map((n) => ({ ...n, selected: n.id === node.id })));
+        ids = [node.id];
+      }
+      setContextMenu({ x: e.clientX, y: e.clientY, ids });
+    },
+    [nodes]
+  );
+
+  // 空白处右键: 关闭菜单
+  const onPaneContextMenu = useCallback(
+    (e: React.MouseEvent | MouseEvent) => {
+      e.preventDefault();
+      setContextMenu(null);
+    },
+    []
+  );
 
   // 暴露 addNode 给父组件
   useEffect(() => {
@@ -839,6 +916,12 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         isValidConnection={onIsValidConnection}
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
+        onSelectionContextMenu={onSelectionContextMenu}
+        onNodeContextMenu={onNodeContextMenu}
+        onPaneContextMenu={onPaneContextMenu}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        panOnDrag={[1, 2]}
         snapToGrid={snapEnabled}
         snapGrid={SNAP_GRID}
         fitView
@@ -1046,6 +1129,112 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
           </div>
         </>
       )}
+
+      {/* 右键菜单(框选 右键 或 节点右键) */}
+      {contextMenu && (() => {
+        const ids = contextMenu.ids;
+        const selNodes = nodes.filter((n) => ids.includes(n.id));
+        const exeCount = selNodes.filter((n) => n.type && EXECUTABLE_NODE_TYPES.has(n.type)).length;
+        const menuItemCls = isPixel
+          ? 'w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--px-yellow)] disabled:opacity-40 disabled:hover:bg-transparent'
+          : `w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 disabled:opacity-40 ${
+              isDark
+                ? 'text-zinc-100 hover:bg-white/10 disabled:hover:bg-transparent'
+                : 'text-zinc-800 hover:bg-black/5 disabled:hover:bg-transparent'
+            }`;
+        return (
+          <>
+            {/* 遮罩层 */}
+            <div
+              className="absolute inset-0 z-30"
+              onClick={closeContextMenu}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                closeContextMenu();
+              }}
+            />
+            <div
+              className="absolute z-40 overflow-hidden"
+              style={{
+                left: Math.min(contextMenu.x, window.innerWidth - 220),
+                top: Math.min(contextMenu.y, window.innerHeight - 220),
+                width: 200,
+                background: isPixel
+                  ? '#FFFFFF'
+                  : isDark
+                    ? 'rgba(20,20,22,.96)'
+                    : 'rgba(255,255,255,.98)',
+                border: isPixel
+                  ? '2px solid #1A1410'
+                  : `1px solid ${isDark ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.1)'}`,
+                borderRadius: isPixel ? 12 : 8,
+                boxShadow: isPixel
+                  ? '4px 4px 0 #1A1410'
+                  : '0 12px 40px rgba(0,0,0,.35)',
+                backdropFilter: 'blur(10px)',
+              }}
+            >
+              <div
+                className="px-3 py-2 text-[11px] font-semibold flex items-center justify-between"
+                style={{
+                  color: isPixel ? '#1A1410' : isDark ? '#fff' : '#18181b',
+                  borderBottom: isPixel
+                    ? '2px solid #1A1410'
+                    : `1px solid ${isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)'}`,
+                  background: isPixel ? '#A8E6C9' : 'transparent',
+                }}
+              >
+                <span>已选 {ids.length} 个节点</span>
+                <span className="text-[10px] font-normal opacity-60">
+                  可执行 {exeCount}
+                </span>
+              </div>
+              <button
+                className={menuItemCls}
+                disabled={isRunning || exeCount === 0}
+                onClick={() => {
+                  closeContextMenu();
+                  handleRunGroup(ids);
+                }}
+              >
+                <Play size={13} fill="currentColor" />
+                <span>组执行 ({exeCount})</span>
+              </button>
+              <button
+                className={menuItemCls}
+                onClick={() => {
+                  closeContextMenu();
+                  handleCopy();
+                }}
+              >
+                <Copy size={13} />
+                <span>复制 (Ctrl+C)</span>
+              </button>
+              <button
+                className={menuItemCls}
+                onClick={() => {
+                  closeContextMenu();
+                  handleDuplicate();
+                }}
+              >
+                <CopyPlus size={13} />
+                <span>快速复制 (Ctrl+D)</span>
+              </button>
+              <button
+                className={menuItemCls}
+                onClick={() => {
+                  closeContextMenu();
+                  handleDeleteSelected();
+                }}
+                style={{ color: isPixel ? '#B91C1C' : '#f87171' }}
+              >
+                <Trash2 size={13} />
+                <span>删除 (Delete)</span>
+              </button>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
