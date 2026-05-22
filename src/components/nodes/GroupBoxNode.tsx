@@ -73,7 +73,9 @@ const GroupBoxNode = ({ id, data, selected }: NodeProps) => {
     : isDark
       ? 'rgba(28,28,32,0.92)'
       : 'rgba(255,255,255,0.92)';
-  const bodyBg = `${color}1F`; // 12% 透明度色块
+  // 半透明底色: 调高 alpha 使色块明显，但仍能透出下层节点
+  // (节点本身 zIndex 在 groupBox 之上，groupBox zIndex=-1000 + elevateNodesOnSelect=false 保证不被遮挡)
+  const bodyBg = `${color}26`; // 15% alpha
   const borderColor = selected ? '#3B82F6' : color;
   const textColor = isPixel ? '#1A1410' : isDark ? '#fafafa' : '#18181b';
   const subTextColor = isPixel

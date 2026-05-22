@@ -589,8 +589,8 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
           width: groupW,
           height: groupH,
         },
-        // 置于普通节点之下(负 1)
-        zIndex: -1,
+        // 置于普通节点之下(负 1000 避免选中时 zIndex 被括号调高)
+        zIndex: -1000,
         draggable: true,
         selectable: true,
         deletable: true,
@@ -1082,6 +1082,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         selectionMode={SelectionMode.Partial}
         snapToGrid={snapEnabled}
         snapGrid={SNAP_GRID}
+        elevateNodesOnSelect={false}
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{
