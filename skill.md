@@ -870,6 +870,102 @@ SSE 按行 `split('\n')` 解析；`data: [DONE]` 立即 return；`delta.content`
 
 ---
 
+### 11.11 Midjourney 节点对齐（gpt-image-2-web `runMJ` · Comfly 渠道 · 无 FAL）
+
+> Midjourney 复用 ImageNode（不新增独立节点类型），与 GPT2 / Nano Banana 2 / Nano Banana Pro 三家共用 [`ImageNode.tsx`](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/nodes/ImageNode.tsx)，通过 `modelDef.paramKind === 'mj'` 切到 MJ 专用面板与 MJ 提交分支。**MJ 没有 FAL 渠道**，仅经贞贞工坊 Comfly 代理。本节是唯一权威参考，请勿自创另一套实现。
+
+#### 11.11.1 起点函数与上游协议（主项目 `gpt-image-2-web/index.html` 行号）
+
+* `runMJ`（L4437–L4716）：MJ 主流程，负责 prompt 拼装、payload 构造、submit、轮询、image_urls JSON string 解析。
+* `uploadMJImage`（L4407）：sref/oref 参考图上传换 URL 的独立函数。
+* speed_map：`turbo → mj-turbo` / `fast → mj-fast` / `relax → mj-relax`，路径前缀 `${ZHENZHEN}/{speed_seg}/mj/...`。
+* 三条上游接口：
+  * `POST {ZHENZHEN}/{speed_seg}/mj/submit/imagine` — 提交 imagine 任务
+  * `GET  {ZHENZHEN}/{speed_seg}/mj/task/{taskId}/fetch` — 任务轮询
+  * `POST {ZHENZHEN}/{speed_seg}/mj/submit/upload-discord-images` — sref/oref 上传
+
+#### 11.11.2 prompt 拼装规则（与 L4467~L4485 严格一致）
+
+顺序固定：`{prompt} --{model} --ar {ar} [--no X] [--c N] [--s N] [--iw N] [--sw N] [--cw N] [--sv N] [--sref URL]... [--oref URL]...`。其中：
+* `model`：11 项之一（`v 8.1`(默认) / `v 8` / `v 7` / `v 6.1` / `v 6.0` / `v 5.2` / `v 5.1` / `niji 7` / `niji 6` / `niji 5` / `niji 4`）；带空格直接跟在 `--` 后。
+* `ar`：7 个比例（`1:1`(默) / `4:3` / `3:2` / `16:9` / `3:4` / `2:3` / `9:16`）。
+* `sv`：`'1'`(默) 时 **不** 输出 `--sv`，仅当 `'2' | '3' | '4'` 时追加。
+* `sref/oref`：每张参考图各追加一个 flag，URL 由 `uploadMjImage()` 上传后取得。
+* 实现：[`buildMjPrompt()`](file:///e:/PenguinPravite/T8-penguin-canvas/src/services/generation.ts)。
+
+#### 11.11.3 payload 字段（与 runMJ submit body 严格对齐）
+
+```json
+{
+  "base64Array": ["data:image/png;base64,..."],
+  "instanceId": "",
+  "modes": [],
+  "notifyHook": "",
+  "prompt": "<拼装好的 fullPrompt>",
+  "remix": true,
+  "state": "",
+  "ar": "1:1", "no": "", "c": null, "s": null,
+  "iw": null, "tile": false, "r": null, "video": false,
+  "sw": null, "cw": null, "sv": null, "seed": null
+}
+```
+
+* 主参考图 / 垫图：走 `base64Array`（多张）。
+* sref / oref：**不进 base64Array**，先 `uploadMjImage()` 换 URL，再以 `--sref / --oref` 拼进 prompt 字符串。
+* 后端在 [`POST /api/proxy/mj/imagine`](file:///e:/PenguinPravite/T8-penguin-canvas/backend/src/routes/proxy.js) 中将上述字段重组上送 Comfly。
+
+#### 11.11.4 响应判定（轮询）
+
+* `data.code === 1` 视为成功；其它 code 视为未就绪 `continue`。
+* `data.status === 'FAILURE'` 抛错（取 `fail_reason`）。
+* `data.status === 'SUCCESS'`：
+  * 主图：`data.image_url`。
+  * 4 张子图：`data.image_urls` 可能是 **JSON 字符串**，需 `JSON.parse` 解析为数组（每项形如 `{ url: '...' }` 或纯 string，参 [queryMjTask](file:///e:/PenguinPravite/T8-penguin-canvas/src/services/generation.ts) 兼容写法）。
+* URL 域名替换：上游 `ai.comfly.chat` 一次性重写为 `ai.t8star.cn`，由后端代理统一完成。
+
+#### 11.11.5 后端三条独立路由（`backend/src/routes/proxy.js`）
+
+* `POST /api/proxy/mj/imagine` — 透传到 `${ZHENZHEN}/{speed_seg}/mj/submit/imagine`。
+* `GET  /api/proxy/mj/task/:id?speed=` — 透传到 `${ZHENZHEN}/{speed_seg}/mj/task/{id}/fetch` 并替换 image URL 域名。
+* `POST /api/proxy/mj/upload` — 透传 sref/oref 上传，body `{ base64Data, speed }`，返回 `{ url }`。
+
+#### 11.11.6 前端服务（`src/services/generation.ts`）
+
+* `buildMjPrompt(parts)`：纯函数，按 §11.11.2 顺序拼接。
+* `submitMjImagine(req)`：调 `/mj/imagine`，校验 `code===1`，返 `{ taskId, raw }`。
+* `queryMjTask(taskId, speed)`：调 `/mj/task/:id`，解析 `image_urls` JSON string，返 `{ status, progress, imageUrl, imageUrls, failReason, raw }`。
+* `uploadMjImage(file, speed)`：先 `fileToDataUrl`，再调 `/mj/upload` 取 URL。
+
+#### 11.11.7 ImageNode 节点 UI 范式
+
+[ImageNode.tsx](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/nodes/ImageNode.tsx) 通过 `const isMj = modelDef.paramKind === 'mj'` 切换：
+
+1. **隐藏不适用控件**：`isMj` 时 「具体模型」 / 「比例」 / 「尺寸」 三块隐藏（MJ 自有 ar 与 version）。
+2. **MJ 专用面板**（紫色边框区）：版本(11) / 比例(7) / 速度(turbo|fast|relax) / `--c` / `--s` / `--iw` / `--sw` / `--sv`(0/1/2/3) / seed / `--no` / maxPoll / pollInt + sref(2 张) / oref(2 张) 上传组。
+3. **参考图入口**：`isMj` 时主参考图标签改为「主参考图(垫图)」；上传 input 的 onChange 通过 `mjUploadKindRef.current = 'sref' | 'oref'` 分发到 `handleMjFiles`。
+4. **handleGenerate MJ 分支**（紧贴 isFal 之前，与原模型路径互斥）：拉所有 allRefs → fetch+blob+FileReader 转 base64Array → `buildMjPrompt` → `submitMjImagine` → 轮询（默认 300×3s = 15min，可配置 10~2000 与 1~30s）→ `q.status==='SUCCESS'` 时 `imageUrl/imageUrls` 落到 data。
+5. **零破坏**：原 GPT2 / 香蕉2 / 香蕉Pro / FAL 路径不动；MJ 状态字段全部 `mj*` 前缀，与 `aspectRatio / sizeLevel / falXxx` 完全隔离。
+
+#### 11.11.8 代码定位索引
+
+* 后端路由：[proxy.js · /mj/imagine|/mj/task|/mj/upload](file:///e:/PenguinPravite/T8-penguin-canvas/backend/src/routes/proxy.js)。
+* 前端服务：[generation.ts](file:///e:/PenguinPravite/T8-penguin-canvas/src/services/generation.ts) — `buildMjPrompt` / `submitMjImagine` / `queryMjTask` / `uploadMjImage`。
+* 模型注册：[models.ts](file:///e:/PenguinPravite/T8-penguin-canvas/src/providers/models.ts) — `IMAGE_MODELS[3]=midjourney` / `MJ_VERSIONS` / `MJ_RATIOS` / `MJ_SPEEDS` / `MJ_SVS` / `DEFAULT_MJ_*` / `isMjModel`。
+* 节点组件：[ImageNode.tsx](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/nodes/ImageNode.tsx) — `isMj` 分支与 MJ 专用面板。
+
+#### 11.11.9 常见坑
+
+| 坑 | 现象 | 防御 |
+| --- | --- | --- |
+| sref/oref 走错通道 | 把 sref/oref 直接进 base64Array 导致提示词无 `--sref / --oref` | 严格区分：垫图→base64Array；sref/oref→先 upload 取 URL 再拼 prompt |
+| `image_urls` 是字符串 | 直接 `.map` 报错 | `JSON.parse` 失败时降级为 `[image_url]` |
+| `--sv 1` 多余 | 上游不识别报错 | `sv === '0' \|\| sv === '1'` 时 **不** 输出 `--sv` |
+| URL 仍是 `ai.comfly.chat` | 浏览器图片加载失败（鉴权域不同） | 后端代理一次性 `replace('ai.comfly.chat','ai.t8star.cn')` |
+| FAL 子模型混入 | 误以为 MJ 也有 FAL | MJ **无 FAL**，模型注册表中无 `midjourney-fal` |
+| 轮询无上限 | 任务挂起永远轮 | 默认 `maxPoll=300 × 3s = 15min`；UI 可调 10~2000 / 1~30s |
+
+---
+
 ## 12. 日志总线 / 终端面板规范
 
 ### 12.1 logBus

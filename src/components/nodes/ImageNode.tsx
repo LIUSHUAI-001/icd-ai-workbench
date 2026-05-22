@@ -8,6 +8,13 @@ import {
   NBPRO_FAL_RATIOS,
   NBPRO_FAL_RESOLUTIONS,
   isFalModel,
+  MJ_VERSIONS,
+  MJ_RATIOS,
+  MJ_SPEEDS,
+  MJ_SVS,
+  DEFAULT_MJ_VERSION,
+  DEFAULT_MJ_RATIO,
+  DEFAULT_MJ_SPEED,
 } from '../../providers/models';
 import {
   submitImageAsync,
@@ -15,6 +22,11 @@ import {
   submitImageFal,
   queryImageFal,
   uploadFile,
+  submitMjImagine,
+  queryMjTask,
+  uploadMjImage,
+  buildMjPrompt,
+  type MjSpeed,
 } from '../../services/generation';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
@@ -33,6 +45,8 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const { style } = useThemeStore();
   const isPixel = style === 'pixel';
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // MJ 上传时区分 sref 还是 oref(共用 fileInputRef)
+  const mjUploadKindRef = useRef<'sref' | 'oref'>('sref');
 
   const [error, setError] = useState<string | null>(null);
   const d = data as any;
@@ -67,6 +81,24 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const nbSysPrompt: string = d?.nbSysPrompt || '';
   const nbSeed: number = d?.nbSeed ?? 0;
 
+  // ========== MJ 渠道识别及参数(完全对齐 gpt-image-2-web mj_* 控件 L1552~L1580) ==========
+  const isMj = modelDef.paramKind === 'mj';
+  const mjVersion: string = d?.mjVersion || DEFAULT_MJ_VERSION;
+  const mjAr: string = d?.mjAr || DEFAULT_MJ_RATIO;
+  const mjSpeed: MjSpeed = (d?.mjSpeed as MjSpeed) || DEFAULT_MJ_SPEED;
+  const mjC: number = d?.mjC ?? 0;
+  const mjS: number = d?.mjS ?? 0;
+  const mjIw: number = d?.mjIw ?? 0;
+  const mjSw: number = d?.mjSw ?? 0;
+  const mjSv: string = d?.mjSv || '1';
+  const mjNo: string = d?.mjNo || '';
+  const mjSeed: number = d?.mjSeed ?? 0;
+  const mjMaxPoll: number = d?.mjMaxPoll ?? 300;
+  const mjPollInt: number = d?.mjPollInt ?? 3;
+  const mjSrefImages: string[] = Array.isArray(d?.mjSrefImages) ? d.mjSrefImages : [];
+  const mjOrefImages: string[] = Array.isArray(d?.mjOrefImages) ? d.mjOrefImages : [];
+  const MJ_REF_MAX = 2; // sref 与 oref 各最多 2 张
+
   // 参考图上限(FAL 使用 FAL_REGISTRY.maxRefs,其他走原设计)
   const maxRefs = falDef?.maxRefs ?? modelDef.maxReferenceImages;
   const status: 'idle' | 'generating' | 'success' | 'error' = d?.status || 'idle';
@@ -79,8 +111,15 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const switchModel = (mId: string) => {
     const newDef = IMAGE_MODELS.find((m) => m.id === mId) || IMAGE_MODELS[0];
     const patch: any = { model: mId, apiModel: newDef.apiModel };
-    if (!newDef.aspectRatios.includes(aspectRatio)) patch.aspectRatio = newDef.defaultAspectRatio;
-    if (!newDef.sizes.includes(sizeLevel)) patch.sizeLevel = newDef.defaultSize;
+    if (newDef.paramKind === 'mj') {
+      if (!d?.mjVersion) patch.mjVersion = DEFAULT_MJ_VERSION;
+      if (!d?.mjAr) patch.mjAr = DEFAULT_MJ_RATIO;
+      if (!d?.mjSpeed) patch.mjSpeed = DEFAULT_MJ_SPEED;
+      if (d?.mjSv === undefined) patch.mjSv = '1';
+    } else {
+      if (!newDef.aspectRatios.includes(aspectRatio)) patch.aspectRatio = newDef.defaultAspectRatio;
+      if (!newDef.sizes.includes(sizeLevel)) patch.sizeLevel = newDef.defaultSize;
+    }
     update(patch);
   };
 
@@ -130,6 +169,38 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
     update({ referenceImages: refImages.filter((_, i) => i !== idx) });
   };
 
+  // ========== MJ 参考图上传(sref/oref)与移除 ==========
+  const handleMjPick = (kind: 'sref' | 'oref') => {
+    mjUploadKindRef.current = kind;
+    fileInputRef.current?.click();
+  };
+  const handleMjFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    setError(null);
+    try {
+      const kind = mjUploadKindRef.current;
+      const cur = kind === 'sref' ? mjSrefImages : mjOrefImages;
+      const remain = MJ_REF_MAX - cur.length;
+      const accepted = files.slice(0, Math.max(0, remain));
+      const uploaded: string[] = [];
+      for (const f of accepted) {
+        const url = await uploadMjImage(f, mjSpeed);
+        if (url) uploaded.push(url);
+      }
+      if (kind === 'sref') update({ mjSrefImages: [...cur, ...uploaded] });
+      else update({ mjOrefImages: [...cur, ...uploaded] });
+    } catch (err: any) {
+      setError(err?.message || 'MJ 参考图上传失败');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+  const removeMjRef = (kind: 'sref' | 'oref', idx: number) => {
+    if (kind === 'sref') update({ mjSrefImages: mjSrefImages.filter((_, i) => i !== idx) });
+    else update({ mjOrefImages: mjOrefImages.filter((_, i) => i !== idx) });
+  };
+
   const handleGenerate = async () => {
     setError(null);
     const { prompt: upstreamPrompt, images: upstreamImages } = collectUpstream();
@@ -143,6 +214,95 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
     update({ status: 'generating', progress: '0%', error: null });
     try {
       const allRefs = [...refImages, ...upstreamImages].slice(0, maxRefs);
+
+      // ============ MJ 路径(对齐 gpt-image-2-web runMJ L4437~L4716) ============
+      if (isMj) {
+        logBus.info(
+          `MJ提交: version=${mjVersion} ar=${mjAr} speed=${mjSpeed} ref=${allRefs.length} sref=${mjSrefImages.length} oref=${mjOrefImages.length} prompt="${finalPrompt.slice(0, 60)}${finalPrompt.length > 60 ? '…' : ''}"`,
+          src,
+        );
+        // 主参考图(垫图): 将 URL 转 base64(主项目只接受 base64Array,上游节点输出的 imageUrl 需下载转换)
+        const base64Array: string[] = [];
+        for (const u of allRefs) {
+          try {
+            const resp = await fetch(u);
+            const blob = await resp.blob();
+            const dataUrl: string = await new Promise((resolve, reject) => {
+              const fr = new FileReader();
+              fr.onload = () => resolve(String(fr.result || ''));
+              fr.onerror = () => reject(new Error('读取失败'));
+              fr.readAsDataURL(blob);
+            });
+            base64Array.push(dataUrl);
+          } catch (err: any) {
+            logBus.warn(`MJ 主参考图转 base64 失败,跳过: ${u}`, src);
+          }
+        }
+        // sref/oref 允许多张(buildMjPrompt 会为每个 URL 各追加一个 flag)
+        const fullPrompt = buildMjPrompt({
+          prompt: finalPrompt,
+          model: mjVersion,
+          ar: mjAr,
+          c: mjC || undefined,
+          s: mjS || undefined,
+          iw: mjIw || undefined,
+          sw: mjSw || undefined,
+          sv: mjSv || undefined,
+          no: mjNo || undefined,
+          srefUrls: mjSrefImages,
+          orefUrls: mjOrefImages,
+        });
+        const submit = await submitMjImagine({
+          prompt: fullPrompt,
+          ar: mjAr,
+          c: mjC || undefined,
+          s: mjS || undefined,
+          iw: mjIw || undefined,
+          sw: mjSw || undefined,
+          sv: mjSv || undefined,
+          no: mjNo || undefined,
+          seed: mjSeed || undefined,
+          speed: mjSpeed,
+          base64Array,
+          remix: true,
+        });
+        const taskId = submit.taskId;
+        logBus.info(`MJ 任务已提交 taskId=${taskId} fullPrompt="${fullPrompt.slice(0, 120)}${fullPrompt.length > 120 ? '…' : ''}"`, src);
+        update({ progress: '15%', taskId });
+        const maxPoll = Math.max(10, Math.min(2000, mjMaxPoll || 300));
+        const interval = Math.max(1, Math.min(30, mjPollInt || 3)) * 1000;
+        for (let i = 0; i < maxPoll; i++) {
+          await new Promise((r) => setTimeout(r, interval));
+          const q = await queryMjTask(taskId, mjSpeed);
+          if (q.status === 'FAILURE') {
+            throw new Error(`MJ 失败: ${q.failReason || '未知错误'}`);
+          }
+          if (q.progress) {
+            const pct = parseInt(String(q.progress)) || 0;
+            const out = `${Math.min(99, 15 + Math.floor(pct * 0.85))}%`;
+            update({ progress: out });
+            if (i % 3 === 2) logBus.debug(`[${i + 1}/${maxPoll}] MJ progress=${q.progress} status=${q.status}`, src);
+          }
+          if (q.status === 'SUCCESS') {
+            const main = q.imageUrl || '';
+            const grid = q.imageUrls || [];
+            const all = grid.length ? grid : (main ? [main] : []);
+            if (!all.length) throw new Error('MJ 任务完成但未返回图片');
+            const final = main || all[0];
+            logBus.success(`MJ 任务完成 → ${final}` + (grid.length ? ` (含 ${grid.length} 张子图)` : ''), src);
+            update({
+              status: 'success',
+              progress: '100%',
+              imageUrl: final,
+              imageUrls: all,
+              lastPrompt: finalPrompt,
+              usedI2I: allRefs.length > 0 || mjSrefImages.length > 0 || mjOrefImages.length > 0,
+            });
+            return;
+          }
+        }
+        throw new Error(`MJ 轮询超时: ${maxPoll} 次 × ${interval / 1000}s`);
+      }
 
       // ============ FAL 路径(对齐 gpt-image-2-web runGPTFal / runNanoFal) ============
       if (isFal && falDef) {
@@ -362,23 +522,25 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           </div>
         </div>
 
-        {/* 子模型选择(对齐主项目 Tab 内的 model 下拉) */}
-        <div>
-          <label className="text-[10px] text-white/50 block mb-1">具体模型</label>
-          <select
-            value={apiModel}
-            onChange={(e) => update({ apiModel: e.target.value })}
-            style={{ background: '#18181b', color: '#ffffff' }}
-            className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
-          >
-            {modelDef.apiModelOptions.map((opt) => (
-              <option key={opt.value} value={opt.value} style={{ background: '#18181b', color: '#ffffff' }}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
+        {/* 子模型选择(对齐主项目 Tab 内的 model 下拉) - MJ 模式隐藏(用下面专属版本选择) */}
+        {!isMj && (
+          <div>
+            <label className="text-[10px] text-white/50 block mb-1">具体模型</label>
+            <select
+              value={apiModel}
+              onChange={(e) => update({ apiModel: e.target.value })}
+              style={{ background: '#18181b', color: '#ffffff' }}
+              className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+            >
+              {modelDef.apiModelOptions.map((opt) => (
+                <option key={opt.value} value={opt.value} style={{ background: '#18181b', color: '#ffffff' }}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        {/* 比例 + 尺寸 并排(非 FAL 模型) */}
-        {!isFal && (
+        {/* 比例 + 尺寸 并排(非 FAL 且非 MJ 模型) */}
+        {!isFal && !isMj && (
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-[10px] text-white/50 block mb-1">比例</label>
@@ -636,11 +798,215 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           </div>
         )}
 
-        {/* 参考图(多张) */}
+        {/* ========== MJ 专属参数面板(完全对齐 gpt-image-2-web mj_* 控件 L1552~L1580) ========== */}
+        {isMj && (
+          <div className="space-y-2 rounded border border-purple-400/30 bg-purple-500/5 p-2">
+            <div className="text-[10px] text-purple-300 font-semibold tracking-wide">
+              ✨ Midjourney · Comfly 渠道(严格对齐主项目 runMJ)
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">版本</label>
+                <select
+                  value={mjVersion}
+                  onChange={(e) => update({ mjVersion: e.target.value })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                >
+                  {MJ_VERSIONS.map((m) => (
+                    <option key={m.value} value={m.value} style={{ background: '#18181b', color: '#ffffff' }}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">比例</label>
+                <select
+                  value={mjAr}
+                  onChange={(e) => update({ mjAr: e.target.value })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                >
+                  {MJ_RATIOS.map((r) => (
+                    <option key={r} value={r} style={{ background: '#18181b', color: '#ffffff' }}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">速度</label>
+                <select
+                  value={mjSpeed}
+                  onChange={(e) => update({ mjSpeed: e.target.value })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                >
+                  {MJ_SPEEDS.map((s) => (
+                    <option key={s.value} value={s.value} style={{ background: '#18181b', color: '#ffffff' }}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="chaos 0~100">--c</label>
+                <input
+                  type="number" min={0} max={100}
+                  value={mjC}
+                  onChange={(e) => update({ mjC: Math.max(0, Math.min(100, parseInt(e.target.value) || 0)) })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="stylize 0~1000">--s</label>
+                <input
+                  type="number" min={0} max={1000}
+                  value={mjS}
+                  onChange={(e) => update({ mjS: Math.max(0, Math.min(1000, parseInt(e.target.value) || 0)) })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="image weight 0~3">--iw</label>
+                <input
+                  type="number" min={0} max={3} step={0.25}
+                  value={mjIw}
+                  onChange={(e) => update({ mjIw: Math.max(0, Math.min(3, parseFloat(e.target.value) || 0)) })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="style ref weight 0~1000">--sw</label>
+                <input
+                  type="number" min={0} max={1000}
+                  value={mjSw}
+                  onChange={(e) => update({ mjSw: Math.max(0, Math.min(1000, parseInt(e.target.value) || 0)) })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">--sv</label>
+                <select
+                  value={mjSv}
+                  onChange={(e) => update({ mjSv: e.target.value })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                >
+                  {MJ_SVS.map((o) => (
+                    <option key={o.value} value={o.value} style={{ background: '#18181b', color: '#ffffff' }}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="seed 0=不传">seed</label>
+                <input
+                  type="number" min={0}
+                  value={mjSeed}
+                  onChange={(e) => update({ mjSeed: Math.max(0, parseInt(e.target.value) || 0) })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="排除词">--no</label>
+                <input
+                  type="text"
+                  value={mjNo}
+                  onChange={(e) => update({ mjNo: e.target.value })}
+                  placeholder="text, blurry"
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="轮询最大次数">maxPoll</label>
+                <input
+                  type="number" min={10} max={2000}
+                  value={mjMaxPoll}
+                  onChange={(e) => update({ mjMaxPoll: Math.max(10, Math.min(2000, parseInt(e.target.value) || 300)) })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1" title="轮询间隔(s)">pollInt(s)</label>
+                <input
+                  type="number" min={1} max={30}
+                  value={mjPollInt}
+                  onChange={(e) => update({ mjPollInt: Math.max(1, Math.min(30, parseInt(e.target.value) || 3)) })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+            </div>
+            {/* sref 风格参考图 */}
+            <div>
+              <label className="text-[10px] text-white/50 block mb-1">--sref 风格参考 · {mjSrefImages.length}/{MJ_REF_MAX}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {mjSrefImages.map((url, i) => (
+                  <div key={i} className="relative w-12 h-12 rounded overflow-hidden border border-purple-300/30">
+                    <img src={url} alt={`sref-${i}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeMjRef('sref', i)}
+                      className="absolute top-0 right-0 w-4 h-4 bg-red-500/80 hover:bg-red-500 flex items-center justify-center rounded-bl"
+                      title="移除"
+                    >
+                      <X size={9} className="text-white" />
+                    </button>
+                  </div>
+                ))}
+                {mjSrefImages.length < MJ_REF_MAX && (
+                  <button
+                    onClick={() => handleMjPick('sref')}
+                    className="w-12 h-12 rounded border-2 border-dashed border-purple-300/30 hover:border-purple-300/60 flex items-center justify-center text-purple-300/60 hover:text-purple-300 transition-colors"
+                    title="上传 sref 风格参考图"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+            {/* oref 角色参考图 */}
+            <div>
+              <label className="text-[10px] text-white/50 block mb-1">--oref 角色参考 · {mjOrefImages.length}/{MJ_REF_MAX}</label>
+              <div className="flex flex-wrap gap-1.5">
+                {mjOrefImages.map((url, i) => (
+                  <div key={i} className="relative w-12 h-12 rounded overflow-hidden border border-purple-300/30">
+                    <img src={url} alt={`oref-${i}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeMjRef('oref', i)}
+                      className="absolute top-0 right-0 w-4 h-4 bg-red-500/80 hover:bg-red-500 flex items-center justify-center rounded-bl"
+                      title="移除"
+                    >
+                      <X size={9} className="text-white" />
+                    </button>
+                  </div>
+                ))}
+                {mjOrefImages.length < MJ_REF_MAX && (
+                  <button
+                    onClick={() => handleMjPick('oref')}
+                    className="w-12 h-12 rounded border-2 border-dashed border-purple-300/30 hover:border-purple-300/60 flex items-center justify-center text-purple-300/60 hover:text-purple-300 transition-colors"
+                    title="上传 oref 角色参考图"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 参考图(多张) - MJ 模式下作为主参考图(垫图),上游节点输出也会并入 */}
         {modelDef.supportsReference && (
           <div>
             <label className="text-[10px] text-white/50 block mb-1">
-              参考图 · {refImages.length}/{maxRefs}
+              {isMj ? '主参考图(垫图)' : '参考图'} · {refImages.length}/{maxRefs}
               <span className="text-white/30 ml-1">(上游节点会自动并入)</span>
             </label>
             <div className="flex flex-wrap gap-1.5">
@@ -670,7 +1036,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={handleFiles}
+                onChange={isMj ? handleMjFiles : handleFiles}
                 className="hidden"
               />
             </div>

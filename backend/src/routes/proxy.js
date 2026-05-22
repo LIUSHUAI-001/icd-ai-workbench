@@ -688,6 +688,135 @@ router.post('/image/fal/query', async (req, res) => {
   }
 });
 
+// ============================================================================
+// Midjourney 三路由：严格对齐 gpt-image-2-web server.py _handle_mj_imagine / _handle_mj_fetch_task / _handle_mj_upload
+//   上游：{ZHENZHEN_BASE_URL}/{mj-turbo|mj-fast|mj-relax}/mj/submit/imagine
+//          {ZHENZHEN_BASE_URL}/{...}/mj/task/{id}/fetch
+//          {ZHENZHEN_BASE_URL}/{...}/mj/submit/upload-discord-images
+//   服从贞贞工坊集中 Key（同上其他 zhenzhen 路由）。
+// ============================================================================
+const MJ_SPEED_MAP = { turbo: 'mj-turbo', fast: 'mj-fast', relax: 'mj-relax' };
+function mjSpeedSeg(speed) {
+  return MJ_SPEED_MAP[String(speed || '').toLowerCase()] || 'mj-fast';
+}
+
+// ---- POST /api/proxy/mj/imagine ----
+// body: { prompt, ar?, no?, c?, s?, iw?, sw?, cw?, sv?, seed?, base64Array?, speed?, modes?, instanceId?, notifyHook?, remix? }
+// 返回上游 imagine 原始响应 { code, description, result(taskId), properties }
+router.post('/mj/imagine', async (req, res) => {
+  const settings = loadRawSettings();
+  if (!settings?.imageApiKey) return res.status(400).json({ success: false, error: '未配置贞贞工坊 API Key' });
+  const body = req.body || {};
+  const speedSeg = mjSpeedSeg(body.speed);
+  const url = `${config.ZHENZHEN_BASE_URL}/${speedSeg}/mj/submit/imagine`;
+  // 严格对齐主项目 runMJ payload（index.html L4547~L4587 + Comfly.py midjourney_submit_imagine_task_sync）
+  const payload = {
+    base64Array: Array.isArray(body.base64Array) ? body.base64Array : [],
+    instanceId: body.instanceId || '',
+    modes: Array.isArray(body.modes) ? body.modes : [],
+    notifyHook: body.notifyHook || '',
+    prompt: String(body.prompt || ''),
+    remix: body.remix !== false,
+    state: body.state || '',
+    ar: body.ar || null,
+    no: body.no || null,
+    c: body.c || null,
+    s: body.s || null,
+    iw: body.iw || null,
+    tile: false,
+    r: null,
+    video: false,
+    sw: body.sw || null,
+    cw: body.cw || null,
+    sv: body.sv || null,
+    seed: body.seed || null,
+  };
+  try {
+    console.log(`[mj/imagine] -> ${url}\n  prompt: ${payload.prompt.slice(0, 200)}`);
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.imageApiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch { return res.status(500).json({ success: false, error: '上游响应非 JSON: ' + text.slice(0, 200) }); }
+    if (!r.ok) return res.status(r.status).json({ success: false, error: data?.error || data?.description || `上游 HTTP ${r.status}` });
+    return res.json({ success: true, data });
+  } catch (e) {
+    console.error('proxy/mj/imagine 错误:', e);
+    return res.status(500).json({ success: false, error: e.message || '提交失败' });
+  }
+});
+
+// ---- GET /api/proxy/mj/task/:id?speed=fast ----
+// 轮询任务状态；URL 中 ai.comfly.chat 调为 ai.t8star.cn（与 server.py L2306 一致）
+router.get('/mj/task/:id', async (req, res) => {
+  const settings = loadRawSettings();
+  if (!settings?.imageApiKey) return res.status(400).json({ success: false, error: '未配置贞贞工坊 API Key' });
+  const taskId = req.params.id;
+  const speedSeg = mjSpeedSeg(req.query.speed);
+  if (!taskId) return res.status(400).json({ success: false, error: 'taskId 必填' });
+  const url = `${config.ZHENZHEN_BASE_URL}/${speedSeg}/mj/task/${encodeURIComponent(taskId)}/fetch`;
+  try {
+    const r = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.imageApiKey}`,
+      },
+    });
+    const raw = (await r.text()).replace(/ai\.comfly\.chat/g, 'ai.t8star.cn');
+    let data;
+    try { data = JSON.parse(raw); } catch { return res.status(500).json({ success: false, error: '上游响应非 JSON: ' + raw.slice(0, 200) }); }
+    if (!r.ok) return res.status(r.status).json({ success: false, error: data?.error || data?.description || `上游 HTTP ${r.status}` });
+    // image_urls 可能是 JSON 字符串也可能已是数组，透传，让前端统一处理
+    return res.json({ success: true, data });
+  } catch (e) {
+    console.error('proxy/mj/task 错误:', e);
+    return res.status(500).json({ success: false, error: e.message || '查询失败' });
+  }
+});
+
+// ---- POST /api/proxy/mj/upload ----
+// body: { base64Data: 'data:image/png;base64,xxxx', speed? }
+// 上传参考图到 MJ Discord，返回 URL（主项目 uploadMJImage L4407 + server.py L2457）
+router.post('/mj/upload', async (req, res) => {
+  const settings = loadRawSettings();
+  if (!settings?.imageApiKey) return res.status(400).json({ success: false, error: '未配置贞贞工坊 API Key' });
+  const { base64Data, speed } = req.body || {};
+  if (!base64Data) return res.status(400).json({ success: false, error: 'base64Data 不得为空' });
+  const speedSeg = mjSpeedSeg(speed);
+  const url = `${config.ZHENZHEN_BASE_URL}/${speedSeg}/mj/submit/upload-discord-images`;
+  const payload = { base64Array: [base64Data], instanceId: '', notifyHook: '' };
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.imageApiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const text = await r.text();
+    let data;
+    try { data = JSON.parse(text); } catch { return res.status(500).json({ success: false, error: '上游响应非 JSON: ' + text.slice(0, 200) }); }
+    if (!r.ok) return res.status(r.status).json({ success: false, error: data?.error || data?.description || `上游 HTTP ${r.status}` });
+    if (data.status === 'FAILURE') return res.status(500).json({ success: false, error: data.fail_reason || data.failReason || 'MJ upload failed' });
+    let imgUrl = '';
+    if (Array.isArray(data.result)) imgUrl = data.result[0] || '';
+    else if (typeof data.result === 'string') imgUrl = data.result;
+    if (!imgUrl) return res.status(500).json({ success: false, error: '上游未返回 URL: ' + JSON.stringify(data).slice(0, 200) });
+    return res.json({ success: true, data: { url: imgUrl, raw: data } });
+  } catch (e) {
+    console.error('proxy/mj/upload 错误:', e);
+    return res.status(500).json({ success: false, error: e.message || '上传失败' });
+  }
+});
+
 // ========== POST /api/proxy/llm — LLM Chat(独立 Key) ==========
 // body: { model, messages, temperature?, max_tokens?, stream? }
 //   - messages[i].content 支持 string 或 多模态数组 [{type:'text',text} | {type:'image_url',image_url:{url}}]

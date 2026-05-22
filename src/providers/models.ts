@@ -9,7 +9,8 @@ export type ProviderType = 'zhenzhen' | 'llm-direct' | 'runninghub';
 // paramKind:决定调用上游时使用哪种参数协议
 //  - 'gpt-size'    : OpenAI 兼容,size 字段为像素串(1024x1024 等),编辑端点 multipart
 //  - 'banana-ratio': nano-banana 协议,使用 aspect_ratio + image_size(1K/2K/4K) + image[]
-export type ImageParamKind = 'gpt-size' | 'banana-ratio';
+//  - 'mj'          : Midjourney(Comfly)协议,走专属 /api/proxy/mj/* 路由(speed_map + sref/oref)
+export type ImageParamKind = 'gpt-size' | 'banana-ratio' | 'mj';
 
 export interface ImageModelDef {
   id: string;             // 节点内部 id(如 'gpt-image-2')
@@ -104,7 +105,80 @@ export const IMAGE_MODELS: ImageModelDef[] = [
     maxReferenceImages: 5,
     description: '高品质 Pro 版本',
   },
+  // ========================================================================
+  // Midjourney (Comfly) — 完全对齐 gpt-image-2-web/index.html runMJ L4437~L4694
+  //   * 不走 FAL 渠道
+  //   * 不使用主流 size/imageSize 字段(MJ 用 ar 控制比例)
+  //   * 参考图通过 --sref/--oref(uploadMJImage 后取 URL) 注入 prompt
+  //   * 子模型在 prompt 后追加 --{version}(v 8.1 / niji 7 等)
+  //   * 速度 fast/turbo/relax 决定上游 URL 段(mj-fast/mj-turbo/mj-relax)
+  // ========================================================================
+  {
+    id: 'midjourney',
+    apiModel: 'midjourney',
+    label: 'Midjourney',
+    tabLabel: 'MJ',
+    provider: 'zhenzhen',
+    paramKind: 'mj',
+    capabilities: ['t2i', 'i2i'],
+    apiModelOptions: [
+      { value: 'midjourney', label: 'Midjourney' },
+    ],
+    aspectRatios: ['1:1', '4:3', '3:2', '16:9', '3:4', '2:3', '9:16'],
+    defaultAspectRatio: '1:1',
+    sizes: [],
+    defaultSize: '',
+    supportsReference: true,
+    maxReferenceImages: 4, // sref + oref(各 2 张)
+    description: 'Midjourney v8.1 / niji 7 等(Comfly 渠道)',
+  },
 ];
+
+// ========================================================================
+// MJ 常量(对齐 gpt-image-2-web/index.html L1552~L1580 mj_model/mj_ar 下拉)
+// ========================================================================
+/** 11 个 MJ 版本(v 8.1 默认 + niji 系列) */
+export const MJ_VERSIONS: Array<{ value: string; label: string }> = [
+  { value: 'v 8.1', label: 'v 8.1 (默认)' },
+  { value: 'v 8',   label: 'v 8' },
+  { value: 'v 7',   label: 'v 7' },
+  { value: 'v 6.1', label: 'v 6.1' },
+  { value: 'v 6.0', label: 'v 6.0' },
+  { value: 'v 5.2', label: 'v 5.2' },
+  { value: 'v 5.1', label: 'v 5.1' },
+  { value: 'niji 7', label: 'niji 7' },
+  { value: 'niji 6', label: 'niji 6' },
+  { value: 'niji 5', label: 'niji 5' },
+  { value: 'niji 4', label: 'niji 4' },
+];
+export const DEFAULT_MJ_VERSION = 'v 8.1';
+
+/** 7 个 MJ 比例 */
+export const MJ_RATIOS = ['1:1', '4:3', '3:2', '16:9', '3:4', '2:3', '9:16'];
+export const DEFAULT_MJ_RATIO = '1:1';
+
+/** 3 档速度 */
+export const MJ_SPEEDS: Array<{ value: 'fast' | 'turbo' | 'relax'; label: string }> = [
+  { value: 'fast',  label: 'Fast (默认)' },
+  { value: 'turbo', label: 'Turbo' },
+  { value: 'relax', label: 'Relax' },
+];
+export const DEFAULT_MJ_SPEED = 'fast';
+
+/** 4 档 sv(Stylize Version) */
+export const MJ_SVS: Array<{ value: string; label: string }> = [
+  { value: '1', label: 'sv 1 (默认)' },
+  { value: '2', label: 'sv 2' },
+  { value: '3', label: 'sv 3' },
+  { value: '4', label: 'sv 4' },
+];
+
+/** 判断 modelDef.paramKind === 'mj' */
+export function isMjModel(apiModel: string | undefined | null): boolean {
+  if (!apiModel) return false;
+  const def = IMAGE_MODELS.find((m) => m.id === apiModel || m.apiModel === apiModel);
+  return def?.paramKind === 'mj';
+}
 
 // ========================================================================
 // FAL 渠道注册表(完全对齐 gpt-image-2-web SKILL.md §FAL模型渠道接入规范)

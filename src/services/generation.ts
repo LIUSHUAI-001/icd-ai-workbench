@@ -6,7 +6,7 @@
 export interface GenerateImageRequest {
   model: string;          // 节点 id (gpt-image-2 / nano-banana-2 / nano-banana-pro)
   apiModel?: string;       // 上游真实模型名(优先使用)
-  paramKind?: 'gpt-size' | 'banana-ratio';
+  paramKind?: 'gpt-size' | 'banana-ratio' | 'mj';
   prompt: string;
   n?: number;
   // 主参数(双协议通用):
@@ -159,6 +159,130 @@ export async function queryImageFal(params: { responseUrl?: string; endpoint?: s
   // 后端在 FAILED 时会 success=false 但 data.status='failed',这里返回结果供上层判断
   if (!r.ok && !data.data) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data || { status: 'failed', error: data?.error || 'unknown' };
+}
+
+// ========== Midjourney (严格对齐 gpt-image-2-web/index.html runMJ L4437~L4694 + uploadMJImage L4407) ==========
+// 后端路由: /api/proxy/mj/imagine | /api/proxy/mj/task/:id | /api/proxy/mj/upload
+
+export type MjSpeed = 'fast' | 'turbo' | 'relax';
+
+export interface MjPromptParts {
+  prompt: string;
+  model?: string;       // 例如 'v 8.1' / 'niji 7'
+  ar?: string;          // 例如 '1:1' / '16:9'
+  no?: string;
+  c?: number;
+  s?: number;
+  iw?: number;
+  sw?: number;
+  cw?: number;
+  sv?: string;          // '1' | '2' | '3' | '4'
+  srefUrls?: string[];  // --sref 风格参考图 URL
+  orefUrls?: string[];  // --oref 角色参考图 URL
+}
+
+/** 拼装 MJ prompt — 与 index.html L4467~L4485 严格一致 */
+export function buildMjPrompt(p: MjPromptParts): string {
+  let full = p.prompt || '';
+  if (p.model) full += ` --${p.model}`;
+  if (p.ar) full += ` --ar ${p.ar}`;
+  if (p.no) full += ` --no ${p.no}`;
+  if (p.c) full += ` --c ${p.c}`;
+  if (p.s) full += ` --s ${p.s}`;
+  if (p.iw) full += ` --iw ${p.iw}`;
+  if (p.sw) full += ` --sw ${p.sw}`;
+  if (p.cw) full += ` --cw ${p.cw}`;
+  if (p.sv && p.sv !== '0' && p.sv !== '1') full += ` --sv ${p.sv}`;
+  for (const u of p.srefUrls || []) if (u) full += ` --sref ${u}`;
+  for (const u of p.orefUrls || []) if (u) full += ` --oref ${u}`;
+  return full;
+}
+
+export interface MjImagineRequest {
+  prompt: string;          // 已经拼装好的完整 prompt
+  speed?: MjSpeed;
+  base64Array?: string[];  // 通常空数组(参考图走 sref/oref URL)
+  ar?: string;
+  no?: string;
+  c?: number;
+  s?: number;
+  iw?: number;
+  sw?: number;
+  cw?: number;
+  sv?: string;
+  seed?: number;
+  remix?: boolean;
+}
+
+export interface MjImagineResult {
+  taskId: string;
+  raw: any;
+}
+
+export async function submitMjImagine(req: MjImagineRequest): Promise<MjImagineResult> {
+  const r = await fetch('/api/proxy/mj/imagine', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  const upstream = data.data || {};
+  // upstream.code === 1 表示提交成功(主项目 L4658)
+  if (upstream.code !== undefined && upstream.code !== 1) {
+    throw new Error(upstream.description || upstream.error || 'MJ imagine 提交失败');
+  }
+  const taskId = String(upstream.result || upstream.task_id || '');
+  if (!taskId) throw new Error('未拿到 MJ taskId: ' + JSON.stringify(upstream).slice(0, 200));
+  return { taskId, raw: upstream };
+}
+
+export interface MjTaskResult {
+  status: 'SUBMITTED' | 'IN_PROGRESS' | 'SUCCESS' | 'FAILURE' | string;
+  progress?: string;
+  imageUrl?: string;
+  imageUrls?: string[];   // 4 张子图
+  failReason?: string;
+  raw: any;
+}
+
+export async function queryMjTask(taskId: string, speed: MjSpeed = 'fast'): Promise<MjTaskResult> {
+  const r = await fetch(`/api/proxy/mj/task/${encodeURIComponent(taskId)}?speed=${encodeURIComponent(speed)}`);
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  const d = data.data || {};
+  // 主项目 L4685: image_urls 可能是 JSON 字符串
+  let imageUrls: string[] | undefined;
+  if (d.image_urls) {
+    if (typeof d.image_urls === 'string') {
+      try { const arr = JSON.parse(d.image_urls); if (Array.isArray(arr)) imageUrls = arr.filter((x: any) => typeof x === 'string'); } catch { imageUrls = undefined; }
+    } else if (Array.isArray(d.image_urls)) {
+      imageUrls = d.image_urls.filter((x: any) => typeof x === 'string');
+    }
+  }
+  return {
+    status: d.status || 'IN_PROGRESS',
+    progress: d.progress,
+    imageUrl: d.image_url,
+    imageUrls,
+    failReason: d.fail_reason || d.failReason,
+    raw: d,
+  };
+}
+
+/** 上传参考图(sref/oref)并取 URL — 对应主项目 uploadMJImage L4407 */
+export async function uploadMjImage(file: File, speed: MjSpeed = 'fast'): Promise<string> {
+  const dataUrl = await fileToDataUrl(file);
+  const r = await fetch('/api/proxy/mj/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ base64Data: dataUrl, speed }),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  const url = data.data?.url || '';
+  if (!url) throw new Error('MJ upload 未返回 URL');
+  return url;
 }
 
 // LLM
@@ -591,3 +715,8 @@ export async function fetchRhAppInfo(webappId: string): Promise<any> {
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;
 }
+
+// ============================================================================
+// (原崩溃前遗留的 MJ 代码块已移除; MJ 实现参见上方 buildMjPrompt / submitMjImagine / queryMjTask / uploadMjImage 及 fileToDataUrl)
+// ============================================================================
+
