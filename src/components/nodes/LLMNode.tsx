@@ -304,7 +304,7 @@ const LLMNode = ({ id, data, selected }: NodeProps) => {
     <div className="flex items-stretch gap-0">
     {/* 主体 */}
     <div
-      className={`relative rounded-xl border-2 transition-all w-[320px] ${
+      className={`relative rounded-xl border-2 transition-all w-[320px] flex flex-col ${
         selected ? 'border-emerald-400 shadow-2xl shadow-emerald-500/20' : 'border-white/15 hover:border-white/30'
       }`}
       style={{ background: 'rgba(20,20,22,.92)', backdropFilter: 'blur(8px)' }}
@@ -555,7 +555,7 @@ const LLMNode = ({ id, data, selected }: NodeProps) => {
         className={`llm-chat-panel w-[260px] rounded-xl border-2 overflow-y-auto p-2.5 space-y-1.5 ${
           selected ? 'border-emerald-400/60' : 'border-white/10'
         }`}
-        style={{ background: 'rgba(20,20,22,.94)', backdropFilter: 'blur(8px)', maxHeight: '520px' }}
+        style={{ background: 'rgba(20,20,22,.94)', backdropFilter: 'blur(8px)' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {history.map((t, i) => (
