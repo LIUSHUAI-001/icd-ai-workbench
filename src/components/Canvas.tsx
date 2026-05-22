@@ -767,6 +767,25 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
     []
   );
 
+  // 记录最新选中的节点 id 列表(以便 onSelectionEnd 读取)
+  const lastSelectedIdsRef = useRef<string[]>([]);
+  const onSelectionChange = useCallback(
+    ({ nodes: ns }: { nodes: Node[]; edges: Edge[] }) => {
+      lastSelectedIdsRef.current = ns.map((n) => n.id);
+    },
+    []
+  );
+
+  // 框选结束: 若选中 ≥ 2 个节点则自动弹出菜单
+  const onSelectionEnd = useCallback((e: React.MouseEvent) => {
+    const ids = lastSelectedIdsRef.current;
+    if (!ids || ids.length < 2) return;
+    const x = (e as any)?.clientX ?? 0;
+    const y = (e as any)?.clientY ?? 0;
+    if (!x && !y) return;
+    setContextMenu({ x, y, ids });
+  }, []);
+
   // 暴露 addNode 给父组件
   useEffect(() => {
     if (onAddNodeRef) {
@@ -1077,6 +1096,8 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         onSelectionContextMenu={onSelectionContextMenu}
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
+        onSelectionChange={onSelectionChange}
+        onSelectionEnd={onSelectionEnd}
         selectionKeyCode={['Control', 'Meta']}
         multiSelectionKeyCode={['Control', 'Meta', 'Shift']}
         selectionMode={SelectionMode.Partial}
