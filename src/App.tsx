@@ -212,7 +212,7 @@ function App() {
               onClick={() => setVideoOpen((v) => !v)}
               className={
                 isPixel
-                  ? `px-btn px-btn--sm ${videoOpen ? 'px-btn--mint' : 'px-btn--pink'}`
+                  ? `px-btn px-btn--sm px-btn--mint`
                   : `flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all border ${
                       isDark
                         ? videoOpen
@@ -296,7 +296,7 @@ function App() {
                   onClick={() => setVideoOpen(false)}
                   className={
                     isPixel
-                      ? 'mt-2 px-btn px-btn--ghost w-full justify-center border-2 border-black'
+                      ? 'mt-2 px-btn px-btn--mint w-full justify-center'
                       : `mt-2 flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-semibold transition-all border ${
                           isDark
                             ? 'bg-red-500/10 border-red-500/40 text-red-300 hover:bg-red-500/20 hover:border-red-400/60 hover:shadow-[0_0_16px_rgba(239,68,68,0.3)]'
