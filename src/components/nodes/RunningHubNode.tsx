@@ -319,11 +319,12 @@ const RunningHubNode = ({ id, data, selected }: NodeProps) => {
         const vt = inferValueType(it?.fieldType);
         if (k in next) continue;
         if (vt === 'image' || vt === 'video' || vt === 'audio') {
+          // 媒体类字段默认勾选「从上游自动获取」。
+          //   - 上游已接入对应媒体 → 填上游 url
+          //   - 上游未接入 → 值为空，等上游连接后同步 useEffect 会自动填入
           const upUrl = findUpstreamUrl(vt);
-          if (upUrl) {
-            next[k] = { value: upUrl, sourceFromUpstream: true };
-            continue;
-          }
+          next[k] = { value: upUrl || '', sourceFromUpstream: true };
+          continue;
         }
         next[k] = { value: it?.fieldValue ?? '' };
       }
