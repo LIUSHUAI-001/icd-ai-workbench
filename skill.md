@@ -1,7 +1,9 @@
 # T8-penguin-canvas · skill.md
 
 > 项目能力 / 接口 / 文件用途速查手册。
-> 版本：v1.5.7 ｜ 仓库：<https://github.com/T8mars/T8-penguin-canvas>
+> 版本：v1.5.8 ｜ 仓库：<https://github.com/T8mars/T8-penguin-canvas>
+>
+> v1.5.8 增量：API Key 设置眼睛预览修复 + 7 类分类独立 Key（gpt-image / nano-banana / mj / veo / grok / seedance / suno）以模型名路由，未填 fallback 贞贞通用（41）
 >
 > v1.5.7 增量：LLM 节点 上游图片实时预览 + collectUpstream 取同源 · 让用户所见即所发（40）
 >
@@ -3582,6 +3584,153 @@ const collectUpstream = (): { text: string; images: string[] } => {
 
 - [src/components/nodes/LLMNode.tsx](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/nodes/LLMNode.tsx)——顶层 hook 调用 + UI 预览栏 + `collectUpstream` 重写
 - [src/components/nodes/useUpstreamMaterials.ts](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/nodes/useUpstreamMaterials.ts)——项目通用上游素材聚合 hook（本次仅读取，未修改）
+
+---
+
+## 41. API Key 设置眼睛预览修复 + 7 类分类独立 Key（v1.5.8）
+
+### 41.1 用户报告
+
+> APIKEY 设置界面，点击眼睛预览或者关闭眼睛预览都无法看到 APIKEY；另外加上一个单独的选项：分类 APIKEY 设置，支持 gpt-image / nano-banana / mj / veo / grok / seedance / suno 系列，分别对应节点使用；如果没有填写独立 apikey则用通用的，填了则用独立的。
+
+### 41.2 BUG一：眼睛预览靠不住
+
+#### 41.2.1 根因
+
+[ApiSettings.tsx](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/ApiSettings.tsx) 原实现：
+
+- input 受控于 `zhenzhenKey/rhKey/llmKey`，初始为空字串。
+- 后端 GET `/api/settings` 只返回 **脱敏**字段如 `****9zVR`，从来不会填充 input。
+- 点眼睛仅切换 `type=password|text`，但 input 为空这件事不会变，所以看不到任何明文。
+
+#### 41.2.2 修复
+
+```ts
+// services/api.ts 新增
+export async function getRawSettings(): Promise<ApiSettings> {
+  const res = await request<{ success: boolean; data: ApiSettings }>(`${BASE}/settings/raw`);
+  return res.data;
+}
+
+// ApiSettings.tsx 眼睛点击
+const handleToggleShow = async (f: KeyField) => {
+  const newShow = !shows[f];
+  if (newShow && !inputs[f].trim() && (settings as any)[f]) {
+    if (Object.keys(revealedRef.current).length === 0) {
+      const raw = await getRawSettings();
+      revealedRef.current = raw as any;
+    }
+    const plain = (revealedRef.current as any)?.[f];
+    if (plain) setInputAt(f, String(plain));
+  }
+  setShows((prev) => ({ ...prev, [f]: newShow }));
+};
+```
+
+- 当 input 为空 + 后端已存 同时成立才拉一次明文，useRef 缓存避免重复请求。
+- 保存逻辑补充 `revealed === input` 则跳过提交，避免眼睛拉出明文未修改也重复提交。
+
+### 41.3 需求二：7 类分类独立 API Key
+
+在原三套通用 Key（贞贞工坊 / RH / LLM）基础上新增 7 类分类 Key，未填时 fallback 到 `zhenzhenApiKey`。
+
+| 字段 | 对应模型 | hint 匹配 |
+|---|---|---|
+| `gptImageApiKey` | GPT2 / gpt-image-1 | gpt-image · gpt2 · gpt_image |
+| `nanoBananaApiKey` | nano-banana / nano-banana-pro | nano-banana · nano_banana |
+| `mjApiKey` | Midjourney(turbo/fast/relax) | midjourney · mj-fast/turbo/relax |
+| `veoApiKey` | Veo / Veo3.1 | veo |
+| `grokApiKey` | Grok Imagine Video | grok |
+| `seedanceApiKey` | Seedance 2.0 | seedance |
+| `sunoApiKey` | Suno (面向 v3.0～v5.5) | suno · chirp |
+
+### 41.4 后端实现
+
+#### 41.4.1 settings.js
+
+[backend/src/routes/settings.js](file:///e:/PenguinPravite/T8-penguin-canvas/backend/src/routes/settings.js) `DEFAULT_SETTINGS` 增加 7 个字段 + GET 脱敏：
+
+```js
+const CLASSIFIED_KEY_FIELDS = [
+  'gptImageApiKey', 'nanoBananaApiKey', 'mjApiKey', 'veoApiKey',
+  'grokApiKey', 'seedanceApiKey', 'sunoApiKey',
+];
+```
+
+#### 41.4.2 proxy.js
+
+[backend/src/routes/proxy.js](file:///e:/PenguinPravite/T8-penguin-canvas/backend/src/routes/proxy.js) 顶部新增两个 helper：
+
+```js
+function pickApiKey(settings, hint = '') {
+  const fb = settings.zhenzhenApiKey || '';
+  const m = String(hint || '').toLowerCase();
+  if (m.includes('gpt-image') || m.includes('gpt2') || m.includes('gpt_image')) return settings.gptImageApiKey || fb;
+  if (m.includes('nano-banana') || m.includes('nano_banana')) return settings.nanoBananaApiKey || fb;
+  if (m.includes('midjourney') || /\bmj[-_/]/.test(m) || m.startsWith('mj') || m === 'mj') return settings.mjApiKey || fb;
+  if (m.includes('veo')) return settings.veoApiKey || fb;
+  if (m.includes('grok')) return settings.grokApiKey || fb;
+  if (m.includes('seedance')) return settings.seedanceApiKey || fb;
+  if (m.includes('suno') || m.includes('chirp')) return settings.sunoApiKey || fb;
+  return fb;
+}
+
+function applyClassifiedKey(settings, hint) {
+  const picked = pickApiKey(settings, hint);
+  if (picked) settings.zhenzhenApiKey = picked;
+}
+```
+
+`applyClassifiedKey` 在路由入口 `loadRawSettings()` 后立即调用，用分类 key 覆盖 `settings.zhenzhenApiKey`，后续原代码中所有 `settings.zhenzhenApiKey` 引用都会拿到分类 key，零侵入原逻辑。
+
+#### 41.4.3 router 注入点
+
+| 路由 | hint |
+|---|---|
+| `POST /image` · `POST /image/submit` | `apiModel \|\| model \|\| ''` |
+| `GET /image/status/:tid` | `req.query.model \|\| ''` |
+| `POST /image/fal/submit` | `apiModel \|\| ''` |
+| `POST /image/fal/query` | `endpoint \|\| rawUrl \|\| ''` |
+| `POST /mj/imagine` · `GET /mj/task/:id` · `POST /mj/upload` | `'mj'` |
+| `POST /video/submit` | `model \|\| ''` |
+| `GET /video/query` | `req.query.model \|\| ''` |
+| `POST /video/fal/submit` | `apiModel \|\| ''` |
+| `POST /video/fal/query` | `endpoint \|\| rawUrl \|\| ''` |
+| `POST /seedance/submit` · `GET /seedance/query` | `'seedance'` |
+| `POST /audio/submit` · `GET /audio/query` | `'suno'` |
+
+### 41.5 前端实现
+
+[ApiSettings.tsx](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/ApiSettings.tsx) 重构：
+
+- 用 `inputs/shows: Record<KeyField, string|boolean>` 统一 10 个 Key 状态。
+- 增加 `max-h-[90vh] + overflow-y-auto`，防止弹窗爆高。
+- 上半区 三套通用 Key（贞贞/RH/LLM）底部 + 下半区 `分类独立 API Key【可选】`。
+- 未填的分类 key 显示“未设置 · 使用通用 Key”讯息，placeholder 为“留空则使用通用 Key / 输入独立 Key”。
+
+### 41.6 零破坏保证
+
+- 未增加分类 key 的用户一切如旧。
+- 已增加的用户对应模型会优先走分类 key，贞贞通用 Key 仍充当后备。
+- LLM Key 仍走独立 `llmApiKey` 不被 fallback 逻辑影响。
+- RunningHub Key 仍走独立 `rhApiKey`。
+
+### 41.7 验证清单
+
+- [x] `npx tsc --noEmit` 无报错
+- [x] `npx vite build` 成功（4.22s）
+- [ ] 设置弹窗点眼睛可看到明文 Key（待用户验证）
+- [ ] 填入分类 key（例如 mjApiKey）后 MJ 节点走该 key，其他类节点仍走贞贞通用。
+- [ ] 分类 key 留空时一切节点走贞贞通用（零破坏验证）。
+
+### 41.8 关键文件
+
+- [backend/src/routes/settings.js](file:///e:/PenguinPravite/T8-penguin-canvas/backend/src/routes/settings.js)——`DEFAULT_SETTINGS` 增加 7 字段 + GET 脱敏
+- [backend/src/routes/proxy.js](file:///e:/PenguinPravite/T8-penguin-canvas/backend/src/routes/proxy.js)——`pickApiKey` + `applyClassifiedKey` + 12 个 router 注入点
+- [src/types/canvas.ts](file:///e:/PenguinPravite/T8-penguin-canvas/src/types/canvas.ts)——`ApiSettings` 接口扩展 7 字段
+- [src/stores/apiKeys.ts](file:///e:/PenguinPravite/T8-penguin-canvas/src/stores/apiKeys.ts)——`DEFAULT` 同步扩展
+- [src/services/api.ts](file:///e:/PenguinPravite/T8-penguin-canvas/src/services/api.ts)——新增 `getRawSettings()`
+- [src/components/ApiSettings.tsx](file:///e:/PenguinPravite/T8-penguin-canvas/src/components/ApiSettings.tsx)——眼睛拉明文 + 分类 key 区重构
 
 ---
 

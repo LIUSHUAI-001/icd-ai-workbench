@@ -101,12 +101,21 @@ export interface CanvasData {
 
 // API Key 设置(对应后端 settings)
 export interface ApiSettings {
+  // 三套通用 Key
   zhenzhenApiKey: string;
   zhenzhenBaseUrl: string; // 锁定 https://ai.t8star.org
   rhApiKey: string;
   rhBaseUrl: string; // https://www.runninghub.cn
   llmApiKey: string;
   llmBaseUrl: string; // 锁定 https://ai.t8star.org
+  // 分类 API Key（留空时 fallback 到 zhenzhenApiKey）
+  gptImageApiKey?: string;
+  nanoBananaApiKey?: string;
+  mjApiKey?: string;
+  veoApiKey?: string;
+  grokApiKey?: string;
+  seedanceApiKey?: string;
+  sunoApiKey?: string;
   preferences?: {
     theme?: 'dark' | 'light';
     language?: string;

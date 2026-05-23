@@ -5,20 +5,39 @@ const config = require('../config');
 
 const router = express.Router();
 
-// 默认 settings 结构(三套 Key)
+// 默认 settings 结构(三套通用 Key + 7 类分类 Key)
 const DEFAULT_SETTINGS = {
+  // 三套通用 Key
   zhenzhenApiKey: '',
   zhenzhenBaseUrl: config.ZHENZHEN_BASE_URL, // 固定 https://ai.t8star.org
   rhApiKey: '',
   rhBaseUrl: config.RH_BASE_URL,
   llmApiKey: '',
   llmBaseUrl: config.ZHENZHEN_BASE_URL, // 同贞贞工坊上游
+  // 分类 Key（留空时 fallback 到 zhenzhenApiKey）
+  gptImageApiKey: '',
+  nanoBananaApiKey: '',
+  mjApiKey: '',
+  veoApiKey: '',
+  grokApiKey: '',
+  seedanceApiKey: '',
+  sunoApiKey: '',
   // 其他偏好
   preferences: {
     theme: 'dark',
     language: 'zh-CN',
   },
 };
+
+// 分类 key 字段列表（供 GET 脱敏与 POST 合并使用）
+const CLASSIFIED_KEY_FIELDS = [
+  'gptImageApiKey', 'nanoBananaApiKey', 'mjApiKey', 'veoApiKey',
+  'grokApiKey', 'seedanceApiKey', 'sunoApiKey',
+];
+
+function maskKey(k) {
+  return k ? '****' + String(k).slice(-4) : '';
+}
 
 function loadSettings() {
   if (!fs.existsSync(config.SETTINGS_FILE)) return { ...DEFAULT_SETTINGS };
@@ -43,15 +62,16 @@ function saveSettings(settings) {
 // GET /api/settings — 获取全部设置(脱敏 Key 仅返回最后4位)
 router.get('/', (_req, res) => {
   const settings = loadSettings();
-  res.json({
-    success: true,
-    data: {
-      ...settings,
-      zhenzhenApiKey: settings.zhenzhenApiKey ? '****' + settings.zhenzhenApiKey.slice(-4) : '',
-      rhApiKey: settings.rhApiKey ? '****' + settings.rhApiKey.slice(-4) : '',
-      llmApiKey: settings.llmApiKey ? '****' + settings.llmApiKey.slice(-4) : '',
-    },
-  });
+  const masked = {
+    ...settings,
+    zhenzhenApiKey: maskKey(settings.zhenzhenApiKey),
+    rhApiKey: maskKey(settings.rhApiKey),
+    llmApiKey: maskKey(settings.llmApiKey),
+  };
+  for (const f of CLASSIFIED_KEY_FIELDS) {
+    masked[f] = maskKey(settings[f]);
+  }
+  res.json({ success: true, data: masked });
 });
 
 // GET /api/settings/raw — 内部接口,获取明文(供 Phase 4 代理调用使用)

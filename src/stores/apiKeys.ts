@@ -23,6 +23,14 @@ const DEFAULT: ApiSettings = {
   rhBaseUrl: RH_BASE,
   llmApiKey: '',
   llmBaseUrl: FIXED_ZHENZHEN_BASE,
+  // 分类独立 Key（留空时 fallback 到 zhenzhenApiKey）
+  gptImageApiKey: '',
+  nanoBananaApiKey: '',
+  mjApiKey: '',
+  veoApiKey: '',
+  grokApiKey: '',
+  seedanceApiKey: '',
+  sunoApiKey: '',
   preferences: { theme: 'dark', language: 'zh-CN' },
 };
 
