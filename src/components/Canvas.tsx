@@ -308,10 +308,17 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       .then((data) => {
         const ns = data.nodes || [];
         const es = data.edges || [];
-        setNodes(ns);
+        // ⚡ 兑底补丁: 历史画布中可能存在 connectable=false 的旧 groupBox 节点
+        // (5656721 事故期间创建的 group), 加载时强制打开可连接以恢复右侧聚合输出口
+        const fixedNs = ns.map((n: any) =>
+          n.type === 'groupBox' && n.connectable === false
+            ? { ...n, connectable: true }
+            : n,
+        );
+        setNodes(fixedNs);
         setEdges(es);
-        lastSavedRef.current = JSON.stringify({ nodes: ns, edges: es });
-        histReset({ nodes: ns, edges: es });
+        lastSavedRef.current = JSON.stringify({ nodes: fixedNs, edges: es });
+        histReset({ nodes: fixedNs, edges: es });
         setLoaded(true);
       })
       .catch((e) => {
@@ -751,8 +758,8 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         draggable: true,
         selectable: true,
         deletable: true,
-        // 不参与连接校验(本身无 Handle)
-        connectable: false,
+        // 可连接: 右侧 source handle 能把「组内所有节点的聚合输出」传给组外
+        connectable: true,
       } as Node;
       // 插入到最前面,确保渲染顺序在底(配合 zIndex 负值)
       setNodes((prev) => [groupNode, ...prev.map((n) => ({ ...n, selected: false }))]);
@@ -1124,6 +1131,25 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       const src = curNodes.find((n) => n.id === params.source);
       let tgt = curNodes.find((n) => n.id === params.target);
       if (!isConnectionValid(src, tgt)) return;
+
+      // ⚡ 组容器连出去重: 如果 source 是 groupBox, 并且组内成员已经独立连到同一个下游 target,
+      // 则自动断开那些「成员→target」的重复边, 只保留 group→target
+      // (避免同一源头重复传输 + 防止潜在循环依赖)
+      if (src && src.type === 'groupBox' && tgt && params.target) {
+        const memberIds: string[] = Array.isArray((src.data as any)?.memberIds)
+          ? ((src.data as any).memberIds as string[])
+          : [];
+        if (memberIds.length > 0) {
+          const memberSet = new Set(memberIds);
+          const dupEdges = curEdges.filter(
+            (e) => memberSet.has(e.source) && e.target === params.target,
+          );
+          if (dupEdges.length > 0) {
+            const dupIds = new Set(dupEdges.map((e) => e.id));
+            setEdges((eds) => eds.filter((e) => !dupIds.has(e.id)));
+          }
+        }
+      }
 
       // ⚡ 输出素材节点单输入约束:若目标是 output 且已有连入,
       // 自动派生一个新的 output 节点并把本次连接转向它。
