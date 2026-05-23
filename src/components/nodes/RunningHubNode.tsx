@@ -196,8 +196,10 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
     return list;
   };
 
-  // ========== 从节点内表单 + 上游 RhConfig 合并出原始 nodeInfoList（同一个 (nodeId,fieldName) 表单优先） ==========
+  // ========== 从节点内表单 + 上游 RhConfig 合并出原始 nodeInfoList（同一个 (nodeId,fieldName) 表单优先）==========
   // 同样接受可选的 override 参数让 handleRun 同步路径能用 freshly fetched 结果
+  // 媒体超增：若上游 image/video/audio 素材数量 > nodeInfoList 中该 kind 字段数，
+  // 以“最后一个同 kind 字段名”追加多条 nodeInfoList 记录，让多图/多视频/多音频都传递到 RH。
   const buildRawNodeInfoList = (
     overrideList?: any[],
     overrideValues?: Record<string, { value: string; sourceFromUpstream?: boolean }>,
@@ -207,6 +209,10 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
     // 1. 节点内表单
     const list: any[] = overrideList ?? appInfo?.nodeInfoList ?? [];
     const values = overrideValues ?? paramValues;
+    // 收集每 kind 的字段顺序，用于超量补充取“最后一个”同 kind 字段名
+    const kindFields: Record<'image' | 'video' | 'audio', Array<{ nodeId: any; fieldName: any }>> = {
+      image: [], video: [], audio: [],
+    };
     for (const it of list) {
       const k = paramKey(it.nodeId, it.fieldName);
       const vt = inferValueType(it?.fieldType);
@@ -220,7 +226,33 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
         fieldValue: finalVal,
         valueType: vt,
       });
+      if (vt === 'image' || vt === 'video' || vt === 'audio') {
+        kindFields[vt].push({ nodeId: it.nodeId, fieldName: it.fieldName });
+      }
     }
+    // 1.5 媒体超增补充：上游素材数 > 字段数 → 最后一个同 kind 字段名追加额外记录
+    const fillOverflow = (
+      kind: 'image' | 'video' | 'audio',
+      arr: Array<{ url: string }>,
+    ) => {
+      const fields = kindFields[kind];
+      if (fields.length === 0 || arr.length <= fields.length) return;
+      const last = fields[fields.length - 1];
+      for (let i = fields.length; i < arr.length; i++) {
+        const u = arr[i]?.url;
+        if (!u) continue;
+        console.log('[RH/build] overflow append', kind, '#' + i, '→', last.fieldName, u);
+        out.push({
+          nodeId: last.nodeId,
+          fieldName: last.fieldName,
+          fieldValue: u,
+          valueType: kind,
+        });
+      }
+    };
+    fillOverflow('image', orderedImages);
+    fillOverflow('video', orderedVideos);
+    fillOverflow('audio', orderedAudios);
     // 2. 上游 RhConfig 补充（同 key 已被节点内覆盖则跳过）
     const upstreamList = collectUpstreamConfigList();
     for (const it of upstreamList) {
