@@ -728,6 +728,21 @@ export async function fetchRhAppInfo(webappId: string): Promise<any> {
   return data.data;
 }
 
+/**
+ * 上传任意本地/远程素材到 RunningHub，拿到内部 fileName。
+ * 用于 RhConfigNode 中 valueType=image|video|audio 的条目提交前的资源转换。
+ */
+export async function uploadRhAsset(url: string): Promise<{ fileName: string; fileType: string }> {
+  const r = await fetch('/api/proxy/runninghub/upload-asset', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
 // ============================================================================
 // (原崩溃前遗留的 MJ 代码块已移除; MJ 实现参见上方 buildMjPrompt / submitMjImagine / queryMjTask / uploadMjImage 及 fileToDataUrl)
 // ============================================================================

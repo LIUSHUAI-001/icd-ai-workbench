@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import { AlertCircle, Loader2, Workflow, Sparkles, Square, Search } from 'lucide-react';
-import { submitRh, queryRh, fetchRhAppInfo } from '../../services/generation';
+import { submitRh, queryRh, fetchRhAppInfo, uploadRhAsset } from '../../services/generation';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useHasAutoOutput } from './useHasAutoOutput';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
@@ -34,7 +34,7 @@ const RunningHubNode = ({ id, data, selected }: NodeProps) => {
   };
   useEffect(() => () => stopPoll(), []);
 
-  // 收集上游 rh-config 节点的 nodeInfoList
+  // 收集上游 rh-config 节点的 nodeInfoList（原始带 valueType 信息）
   const collectNodeInfoList = () => {
     const edges = getEdges();
     const nodes = getNodes();
@@ -46,6 +46,38 @@ const RunningHubNode = ({ id, data, selected }: NodeProps) => {
       if (Array.isArray(arr)) list.push(...arr);
     }
     return list;
+  };
+
+  /**
+   * 提交前处理：将 valueType=image|video|audio 且 fieldValue 是 url 的条目
+   * 调 /upload-asset 转成 RH 内部 fileName。text/number 原样保留。
+   * 输出: 干净的 nodeInfoList（仅含 nodeId/fieldName/fieldValue）。
+   */
+  const resolveNodeInfoList = async (raw: any[]): Promise<any[]> => {
+    const out: any[] = [];
+    for (const it of raw) {
+      const nodeId = it?.nodeId;
+      const fieldName = it?.fieldName;
+      let fieldValue = it?.fieldValue;
+      const vt = it?.valueType;
+      if (!nodeId || !fieldName) continue;
+      if (vt === 'image' || vt === 'video' || vt === 'audio') {
+        const v = String(fieldValue || '').trim();
+        if (!v) continue; // 未提供资源 → 跳过该条目
+        // 如果看起来是 url，就去上传拿 fileName；否则当作已是 fileName 直接用
+        if (/^https?:\/\//i.test(v) || v.startsWith('/files/output/') || v.startsWith('/output/')) {
+          const r = await uploadRhAsset(v);
+          fieldValue = r.fileName;
+        } else {
+          fieldValue = v;
+        }
+      } else if (vt === 'number') {
+        const num = Number(fieldValue);
+        fieldValue = Number.isFinite(num) ? num : fieldValue;
+      }
+      out.push({ nodeId, fieldName, fieldValue });
+    }
+    return out;
   };
 
   const startPolling = (tid: string) => {
@@ -104,9 +136,11 @@ const RunningHubNode = ({ id, data, selected }: NodeProps) => {
       setError('请先填写 webappId');
       return;
     }
-    const nodeInfoList = collectNodeInfoList();
     update({ status: 'submitting', error: null, urls: [], taskId: null });
     try {
+      const rawList = collectNodeInfoList();
+      // 提交前：把媒体类 url 转成 RH 内部 fileName
+      const nodeInfoList = await resolveNodeInfoList(rawList);
       const r = await submitRh({
         webappId,
         nodeInfoList,

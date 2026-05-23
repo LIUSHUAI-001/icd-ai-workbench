@@ -1921,7 +1921,21 @@ router.get('/runninghub/query', async (req, res) => {
     let urls = [];
     if (data.code === 0) {
       status = 'SUCCESS';
-      const arr = Array.isArray(data.data) ? data.data : [];
+      // RH outputs 返回结构兼容：
+      //   ① data: [{fileUrl, fileType}, ...]                  // 常见 (AI 应用)
+      //   ② data: { outputs: [...] }                            // 包一层的变体
+      //   ③ data: { fileUrl, fileType }                         // 单产物对象
+      //   ④ data: { results: [...] } / { files: [...] }         // 边缘变体
+      let arr = [];
+      const dd = data.data;
+      if (Array.isArray(dd)) arr = dd;
+      else if (dd && typeof dd === 'object') {
+        if (Array.isArray(dd.outputs)) arr = dd.outputs;
+        else if (Array.isArray(dd.results)) arr = dd.results;
+        else if (Array.isArray(dd.files)) arr = dd.files;
+        else if (dd.fileUrl || dd.url) arr = [dd];
+      }
+      console.log('[RH/query]', taskId, '产物数:', arr.length, '原始 code:', data.code);
       // 转存所有产物到本地
       for (const it of arr) {
         const remote = it?.fileUrl || it?.url;
@@ -1930,7 +1944,10 @@ router.get('/runninghub/query', async (req, res) => {
           const fr = await fetch(remote);
           if (fr.ok) {
             const buf = Buffer.from(await fr.arrayBuffer());
-            const ext = (remote.match(/\.(png|jpe?g|webp|gif|mp4|webm|mp3|wav)/i)?.[1] || 'png').toLowerCase();
+            // 扩展名识别：优先从 url 尾部取，避免 url 中间出现 .png 造成误判
+            const tail = remote.split(/[?#]/)[0];
+            const m = tail.match(/\.(png|jpe?g|webp|gif|bmp|mp4|webm|mov|m4v|mkv|mp3|wav|ogg|m4a|flac)$/i);
+            const ext = (m ? m[1] : 'png').toLowerCase();
             const filename = `rh_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.${ext}`;
             fs.writeFileSync(path.join(config.OUTPUT_DIR, filename), buf);
             urls.push(`/files/output/${filename}`);
@@ -1950,13 +1967,83 @@ router.get('/runninghub/query', async (req, res) => {
       data: {
         status,
         urls,
-        failReason: data?.data?.failedReason || null,
+        failReason: data?.data?.failedReason || data?.data?.failReason || null,
         code: data.code,
         raw: data,
       },
     });
   } catch (e) {
     console.error('proxy/rh/query 错误:', e);
+    res.status(500).json({ success: false, error: e.message || '请求失败' });
+  }
+});
+
+// ----------------------------------------------------------------
+// POST /runninghub/upload-asset
+// 通用素材→RH 上传转换：
+//   入参 JSON: { url: '/files/output/xxx.png' | 'https://....' }
+//   出参: { success, data: { fileName, fileType } }
+// 用途: RhConfigNode 中 valueType=image|video|audio 的条目，
+//       提交工作流前先把 url 转成 RH 内部 fileName，再写入 nodeInfoList.fieldValue。
+// 协议: POST {RH}/task/openapi/upload  (multipart: apiKey, fileType=input, file)
+// ----------------------------------------------------------------
+router.post('/runninghub/upload-asset', express.json({ limit: '20mb' }), async (req, res) => {
+  const settings = loadRawSettings();
+  const apiKey = settings?.rhApiKey || settings?.runninghubApiKey;
+  if (!apiKey) return res.status(400).json({ success: false, error: '未配置 RunningHub API Key（请在设置中填写 RunningHub API Key）' });
+  const url = String(req.body?.url || '').trim();
+  if (!url) return res.status(400).json({ success: false, error: 'url 必填' });
+  try {
+    // 1) 拿到 buffer + mime + filename
+    let buf;
+    let mime = 'application/octet-stream';
+    let baseName = 'asset';
+    if (url.startsWith('/files/output/') || url.startsWith('/output/')) {
+      // 本地静态资源
+      const rel = url.replace(/^\/files\/output\//, '').replace(/^\/output\//, '');
+      const full = path.join(config.OUTPUT_DIR, rel);
+      if (!fs.existsSync(full)) return res.status(404).json({ success: false, error: '本地文件不存在: ' + url });
+      buf = fs.readFileSync(full);
+      baseName = path.basename(full);
+    } else if (/^https?:\/\//i.test(url)) {
+      const fr = await fetch(url);
+      if (!fr.ok) return res.status(400).json({ success: false, error: `下载素材失败 HTTP ${fr.status}` });
+      buf = Buffer.from(await fr.arrayBuffer());
+      mime = fr.headers.get('content-type') || mime;
+      const tail = url.split(/[?#]/)[0];
+      baseName = tail.split('/').pop() || baseName;
+    } else {
+      return res.status(400).json({ success: false, error: '不支持的 url: ' + url });
+    }
+    // 2) 根据扩展名校正 mime
+    const extMatch = baseName.match(/\.([a-zA-Z0-9]+)$/);
+    const ext = extMatch ? extMatch[1].toLowerCase() : '';
+    const mimeMap = {
+      png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp',
+      mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', m4v: 'video/x-m4v', mkv: 'video/x-matroska',
+      mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', flac: 'audio/flac',
+    };
+    if (mimeMap[ext]) mime = mimeMap[ext];
+    if (!ext) baseName += '.bin';
+    // 3) FormData 上传到 RH
+    const fd = new FormData();
+    fd.append('apiKey', apiKey);
+    fd.append('fileType', 'input');
+    const blob = new Blob([buf], { type: mime });
+    fd.append('file', blob, baseName);
+    const r = await fetch(`${config.RH_BASE_URL}/task/openapi/upload`, {
+      method: 'POST',
+      headers: { Host: 'www.runninghub.cn' },
+      body: fd,
+    });
+    const data = await r.json();
+    console.log('[RH/upload-asset]', baseName, mime, buf.length, '→', data?.code, data?.data?.fileName);
+    if (data.code === 0 && data?.data?.fileName) {
+      return res.json({ success: true, data: { fileName: data.data.fileName, fileType: data.data.fileType || mime } });
+    }
+    return res.status(400).json({ success: false, error: data.msg || `RH 上传失败 code=${data.code}` });
+  } catch (e) {
+    console.error('proxy/rh/upload-asset 错误:', e);
     res.status(500).json({ success: false, error: e.message || '请求失败' });
   }
 });
