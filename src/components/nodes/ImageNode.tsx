@@ -1,6 +1,9 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import { AlertCircle, Image as ImageIcon, Loader2, Plus, Sparkles, X } from 'lucide-react';
+import { useUpstreamMaterials, type Material } from './useUpstreamMaterials';
+import { useOrderedMaterials } from './useOrderedMaterials';
+import MaterialPreviewSection from './MaterialPreviewSection';
 import {
   IMAGE_MODELS,
   FAL_REGISTRY,
@@ -44,8 +47,11 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const update = useUpdateNodeData(id);
   const hasAutoOutput = useHasAutoOutput(id);
   const { getEdges, getNodes } = useReactFlow();
-  const { style } = useThemeStore();
+  const { style, theme } = useThemeStore();
   const isPixel = style === 'pixel';
+  const isDark = theme === 'dark';
+  // 主参考图(referenceImages)上传入口 - 与下面 MJ sref/oref 上传隔离
+  const mainFileInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // MJ 上传时区分 sref 还是 oref(共用 fileInputRef)
   const mjUploadKindRef = useRef<'sref' | 'oref'>('sref');
@@ -109,6 +115,33 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   // 节点内本地上传的参考图(除了上游接入的,这里是手动上传)
   const refImages: string[] = Array.isArray(d?.referenceImages) ? d.referenceImages : [];
 
+  // ============ 上游素材聚合 (新机制) ============
+  const upstream = useUpstreamMaterials(id);
+  const localImageMaterials: Material[] = useMemo(
+    () =>
+      refImages.map((url, i) => ({
+        id: `local::image:${url}`,
+        kind: 'image' as const,
+        url,
+        sourceNodeId: id,
+        origin: 'local' as const,
+        label: `本地${i + 1}`,
+      })),
+    [refImages, id],
+  );
+  const allImagesUnordered = useMemo(
+    () => [...localImageMaterials, ...upstream.images],
+    [localImageMaterials, upstream.images],
+  );
+  const materialOrder: string[] = Array.isArray(d?.materialOrder) ? d.materialOrder : [];
+  const orderedImages = useOrderedMaterials(allImagesUnordered, materialOrder);
+  const orderedTexts = useOrderedMaterials(upstream.texts, materialOrder);
+  const setMaterialOrder = (newOrder: string[]) => update({ materialOrder: newOrder });
+  const handleRemoveLocalMaterial = (m: Material) => {
+    if (m.origin !== 'local') return;
+    update({ referenceImages: refImages.filter((u) => u !== m.url) });
+  };
+
   // 切换模型时,如果当前比例/尺寸不在新模型选项里则重置
   const switchModel = (mId: string) => {
     const newDef = IMAGE_MODELS.find((m) => m.id === mId) || IMAGE_MODELS[0];
@@ -125,29 +158,24 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
     update(patch);
   };
 
-  // 从上游节点收集 prompt + 参考图(多张)
+  // 从上游节点 + 本地上传按用户排序后的顺序聚合 prompt + 参考图
+  // 注意: 此处只输出已合并、已排序的列表, 不再原地从 edges/nodes 二次收集
   const collectUpstream = (): { prompt: string; images: string[] } => {
-    const edges = getEdges();
-    const nodes = getNodes();
-    const upstreamIds = edges.filter((e) => e.target === id).map((e) => e.source);
-    const prompts: string[] = [];
+    const prompts = orderedTexts.map((t) => t.url).filter((s) => !!s);
     const images: string[] = [];
-    for (const uid of upstreamIds) {
-      const n = nodes.find((x) => x.id === uid);
-      const p = (n?.data as any)?.prompt;
-      if (p && typeof p === 'string') prompts.push(p.trim());
-      const u = (n?.data as any)?.imageUrl;
-      if (u && typeof u === 'string' && images.length < modelDef.maxReferenceImages) images.push(u);
-      const us = (n?.data as any)?.imageUrls;
-      if (Array.isArray(us)) {
-        for (const it of us) if (typeof it === 'string' && images.length < modelDef.maxReferenceImages) images.push(it);
-      }
+    for (const m of orderedImages) {
+      if (typeof m.url === 'string' && m.url) images.push(m.url);
     }
-    return { prompt: prompts.join('\n').trim(), images };
+    void getEdges;
+    void getNodes;
+    return {
+      prompt: prompts.join('\n').trim(),
+      images: images.slice(0, modelDef.maxReferenceImages),
+    };
   };
 
-  // 手动上传参考图
-  const handlePickFile = () => fileInputRef.current?.click();
+  // 手动上传主参考图 (走 mainFileInputRef, 与 MJ sref/oref 隔离)
+  const handlePickFile = () => mainFileInputRef.current?.click();
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -164,11 +192,8 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
     } catch (err: any) {
       setError(err?.message || '上传失败');
     } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (mainFileInputRef.current) mainFileInputRef.current.value = '';
     }
-  };
-  const removeRef = (idx: number) => {
-    update({ referenceImages: refImages.filter((_, i) => i !== idx) });
   };
 
   // ========== MJ 参考图上传(sref/oref)与移除 ==========
@@ -215,7 +240,9 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
     }
     update({ status: 'generating', progress: '0%', error: null });
     try {
-      const allRefs = [...refImages, ...upstreamImages].slice(0, maxRefs);
+      // collectUpstream 已返回「本地上传 + 上游接入」按用户拖拽顺序合并后的列表,
+      // 这里不再二次叠加 refImages, 避免本地参考图重复传递。
+      const allRefs = upstreamImages.slice(0, maxRefs);
 
       // ============ MJ 路径(对齐 gpt-image-2-web runMJ L4437~L4716) ============
       if (isMj) {
@@ -1011,46 +1038,47 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           </div>
         )}
 
-        {/* 参考图(多张) - MJ 模式下作为主参考图(垫图),上游节点输出也会并入 */}
+        {/* 上游素材聚合预览区 (新机制) - 本地上传 + 上游接入统一呈现, 可拖动排序 */}
         {modelDef.supportsReference && (
-          <div>
-            <label className="text-[10px] text-white/50 block mb-1">
-              {isMj ? '主参考图(垫图)' : '参考图'} · {refImages.length}/{maxRefs}
-              <span className="text-white/30 ml-1">(上游节点会自动并入)</span>
-            </label>
-            <div className="flex flex-wrap gap-1.5">
-              {refImages.map((url, i) => (
-                <div key={i} className="relative w-12 h-12 rounded overflow-hidden border border-white/15">
-                  <img src={url} alt={`ref-${i}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removeRef(i)}
-                    className="absolute top-0 right-0 w-4 h-4 bg-red-500/80 hover:bg-red-500 flex items-center justify-center rounded-bl"
-                    title="移除"
-                  >
-                    <X size={9} className="text-white" />
-                  </button>
-                </div>
-              ))}
-              {refImages.length < maxRefs && (
-                <button
-                  onClick={handlePickFile}
-                  className="w-12 h-12 rounded border-2 border-dashed border-white/20 hover:border-amber-400/60 flex items-center justify-center text-white/40 hover:text-amber-300 transition-colors"
-                  title="上传参考图(可多选)"
-                >
-                  <Plus size={14} />
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={isMj ? handleMjFiles : handleFiles}
-                className="hidden"
-              />
-            </div>
-          </div>
+          <MaterialPreviewSection
+            images={orderedImages}
+            order={materialOrder}
+            onReorder={setMaterialOrder}
+            onRemoveLocal={handleRemoveLocalMaterial}
+            selected={!!selected}
+            isDark={isDark}
+            isPixel={isPixel}
+            groups={['image']}
+            title={isMj ? '主参考图 · 上游+本地' : '参考图 · 上游+本地'}
+            imageUploadAction={
+              refImages.length < maxRefs
+                ? {
+                    onClick: handlePickFile,
+                    title: '上传本地参考图',
+                    remaining: maxRefs - refImages.length,
+                  }
+                : undefined
+            }
+          />
         )}
+        {/* 隐藏的主参考图上传 input - 走 mainFileInputRef + handleFiles */}
+        <input
+          ref={mainFileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFiles}
+          className="hidden"
+        />
+        {/* 隐藏的 MJ sref/oref 上传 input - 走 fileInputRef + handleMjFiles */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleMjFiles}
+          className="hidden"
+        />
 
         {/* 本地 prompt(优先取上游) */}
         <div>
