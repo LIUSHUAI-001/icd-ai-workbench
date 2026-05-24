@@ -22,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const bytenode = require('bytenode');
-const { encryptBuffer } = require('./loader');
+const { encryptBuffer } = require('./loader.cjs');
 
 const BACKEND_SRC = path.resolve(__dirname, '..', 'backend', 'src');
 const OUT_DIR = path.resolve(__dirname, '..', 'build', 'backend-enc');
@@ -77,18 +77,10 @@ function encryptFile(srcAbs) {
   let src = fs.readFileSync(srcAbs, 'utf-8');
   src = rewriteRequires(src);
 
-  // bytenode 编译需要先写到临时 .js 文件再产出 .jsc
-  const tmpJs = path.join(OUT_DIR, '_tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2) + '.js');
-  ensureDir(path.dirname(tmpJs));
-  fs.writeFileSync(tmpJs, src, 'utf-8');
-  let jscPath;
-  try {
-    jscPath = bytenode.compileFile({ filename: tmpJs, output: tmpJs.replace(/\.js$/, '.jsc'), compileAsModule: true });
-  } finally {
-    try { fs.unlinkSync(tmpJs); } catch (_) {}
-  }
-  const jsc = fs.readFileSync(jscPath);
-  try { fs.unlinkSync(jscPath); } catch (_) {}
+  // bytenode.compileCode 同步返回 Buffer (V8 cached data + 8-byte length header)
+  // 包装为 CommonJS module 以保留 require/module/exports/__filename/__dirname
+  const wrapped = require('module').wrap(src);
+  const jsc = bytenode.compileCode(wrapped);
 
   const enc = encryptBuffer(jsc);
   fs.writeFileSync(dst, enc);
@@ -120,14 +112,14 @@ if (require.main === module) {
   try {
     main();
     // Electron 环境下需主动退出,否则事件循环不退
-    if (process.versions.electron) {
+    if (process.versions.electron && !process.env.ELECTRON_RUN_AS_NODE) {
       try { require('electron').app.exit(0); } catch (_) { process.exit(0); }
     } else {
       process.exit(0);
     }
   } catch (e) {
     console.error('[encrypt] FAILED:', e && e.stack ? e.stack : e);
-    if (process.versions.electron) {
+    if (process.versions.electron && !process.env.ELECTRON_RUN_AS_NODE) {
       try { require('electron').app.exit(1); } catch (_) { process.exit(1); }
     } else {
       process.exit(1);

@@ -100,9 +100,17 @@ async function startBackend() {
     ? path.join(process.resourcesPath, 'frontend')
     : path.resolve(__dirname, '..', 'dist');
 
+  // 让后端 node_modules 可被 require 解析 (字节码从临时目录加载,需要补全搜索路径)
+  const backendNM = isPackaged()
+    ? path.join(process.resourcesPath, 'backend-node_modules')
+    : path.resolve(__dirname, '..', 'backend', 'node_modules');
+  if (!require('module').globalPaths.includes(backendNM)) {
+    require('module').globalPaths.unshift(backendNM);
+  }
+
   // 同进程内加载后端,先注册 T8ENC1 + bytenode loader
   try {
-    require('./loader');
+    require('./loader.cjs');
     if (isPackaged()) {
       // 打包后:加载加密的字节码入口
       const entry = path.join(process.resourcesPath, 'backend-enc', 'server.t8c');
@@ -132,7 +140,7 @@ function createMainWindow() {
     backgroundColor: '#0b0b0d',
     title: '贞贞的无限画布（企鹅共创版） v1.1.0',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
