@@ -225,13 +225,40 @@ const LoopNode = (p: NodeProps) => {
     // v1.2.9.5: 回滚 v1.2.9.4 的「给 LoopNode 自身注入 __loopAccumulate」——循环器不输出任何结果到下游,
     //          也不让「直接接 LoopNode 的 OutputNode」变成「累积循环输入素材」 (与下游 EXEC→OutputNode 累积重复)。
     //          直接接的 OutputNode 渲染侧会显示「循环器无输出」提示代替 0 项空白。
-    const outputNodeIds = new Set<string>(subNodes.filter((n) => n.type === 'output').map((n) => n.id));
     const execSubIds = new Set<string>(subNodes.filter((n) => EXEC_TYPES.has(n.type as string)).map((n) => n.id));
-    // 进入循环前: 仅标记下游 EXEC 节点 (让 OutputNode 跳过 fresh) + 清空 OutputNode 的累积字段。
+    // v1.2.9.9: outputNodeIds 改为「动态发现」——原因: 循环中 FramePair 等 EXEC 节点首次产生 firstFrameUrl/lastFrameUrl 后,
+    //          Canvas autoOutput 会动态创建 OutputNode 接到它们身后。若 outputNodeIds 在 runSerial 开始时固化,
+    //          这些运行中创建的 OutputNode 不会被 writeFreshToOutputs 写入 → 只显示最后一轮 (fresh 路由)。
+    //          改为每次需要时从当前 nodes/edges 状态重新 BFS execSubIds 的下游 type='output' 节点 (含二级链路)。
+    const discoverOutputNodeIds = (): Set<string> => {
+      const cn = rf.getNodes();
+      const ce = rf.getEdges();
+      const found = new Set<string>();
+      const visited = new Set<string>();
+      const queue: string[] = Array.from(execSubIds);
+      while (queue.length > 0) {
+        const cur = queue.shift()!;
+        if (visited.has(cur)) continue;
+        visited.add(cur);
+        for (const e of ce) {
+          if (e.source !== cur) continue;
+          const tn = cn.find((n) => n.id === e.target);
+          if (!tn) continue;
+          if (tn.type === 'output') found.add(tn.id);
+          if (!visited.has(tn.id)) queue.push(tn.id); // 继续 BFS 支持 OutputNode→OutputNode 二级链路
+        }
+      }
+      return found;
+    };
+    // knownOutputs: 跨轮跟踪“已被写入过的 OutputNode”, 首次发现的新 OutputNode 在 writeFreshToOutputs 中视为 cur=[] 起算
+    //              (避免继承旧画布 stale directImageUrls)
+    const knownOutputs = new Set<string>(subNodes.filter((n) => n.type === 'output').map((n) => n.id));
+    // 进入循环前: 仅标记下游 EXEC 节点 (让 OutputNode 跳过 fresh) + 清空已知 OutputNode 的累积字段。
     //         不给 OutputNode / LoopNode 本身注入 __loopAccumulate。
+    //         运行中被 autoOutput 动态创建的新 OutputNode 不需清空 (本来就空)。
     rf.setNodes((prev) => prev.map((nd) => {
       const isExec = execSubIds.has(nd.id);
-      const isOut = outputNodeIds.has(nd.id);
+      const isOut = knownOutputs.has(nd.id);
       if (!isExec && !isOut) return nd;
       const od: any = nd.data || {};
       const next: any = { ...od };
@@ -269,13 +296,17 @@ const LoopNode = (p: NodeProps) => {
       seen.add(s);
       arr.push(s);
     };
-    // 根据当前 edges + execSubIds + outputNodeIds ，按 OutputNode 结集 “本轮 fresh” 写入 direct*Urls。
+    // 根据当前 edges + execSubIds + 动态发现的 outputNodeIds，按 OutputNode 结集 “本轮 fresh” 写入 direct*Urls。
+    // v1.2.9.9: targets 改为每次调用重新 discover (含运行中 autoOutput 动态创建的 OutputNode)。
+    //           首次发现的新 OutputNode (!knownOutputs.has) 视为 cur=[] 起算, 避免继承 stale。
     const writeFreshToOutputs = () => {
-      if (outputNodeIds.size === 0) return;
+      const targets = discoverOutputNodeIds();
+      if (targets.size === 0) return;
       rf.setNodes((nds) => {
         const curEdges = rf.getEdges();
         return nds.map((nd) => {
-          if (!outputNodeIds.has(nd.id)) return nd;
+          if (!targets.has(nd.id)) return nd;
+          const isNewOut = !knownOutputs.has(nd.id);
           // 仅采集 EXEC 节点 → 本 OutputNode 的上游边 (二级链路如 OutputNode→OutputNode 不收集, 由透传链路自然流动)
           const inEdges = curEdges.filter((e) => e.target === nd.id);
           const fImgs: string[] = []; const fVids: string[] = []; const fAuds: string[] = []; const fTxts: string[] = [];
@@ -309,24 +340,27 @@ const LoopNode = (p: NodeProps) => {
           }
           if (fImgs.length === 0 && fVids.length === 0 && fAuds.length === 0 && fTxts.length === 0) return nd;
           const od: any = nd.data || {};
-          const curImgs: string[] = Array.isArray(od.directImageUrls) ? od.directImageUrls : [];
-          const curVids: string[] = Array.isArray(od.directVideoUrls) ? od.directVideoUrls : [];
-          const curAuds: string[] = Array.isArray(od.directAudioUrls) ? od.directAudioUrls : [];
-          const curTxts: string[] = typeof od.directOutputText === 'string' && od.directOutputText
-            ? od.directOutputText.split('\n\n') : [];
+          // v1.2.9.9: 新 OutputNode 视为 cur=[], 避免继承旧画布 stale directImageUrls
+          const curImgs: string[] = isNewOut ? [] : (Array.isArray(od.directImageUrls) ? od.directImageUrls : []);
+          const curVids: string[] = isNewOut ? [] : (Array.isArray(od.directVideoUrls) ? od.directVideoUrls : []);
+          const curAuds: string[] = isNewOut ? [] : (Array.isArray(od.directAudioUrls) ? od.directAudioUrls : []);
+          const curTxts: string[] = isNewOut ? [] : (typeof od.directOutputText === 'string' && od.directOutputText
+            ? od.directOutputText.split('\n\n') : []);
           const mergedI = curImgs.slice(); fImgs.forEach((u) => { if (mergedI.indexOf(u) === -1) mergedI.push(u); });
           const mergedV = curVids.slice(); fVids.forEach((u) => { if (mergedV.indexOf(u) === -1) mergedV.push(u); });
           const mergedA = curAuds.slice(); fAuds.forEach((u) => { if (mergedA.indexOf(u) === -1) mergedA.push(u); });
           const mergedT = curTxts.slice(); fTxts.forEach((t) => { if (mergedT.indexOf(t) === -1) mergedT.push(t); });
           let changed = false;
           const nextData: any = { ...od };
-          if (mergedI.length !== curImgs.length) { nextData.directImageUrls = mergedI; changed = true; }
-          if (mergedV.length !== curVids.length) { nextData.directVideoUrls = mergedV; changed = true; }
-          if (mergedA.length !== curAuds.length) { nextData.directAudioUrls = mergedA; changed = true; }
-          if (mergedT.length !== curTxts.length) { nextData.directOutputText = mergedT.join('\n\n'); changed = true; }
+          if (mergedI.length !== curImgs.length || isNewOut) { nextData.directImageUrls = mergedI; changed = true; }
+          if (mergedV.length !== curVids.length || isNewOut) { nextData.directVideoUrls = mergedV; changed = true; }
+          if (mergedA.length !== curAuds.length || isNewOut) { nextData.directAudioUrls = mergedA; changed = true; }
+          if (mergedT.length !== curTxts.length || isNewOut) { nextData.directOutputText = mergedT.join('\n\n'); changed = true; }
           return changed ? { ...nd, data: nextData } : nd;
         });
       });
+      // 跨轮记住这批 OutputNode (下一轮不再视为新)
+      targets.forEach((tid) => knownOutputs.add(tid));
     };
 
     // v1.2.9.0: 包 try/finally 保证 __loopAccumulate 标记总能被清除 (避免异常/取消后下游节点被永久冻住于累积模式)
@@ -359,8 +393,10 @@ const LoopNode = (p: NodeProps) => {
 
       // === v1.2.9.8: 本轮收尾——LoopNode 主动一次性写 OutputNode.direct*Urls (原地去重 merge)
       //   时机: awaitNode 同步返回后, FramePair / Image / Video 等本轮终态已落 store, 此刻写入零 race。
-      if (outputNodeIds.size > 0 && chainOk) {
-        // 等一个微微的 setTimeout(20) 仅为了让可能的跨节点多 update batch (如 FramePair: 首帧后 success) 全部落 store
+      // v1.2.9.9: 去除 outputNodeIds.size>0 预判 — 动态发现机制下, 本轮刚被 autoOutput 创建的 OutputNode 也能被写入
+      if (chainOk) {
+        // 等一个微微的 setTimeout(30) 为了让可能的跨节点多 update batch (FramePair: 首帧后 success)
+        // 以及 autoOutput 动态创建新 OutputNode 的 useEffect 都落 store
         await new Promise<void>((r) => setTimeout(() => r(), 30));
         writeFreshToOutputs();
         await new Promise<void>((r) => setTimeout(() => r(), 20));
@@ -383,9 +419,13 @@ const LoopNode = (p: NodeProps) => {
     //   - 子图内有 OutputNode (累积已由下游 OutputNode 自接管展示) → 循环器不再聚合, 并清空运行时残留的 fresh 字段,
     //     避免「循环器直接接 OutputNode」时与下游 EXEC→OutputNode 累积链路展示重复 (用户体验奇怪: 2 份)
     //   - 子图内没有 OutputNode → 仍按原逻辑聚合输出 (保留循环器单独充当汇总展示的用法)
+    // v1.2.9.9: finalOutputIds 重新 discover — 包括运行中被 autoOutput 动态创建的 OutputNode,
+    //          避免「初始 0 → 走聚合 → 写 videoUrls → autoOutput 反手给 LoopNode 加 OutputNode」的 BUG。
+    //          (v1.2.9.9 同时在 Canvas SKIP_TYPES 加 'loop' 作双保险)
+    const finalOutputIds = discoverOutputNodeIds();
     const successOnly = collected.filter((x): x is string => !!x);
     const aggPatch: any = {};
-    if (outputNodeIds.size > 0) {
+    if (finalOutputIds.size > 0) {
       // 不再聚合 + 清空本轮注入残留, 让循环器自身端口对下游不产出素材
       if (kind === 'image') { aggPatch.imageUrl = ''; aggPatch.imageUrls = []; aggPatch.urls = []; }
       else if (kind === 'video') { aggPatch.videoUrl = ''; aggPatch.videoUrls = []; }

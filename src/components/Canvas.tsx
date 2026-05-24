@@ -1900,7 +1900,9 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   useEffect(() => {
     if (!loaded) return;
     // v1.2.8.2: 'pick-from-set' 是中转节点 (从合集取一个供下游), 不应被自动挂 OutputNode
-    const SKIP_TYPES = new Set(['output', 'groupBox', 'bulkPhantom', 'upload', 'pick-from-set']);
+    // v1.2.9.9: 'loop' 也加入 — 循环器自身不产出最终结果 (累积已由下游 EXEC→OutputNode 链路接管),
+    //          autoOutput 若给 LoopNode 自动建 OutputNode 会让用户看到 “循环器自己生了 N 个素材” 的错误体验。
+    const SKIP_TYPES = new Set(['output', 'groupBox', 'bulkPhantom', 'upload', 'pick-from-set', 'loop']);
 
     const toAddNodes: Node[] = [];
     const toAddEdges: Edge[] = [];
