@@ -1912,6 +1912,11 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       const t = n.type as string;
       if (!t || SKIP_TYPES.has(t)) continue;
       const d = (n.data as any) || {};
+      // v1.2.9.10: 正在被 LoopNode 累积跑路的 EXEC 节点 (带 __loopAccumulate 标记) 跳过,
+      //          避免 autoOutput 把下游的 OutputNode 升级为 pickKind+pickIndex (会误将累积全集切为单项)。
+      //          OutputNode 侧的 v1.2.9.10 修复 (hasAnyDirectAccumulated 跳过 pickKind) 是主双保险,
+      //          本处跳过是避免不必要的 store write 和数据污染。
+      if (d.__loopAccumulate) continue;
       // v1.2.8.2: 循环器仅在完成后才让 autoOutput 处理, 避免运行中注入 items[i] 时被误认为
       // “已生产产物” 并创建个空的 OutputNode。在 status='success' 时 d.imageUrls/videoUrls/audioUrls
       // 数组才是最终聚合产物, 交给 autoOutput 判并拆为 N 个 OutputNode (每行 3 个网格)。

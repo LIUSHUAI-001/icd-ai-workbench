@@ -260,7 +260,21 @@ const OutputNode = ({ id, data, selected }: NodeProps) => {
     // 则本节点只保留对应 kind 的第 pickIndex 项, 避免多图场景下
     // 所有 OutputNode 都重复显示全部输出。
     // 手动连连的 OutputNode 不带 pickKind => 保留原语义 (显示上游全部).
-    const pickKind: string | undefined = d.pickKind;
+    //
+    // v1.2.9.10: 累积模式短路 ——
+    //   场景: LoopNode 跑完后下游 OutputNode 的 directImageUrls/directVideoUrls/directAudioUrls
+    //         里累积了 N 张, 但 Canvas autoOutput 早在第一轮就把它升级为 pickKind='image', pickIndex=0,
+    //         finally 清除 __loopAccumulate 后 collected.images 顺序变成 [fresh_lastRound, direct_r1, direct_r2 dedup],
+    //         pickIndex=0 把全集砍成 [fresh_lastRound] → 用户只看到最后一轮 (典型 ImageNode/VideoNode/AudioNode 覆盖症状)。
+    //   修复: 若 OutputNode 自身已有 direct*Urls / directOutputText 累积值 (>0 项),
+    //         说明它是 LoopNode 累积模式的 OutputNode, 跳过 pickKind 切割, 全量展示 fresh+direct 去重结果。
+    //         与 FramePair 行为对齐 (FramePair 走 autoOutput 专属路径不带 pickKind, 不受此 BUG 影响)。
+    const hasAnyDirectAccumulated =
+      (Array.isArray(d.directImageUrls) && d.directImageUrls.length > 0) ||
+      (Array.isArray(d.directVideoUrls) && d.directVideoUrls.length > 0) ||
+      (Array.isArray(d.directAudioUrls) && d.directAudioUrls.length > 0) ||
+      (typeof d.directOutputText === 'string' && d.directOutputText.length > 0);
+    const pickKind: string | undefined = hasAnyDirectAccumulated ? undefined : d.pickKind;
     const pickIndex: number | undefined =
       typeof d.pickIndex === 'number' ? d.pickIndex : undefined;
     if (pickKind && typeof pickIndex === 'number') {
