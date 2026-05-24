@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.t8penguin.penguinsync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/penguin/work_penguin/T8Penguin/T8-penguin-canvas/scripts/penguin-sync.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/penguin/work_penguin/T8Penguin/T8-penguin-canvas</string>
+
+    <!-- 每 1800 秒（30 分钟）执行一次 -->
+    <key>StartInterval</key>
+    <integer>1800</integer>
+
+    <!-- 加载即执行一次，方便首次验证 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/penguin/work_penguin/T8Penguin/T8-penguin-canvas/logs/penguin-sync.stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/penguin/work_penguin/T8Penguin/T8-penguin-canvas/logs/penguin-sync.stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/penguin</string>
+    </dict>
+</dict>
+</plist>
