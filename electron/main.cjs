@@ -132,7 +132,7 @@ function createMainWindow() {
     backgroundColor: '#0b0b0d',
     title: '贞贞的无限画布（企鹅共创版） v1.2.6',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
