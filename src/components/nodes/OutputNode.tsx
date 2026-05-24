@@ -72,6 +72,18 @@ const OutputNode = ({ id, data, selected }: NodeProps) => {
   // 订阅上游节点的 data, 任何上游 data 变化都会触发重渲染
   const upstreamNodes = useNodesData(upstreamIds);
 
+  // v1.2.8.4: 收集每个上游 source 上被连接的 sourceHandle 集合,
+  //           供 FramePair 等多端口节点按 handle 区分输出 (与 useUpstreamMaterials 对齐)
+  const handleMap = useMemo(() => {
+    const m = new Map<string, Set<string | null>>();
+    for (const c of connections) {
+      let set = m.get(c.source);
+      if (!set) { set = new Set<string | null>(); m.set(c.source, set); }
+      set.add((c as any).sourceHandle ?? null);
+    }
+    return m;
+  }, [connections]);
+
   // 细粒度字段签名: 防止 xyflow useNodesData 返回引用稳定导致 useMemo 漏重算;
   // 纯字符串变化 React 可靠跟踪，上游任何一个被迫关心的字段变动均会重算 collected。
   const upstreamSig = useMemo(() => {
@@ -93,6 +105,8 @@ const OutputNode = ({ id, data, selected }: NodeProps) => {
           ud.videoUrl || '',
           ud.audioUrl || '',
           ud.audioUrl_1 || '', // Suno 双轨副轨; 漏写会导致只显示第 1 首
+          ud.firstFrameUrl || '', // v1.2.8.4: FramePair 双端口字段
+          ud.lastFrameUrl || '',
           arr1,
           arr2,
           arr3,
@@ -142,12 +156,32 @@ const OutputNode = ({ id, data, selected }: NodeProps) => {
     const list = Array.isArray(upstreamNodes) ? upstreamNodes : [];
     for (const n of list) {
       const ud: any = n?.data || {};
+      const sid = (n as any)?.id || '';
+      const handles = handleMap.get(sid) || new Set<string | null>([null]);
 
       // 文本
       pushUniqueText(out.texts, ud.outputText);
       pushUniqueText(out.texts, ud.reply);
       pushUniqueText(out.texts, ud.prompt);
       pushUniqueText(out.texts, ud.text);
+
+      // === v1.2.8.4: FramePair 双端口语义 ===
+      // 节点同时具备 firstFrameUrl + lastFrameUrl 字段时按 sourceHandle 过滤,
+      //   - 'first' 端口 → 只输出首帧
+      //   - 'last'  端口 → 只输出尾帧
+      //   - null/默认  → 同时输出两帧 (autoOutput / 手动接默认 handle 的兼容)
+      // 跳过通用 imageUrl/imageUrls 分支, 避免历史残留字段把双图都捞过来。
+      const isFramePair =
+        Object.prototype.hasOwnProperty.call(ud, 'firstFrameUrl') &&
+        Object.prototype.hasOwnProperty.call(ud, 'lastFrameUrl');
+      if (isFramePair) {
+        const wantFirst = handles.has('first') || (handles.has(null) && !handles.has('last'));
+        const wantLast = handles.has('last') || (handles.has(null) && !handles.has('first'));
+        if (wantFirst) pushUnique(out.images, ud.firstFrameUrl);
+        if (wantLast) pushUnique(out.images, ud.lastFrameUrl);
+        // 视频/音频 此节点不会有, 跳过
+        continue;
+      }
 
       // 图像 - 单
       pushUnique(out.images, ud.imageUrl);
@@ -230,7 +264,7 @@ const OutputNode = ({ id, data, selected }: NodeProps) => {
     }
 
     return out;
-  }, [upstreamNodes, upstreamSig, d.pickKind, d.pickIndex, d.directImageUrl, d.directImageUrls, d.directVideoUrl, d.directVideoUrls, d.directAudioUrl, d.directAudioUrls]);
+  }, [upstreamNodes, upstreamSig, handleMap, d.pickKind, d.pickIndex, d.directImageUrl, d.directImageUrls, d.directVideoUrl, d.directVideoUrls, d.directAudioUrl, d.directAudioUrls]);
 
   // 文本编辑
   const overrideText: string = typeof d.outputText === 'string' ? d.outputText : '';

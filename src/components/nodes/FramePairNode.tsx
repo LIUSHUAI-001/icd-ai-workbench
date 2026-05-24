@@ -83,7 +83,9 @@ const FramePairNode = (p: NodeProps) => {
       error: null,
       firstFrameUrl: '',
       lastFrameUrl: '',
-      // v1.2.8.3: 不再写 imageUrl/imageUrls —— 双端口语义由 useUpstreamMaterials 按 sourceHandle 过滤
+      // v1.2.8.4: 显式清掉历史残留的 imageUrl/imageUrls (旧画布可能有 v1.2.8.2 之前写入的值)
+      imageUrl: '',
+      imageUrls: [],
     });
 
     try {
@@ -156,8 +158,9 @@ const FramePairNode = (p: NodeProps) => {
         status: 'success',
         firstFrameUrl: firstOut,
         lastFrameUrl: lastOut,
-        // v1.2.8.3: 不再写 imageUrl/imageUrls —— 交由 useUpstreamMaterials 按 sourceHandle 过滤
-        // 下游连到 'first' 端口 → 只拿 firstFrameUrl, 连到 'last' 端口 → 只拿 lastFrameUrl
+        // v1.2.8.4: 双端口语义依赖 sourceHandle 过滤, 并清掉可能的历史残留
+        imageUrl: '',
+        imageUrls: [],
         error: null,
       });
     } catch (e: any) {
