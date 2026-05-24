@@ -225,13 +225,40 @@ const LoopNode = (p: NodeProps) => {
     // v1.2.9.5: 回滚 v1.2.9.4 的「给 LoopNode 自身注入 __loopAccumulate」——循环器不输出任何结果到下游,
     //          也不让「直接接 LoopNode 的 OutputNode」变成「累积循环输入素材」 (与下游 EXEC→OutputNode 累积重复)。
     //          直接接的 OutputNode 渲染侧会显示「循环器无输出」提示代替 0 项空白。
-    const outputNodeIds = new Set<string>(subNodes.filter((n) => n.type === 'output').map((n) => n.id));
     const execSubIds = new Set<string>(subNodes.filter((n) => EXEC_TYPES.has(n.type as string)).map((n) => n.id));
-    // 进入循环前: 仅标记下游 EXEC 节点 (让 OutputNode 跳过 fresh) + 清空 OutputNode 的累积字段。
+    // v1.2.9.9: outputNodeIds 改为「动态发现」——原因: 循环中 FramePair 等 EXEC 节点首次产生 firstFrameUrl/lastFrameUrl 后,
+    //          Canvas autoOutput 会动态创建 OutputNode 接到它们身后。若 outputNodeIds 在 runSerial 开始时固化,
+    //          这些运行中创建的 OutputNode 不会被 writeFreshToOutputs 写入 → 只显示最后一轮 (fresh 路由)。
+    //          改为每次需要时从当前 nodes/edges 状态重新 BFS execSubIds 的下游 type='output' 节点 (含二级链路)。
+    const discoverOutputNodeIds = (): Set<string> => {
+      const cn = rf.getNodes();
+      const ce = rf.getEdges();
+      const found = new Set<string>();
+      const visited = new Set<string>();
+      const queue: string[] = Array.from(execSubIds);
+      while (queue.length > 0) {
+        const cur = queue.shift()!;
+        if (visited.has(cur)) continue;
+        visited.add(cur);
+        for (const e of ce) {
+          if (e.source !== cur) continue;
+          const tn = cn.find((n) => n.id === e.target);
+          if (!tn) continue;
+          if (tn.type === 'output') found.add(tn.id);
+          if (!visited.has(tn.id)) queue.push(tn.id); // 继续 BFS 支持 OutputNode→OutputNode 二级链路
+        }
+      }
+      return found;
+    };
+    // knownOutputs: 跨轮跟踪“已被写入过的 OutputNode”, 首次发现的新 OutputNode 在 writeFreshToOutputs 中视为 cur=[] 起算
+    //              (避免继承旧画布 stale directImageUrls)
+    const knownOutputs = new Set<string>(subNodes.filter((n) => n.type === 'output').map((n) => n.id));
+    // 进入循环前: 仅标记下游 EXEC 节点 (让 OutputNode 跳过 fresh) + 清空已知 OutputNode 的累积字段。
     //         不给 OutputNode / LoopNode 本身注入 __loopAccumulate。
+    //         运行中被 autoOutput 动态创建的新 OutputNode 不需清空 (本来就空)。
     rf.setNodes((prev) => prev.map((nd) => {
       const isExec = execSubIds.has(nd.id);
-      const isOut = outputNodeIds.has(nd.id);
+      const isOut = knownOutputs.has(nd.id);
       if (!isExec && !isOut) return nd;
       const od: any = nd.data || {};
       const next: any = { ...od };
@@ -251,11 +278,90 @@ const LoopNode = (p: NodeProps) => {
     const collected: Array<string | null> = [];
     let okCount = 0; let failCount = 0;
 
-    // v1.2.9.2: LoopNode 不再跨节点写 OutputNode direct*Urls —— 改由 OutputNode 自己在 useEffect 内
-    //         检测上游 __loopAccumulate 后追加 fresh 到自身 direct*Urls (避免跨节点 setNodes 时序冲突/覆盖)。
-    //         LoopNode 仅负责: 进入前清空 OutputNode direct*Urls + 注入 EXEC 节点 __loopAccumulate + finally 清除标记。
-
-    const pushUniq = (_arr: string[], _v: any) => { /* v1.2.9.2: 保留签名防别处引用, 实际累积逻辑在 OutputNode */ };
+    // === v1.2.9.8: 彻底放弃「OutputNode useEffect 自动累积 fresh」机制 (v1.2.9.2/4/7 均被抩废)
+    //   原因:
+    //     - FramePair 等节点每轮多次 update (reset / 首帧 / success) 让 OutputNode useEffect 多次 fire
+    //     - StrictMode 双调 + 二级链路 (right OutputNode 接 left OutputNode) + finally 清除 __loopAccumulate 后
+    //       collected useMemo 重算 → fresh 会被最后多加一次进去, 造成“快跳后又多出一个」
+        //     - ref 去重也无法掩盖跨 useEffect / 多 OutputNode / 二级链路 的所有 race
+    //   新策略:
+    //     LoopNode 每轮 awaitNode 完成后用 functional setNodes 一次性写入子图内所有 OutputNode.direct*Urls。
+    //     时机严格可控 (一轮息严格一次写入) + functional setNodes 读取 store 最新 cur + 本轮内全局 seen 去重。
+    //   OutputNode 侧: collected useMemo 仍保留 __loopAccumulate 跳过 fresh 逻辑 (避免中间眨烁 fresh 未走 direct 装准 OUT), 但不再有 useEffect 累积。
+    const pushUniq = (arr: string[], seen: Set<string>, v: any) => {
+      if (typeof v !== 'string') return;
+      const s = v.trim();
+      if (!s) return;
+      if (seen.has(s)) return;
+      seen.add(s);
+      arr.push(s);
+    };
+    // 根据当前 edges + execSubIds + 动态发现的 outputNodeIds，按 OutputNode 结集 “本轮 fresh” 写入 direct*Urls。
+    // v1.2.9.9: targets 改为每次调用重新 discover (含运行中 autoOutput 动态创建的 OutputNode)。
+    //           首次发现的新 OutputNode (!knownOutputs.has) 视为 cur=[] 起算, 避免继承 stale。
+    const writeFreshToOutputs = () => {
+      const targets = discoverOutputNodeIds();
+      if (targets.size === 0) return;
+      rf.setNodes((nds) => {
+        const curEdges = rf.getEdges();
+        return nds.map((nd) => {
+          if (!targets.has(nd.id)) return nd;
+          const isNewOut = !knownOutputs.has(nd.id);
+          // 仅采集 EXEC 节点 → 本 OutputNode 的上游边 (二级链路如 OutputNode→OutputNode 不收集, 由透传链路自然流动)
+          const inEdges = curEdges.filter((e) => e.target === nd.id);
+          const fImgs: string[] = []; const fVids: string[] = []; const fAuds: string[] = []; const fTxts: string[] = [];
+          const seenI = new Set<string>(); const seenV = new Set<string>(); const seenA = new Set<string>(); const seenT = new Set<string>();
+          for (const e of inEdges) {
+            if (!execSubIds.has(e.source)) continue;
+            const up = nds.find((n) => n.id === e.source);
+            if (!up) continue;
+            const ud: any = up.data || {};
+            const handle = (e as any).sourceHandle as string | null | undefined;
+            const isFP = Object.prototype.hasOwnProperty.call(ud, 'firstFrameUrl') &&
+                         Object.prototype.hasOwnProperty.call(ud, 'lastFrameUrl');
+            if (isFP) {
+              if (handle === 'first' || handle == null) pushUniq(fImgs, seenI, ud.firstFrameUrl);
+              if (handle === 'last' || handle == null) pushUniq(fImgs, seenI, ud.lastFrameUrl);
+              continue;
+            }
+            // 通用字段采集 (任何 EXEC 节点 update 进以下字段均能被累积)
+            pushUniq(fImgs, seenI, ud.imageUrl);
+            if (Array.isArray(ud.imageUrls)) ud.imageUrls.forEach((u: any) => pushUniq(fImgs, seenI, u));
+            if (Array.isArray(ud.urls)) ud.urls.forEach((u: any) => pushUniq(fImgs, seenI, u));
+            if (Array.isArray(ud.generatedImages)) ud.generatedImages.forEach((u: any) => pushUniq(fImgs, seenI, u));
+            pushUniq(fVids, seenV, ud.videoUrl);
+            if (Array.isArray(ud.videoUrls)) ud.videoUrls.forEach((u: any) => pushUniq(fVids, seenV, u));
+            pushUniq(fAuds, seenA, ud.audioUrl);
+            pushUniq(fAuds, seenA, ud.audioUrl_1);
+            if (Array.isArray(ud.audioUrls)) ud.audioUrls.forEach((u: any) => pushUniq(fAuds, seenA, u));
+            if (typeof ud.outputText === 'string' && ud.outputText) pushUniq(fTxts, seenT, ud.outputText);
+            if (typeof ud.reply === 'string' && ud.reply) pushUniq(fTxts, seenT, ud.reply);
+            if (typeof ud.text === 'string' && ud.text) pushUniq(fTxts, seenT, ud.text);
+          }
+          if (fImgs.length === 0 && fVids.length === 0 && fAuds.length === 0 && fTxts.length === 0) return nd;
+          const od: any = nd.data || {};
+          // v1.2.9.9: 新 OutputNode 视为 cur=[], 避免继承旧画布 stale directImageUrls
+          const curImgs: string[] = isNewOut ? [] : (Array.isArray(od.directImageUrls) ? od.directImageUrls : []);
+          const curVids: string[] = isNewOut ? [] : (Array.isArray(od.directVideoUrls) ? od.directVideoUrls : []);
+          const curAuds: string[] = isNewOut ? [] : (Array.isArray(od.directAudioUrls) ? od.directAudioUrls : []);
+          const curTxts: string[] = isNewOut ? [] : (typeof od.directOutputText === 'string' && od.directOutputText
+            ? od.directOutputText.split('\n\n') : []);
+          const mergedI = curImgs.slice(); fImgs.forEach((u) => { if (mergedI.indexOf(u) === -1) mergedI.push(u); });
+          const mergedV = curVids.slice(); fVids.forEach((u) => { if (mergedV.indexOf(u) === -1) mergedV.push(u); });
+          const mergedA = curAuds.slice(); fAuds.forEach((u) => { if (mergedA.indexOf(u) === -1) mergedA.push(u); });
+          const mergedT = curTxts.slice(); fTxts.forEach((t) => { if (mergedT.indexOf(t) === -1) mergedT.push(t); });
+          let changed = false;
+          const nextData: any = { ...od };
+          if (mergedI.length !== curImgs.length || isNewOut) { nextData.directImageUrls = mergedI; changed = true; }
+          if (mergedV.length !== curVids.length || isNewOut) { nextData.directVideoUrls = mergedV; changed = true; }
+          if (mergedA.length !== curAuds.length || isNewOut) { nextData.directAudioUrls = mergedA; changed = true; }
+          if (mergedT.length !== curTxts.length || isNewOut) { nextData.directOutputText = mergedT.join('\n\n'); changed = true; }
+          return changed ? { ...nd, data: nextData } : nd;
+        });
+      });
+      // 跨轮记住这批 OutputNode (下一轮不再视为新)
+      targets.forEach((tid) => knownOutputs.add(tid));
+    };
 
     // v1.2.9.0: 包 try/finally 保证 __loopAccumulate 标记总能被清除 (避免异常/取消后下游节点被永久冻住于累积模式)
     try {
@@ -285,10 +391,15 @@ const LoopNode = (p: NodeProps) => {
       if (result) okCount++; else failCount++;
       update({ outputs: [...collected], progress: { done: i + 1, total: items.length, ok: okCount, fail: failCount } });
 
-      // v1.2.9.2: 本轮收尾——累积交由 OutputNode 自己 useEffect 负责 (避免跨节点 setNodes 冲突)
-      // LoopNode 只需推进进度 + 让 React reconcile fresh 变化 → OutputNode useEffect 自动追加到 direct*Urls
-      if (outputNodeIds.size > 0) {
-        await new Promise<void>((r) => setTimeout(() => r(), 40));
+      // === v1.2.9.8: 本轮收尾——LoopNode 主动一次性写 OutputNode.direct*Urls (原地去重 merge)
+      //   时机: awaitNode 同步返回后, FramePair / Image / Video 等本轮终态已落 store, 此刻写入零 race。
+      // v1.2.9.9: 去除 outputNodeIds.size>0 预判 — 动态发现机制下, 本轮刚被 autoOutput 创建的 OutputNode 也能被写入
+      if (chainOk) {
+        // 等一个微微的 setTimeout(30) 为了让可能的跨节点多 update batch (FramePair: 首帧后 success)
+        // 以及 autoOutput 动态创建新 OutputNode 的 useEffect 都落 store
+        await new Promise<void>((r) => setTimeout(() => r(), 30));
+        writeFreshToOutputs();
+        await new Promise<void>((r) => setTimeout(() => r(), 20));
       }
     }
     } finally {
@@ -308,9 +419,13 @@ const LoopNode = (p: NodeProps) => {
     //   - 子图内有 OutputNode (累积已由下游 OutputNode 自接管展示) → 循环器不再聚合, 并清空运行时残留的 fresh 字段,
     //     避免「循环器直接接 OutputNode」时与下游 EXEC→OutputNode 累积链路展示重复 (用户体验奇怪: 2 份)
     //   - 子图内没有 OutputNode → 仍按原逻辑聚合输出 (保留循环器单独充当汇总展示的用法)
+    // v1.2.9.9: finalOutputIds 重新 discover — 包括运行中被 autoOutput 动态创建的 OutputNode,
+    //          避免「初始 0 → 走聚合 → 写 videoUrls → autoOutput 反手给 LoopNode 加 OutputNode」的 BUG。
+    //          (v1.2.9.9 同时在 Canvas SKIP_TYPES 加 'loop' 作双保险)
+    const finalOutputIds = discoverOutputNodeIds();
     const successOnly = collected.filter((x): x is string => !!x);
     const aggPatch: any = {};
-    if (outputNodeIds.size > 0) {
+    if (finalOutputIds.size > 0) {
       // 不再聚合 + 清空本轮注入残留, 让循环器自身端口对下游不产出素材
       if (kind === 'image') { aggPatch.imageUrl = ''; aggPatch.imageUrls = []; aggPatch.urls = []; }
       else if (kind === 'video') { aggPatch.videoUrl = ''; aggPatch.videoUrls = []; }
