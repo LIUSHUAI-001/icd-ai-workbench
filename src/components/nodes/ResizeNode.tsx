@@ -10,20 +10,7 @@ const ResizeNode = (p: NodeProps) => {
   const d = p.data as any;
   const width = d?.width || 1024;
   const height = d?.height || 1024;
-  // 默认 fit=cover：裁剪銘满到精确目标尺寸，符合“尺寸调整”的直觉语义。
-  // 老存档中 d?.fit==='inside' 仍会保留以避免破坏序列化，用户可手动改。
-  const fit = d?.fit || 'cover';
-  // fit 选项中文说明（sharp 语义）：
-  //   cover   覆盖：裁剪銘满 · 保比例（推荐，输出严格 W×H）
-  //   contain 包含：留白銘填 · 保比例（输出严格 W×H）
-  //   inside  限制内：不超 W×H · 保比例（输出不一定 W×H，是“不裁剪”模式）
-  //   fill    填充：拉伸到 W×H · 可能变形
-  const FIT_OPTIONS: Array<{ v: string; label: string }> = [
-    { v: 'cover', label: 'cover · 裁剪銘满（保比例）' },
-    { v: 'contain', label: 'contain · 包含留白（保比例）' },
-    { v: 'inside', label: 'inside · 不超尺寸（不裁剪）' },
-    { v: 'fill', label: 'fill · 拉伸填充（可变形）' },
-  ];
+  const fit = d?.fit || 'inside';
   return (
     <ImageOpFrame
       id={p.id}
@@ -64,9 +51,9 @@ const ResizeNode = (p: NodeProps) => {
               onChange={(e) => update({ fit: e.target.value })}
               className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
             >
-              {FIT_OPTIONS.map((x) => (
-                <option key={x.v} value={x.v} className="bg-zinc-900">
-                  {x.label}
+              {['inside', 'cover', 'contain', 'fill'].map((x) => (
+                <option key={x} value={x} className="bg-zinc-900">
+                  {x}
                 </option>
               ))}
             </select>

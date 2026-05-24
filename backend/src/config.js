@@ -1,42 +1,25 @@
 const path = require('path');
-const fs = require('fs');
 
 // T8-penguin-canvas 后端配置
-// 运行模式:
-//   - 开发: backend/src/config.js 底下的 PROJECT_DIR 即项目根
-//   - 打包: 主进程 electron/main.cjs 会注入 T8PC_PACKAGED=1 与 T8PC_USER_DATA=<userData>
-//             数据/输入/输出/缩略图都位于该 userData 下,近可读写;
-//             前端静态产物位于 T8PC_FRONTEND_DIST(默认 resources/frontend)。
-const IS_PACKAGED = process.env.T8PC_PACKAGED === '1';
 const PROJECT_DIR = path.resolve(__dirname, '..', '..');
-const USER_DATA = process.env.T8PC_USER_DATA && process.env.T8PC_USER_DATA.trim().length > 0
-  ? process.env.T8PC_USER_DATA
-  : PROJECT_DIR;
-const DATA_ROOT = IS_PACKAGED ? USER_DATA : PROJECT_DIR;
 
 const config = {
   // 服务器
   HOST: process.env.HOST || '127.0.0.1',
   PORT: process.env.PORT || 18766, // 注意:与主项目 18765 错开
-  NODE_ENV: process.env.NODE_ENV || (IS_PACKAGED ? 'production' : 'development'),
-  IS_PACKAGED,
+  NODE_ENV: process.env.NODE_ENV || 'development',
 
-  // 数据 / 资源目录
-  // 开发模式: 项目根下 data/input/output/thumbnails
-  // 打包模式: %APPDATA%/T8-PenguinCanvas/data ...走 userData
-  BASE_DIR: DATA_ROOT,
-  DATA_DIR: path.join(DATA_ROOT, 'data'),
-  INPUT_DIR: path.join(DATA_ROOT, 'input'),
-  OUTPUT_DIR: path.join(DATA_ROOT, 'output'),
-  THUMBNAILS_DIR: path.join(DATA_ROOT, 'thumbnails'),
+  // 数据 / 资源目录(全部位于 T8-penguin-canvas/data 下)
+  BASE_DIR: PROJECT_DIR,
+  DATA_DIR: path.join(PROJECT_DIR, 'data'),
+  INPUT_DIR: path.join(PROJECT_DIR, 'input'),
+  OUTPUT_DIR: path.join(PROJECT_DIR, 'output'),
+  THUMBNAILS_DIR: path.join(PROJECT_DIR, 'thumbnails'),
 
   // 数据文件
-  CANVAS_FILE: path.join(DATA_ROOT, 'data', 'canvas_list.json'),
-  SETTINGS_FILE: path.join(DATA_ROOT, 'data', 'settings.json'),
-  RH_APPS_FILE: path.join(DATA_ROOT, 'data', 'rh_apps.json'),
-
-  // 前端静态产物目录(打包后由 Express 同进程托管)
-  FRONTEND_DIST: process.env.T8PC_FRONTEND_DIST || (IS_PACKAGED ? '' : path.join(PROJECT_DIR, 'dist')),
+  CANVAS_FILE: path.join(PROJECT_DIR, 'data', 'canvas_list.json'),
+  SETTINGS_FILE: path.join(PROJECT_DIR, 'data', 'settings.json'),
+  RH_APPS_FILE: path.join(PROJECT_DIR, 'data', 'rh_apps.json'),
 
   // 缩略图配置
   THUMBNAIL_SIZE: 160,
@@ -50,12 +33,5 @@ const config = {
   ZHENZHEN_BASE_URL: 'https://ai.t8star.org',
   RH_BASE_URL: 'https://www.runninghub.cn',
 };
-
-// 提前创建打包后的数据目录(避免首次启动报错)
-if (IS_PACKAGED) {
-  for (const dir of [config.DATA_DIR, config.INPUT_DIR, config.OUTPUT_DIR, config.THUMBNAILS_DIR]) {
-    try { if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); } catch (_) {}
-  }
-}
 
 module.exports = config;

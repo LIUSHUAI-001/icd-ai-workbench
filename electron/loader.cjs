@@ -20,8 +20,6 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const Module = require('module');
-const vm = require('vm');
-const { brotliDecompressSync } = require('zlib');
 
 const MAGIC = Buffer.from('T8ENC1\n', 'utf8'); // 7 bytes
 const PASSPHRASE = 'T8-penguin-canvas-T8star-2026';
@@ -49,117 +47,41 @@ function decryptBuffer(enc) {
   return Buffer.concat([decipher.update(ct), decipher.final()]);
 }
 
-// ---------- bytenode 内部逻辑复刻 ----------
-// 原原本实现是写 tmp .jsc 后 require(tmpFile),导致 fileModule.require
-// 从 tmp 路径解析 node_modules,找不到 asar 内的 express 等依赖。
-// 现在改为直接在当前 .t8c 模块上下文中运行字节码,
-// 使 require/__filename/__dirname 都走 .t8c 在 asar 内的原始位置。
-let _bytenodeMod = null;
-function loadBytenode() {
-  if (!_bytenodeMod) _bytenodeMod = require('bytenode');
-  return _bytenodeMod;
-}
-
-const ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE = Buffer.from([0x00, 0x00]);
-function isBufferV8Bytecode(buf) {
-  return Buffer.isBuffer(buf)
-    && !buf.subarray(0, 2).equals(ZERO_LENGTH_EXTERNAL_REFERENCE_TABLE)
-    && buf.length >= 16;
-}
-
-// 从 bytenode 复制: 根据当前 Node 版本读取字节码中的 “源码长度” 以生成同长度 dummyCode
-function readSourceHash(bytecodeBuffer) {
-  if (process.version.startsWith('v8.8') || process.version.startsWith('v8.9')) {
-    return bytecodeBuffer.subarray(12, 16).reduce((s, n, p) => s + n * Math.pow(256, p), 0);
-  }
-  return bytecodeBuffer.subarray(8, 12).reduce((s, n, p) => s + n * Math.pow(256, p), 0);
-}
-
-// 从 bytenode 复制: 修复字节码 flag/version 区间(调用一次 compileCode 拿当前运行时的 dummy 字节码,动态拷贝到超本的头部)
-function fixBytecode(bytecodeBuffer) {
-  loadBytenode();
-  const dummyBytecode = _bytenodeMod.compileCode('"\u0caa_\u0caa"'); // arbitrary tiny
-  const version = parseFloat(process.version.slice(1, 5));
-  if (process.version.startsWith('v8.8') || process.version.startsWith('v8.9')) {
-    dummyBytecode.subarray(16, 20).copy(bytecodeBuffer, 16);
-    dummyBytecode.subarray(20, 24).copy(bytecodeBuffer, 20);
-  } else if (version >= 12 && version <= 23) {
-    dummyBytecode.subarray(12, 16).copy(bytecodeBuffer, 12);
-  } else {
-    dummyBytecode.subarray(12, 16).copy(bytecodeBuffer, 12);
-    dummyBytecode.subarray(16, 20).copy(bytecodeBuffer, 16);
-  }
-}
-
-function generateScript(cachedData, filename) {
-  let buf = cachedData;
-  if (!isBufferV8Bytecode(buf)) {
-    buf = brotliDecompressSync(buf); // bytenode 可选 brotli 压缩
-  }
-  fixBytecode(buf);
-  const length = readSourceHash(buf);
-  let dummyCode = '';
-  if (length > 1) dummyCode = '"' + '\u200b'.repeat(length - 2) + '"';
-  const script = new vm.Script(dummyCode, { cachedData: buf, filename });
-  if (script.cachedDataRejected) {
-    throw new Error('[T8ENC1] cachedDataRejected (V8 版本不匹配?请重新 npm run encrypt)');
-  }
-  return script;
+// ---------- bytenode 字节码 → Module ----------
+// bytenode 0.x 的标准做法:把 .jsc 内容通过 vm.Script 解析为 cachedData,
+// 再用 Module.wrap 重新装配。我们简化为直接调用 bytenode 的 compileFile/runBytecode。
+let _bytenode = null;
+function bytenode() {
+  if (_bytenode) return _bytenode;
+  _bytenode = require('bytenode');
+  return _bytenode;
 }
 
 // ---------- 注册 .t8c require hook ----------
 function registerLoader() {
   if (require.extensions['.t8c']) return; // 防重复注册
-  // 需要 bytenode 在运行时被加载(为了 fixBytecode 中的 compileCode)
-  loadBytenode();
+  // bytenode 注册 .jsc 扩展(若它还没装)
+  try {
+    bytenode();
+  } catch (e) {
+    console.error('[loader] bytenode require failed:', e.message);
+    throw e;
+  }
 
-  require.extensions['.t8c'] = function (fileModule, filename) {
+  require.extensions['.t8c'] = function (mod, filename) {
     const enc = fs.readFileSync(filename);
-    const jsc = decryptBuffer(enc); // 解密成 V8 字节码缓冲
-
-    // 完全复刻 bytenode 的 .jsc loader 逻辑,但关键:
-    //   - fileModule 是 .t8c 模块本身(asar 内),其 require/paths 能到到 app.asar/node_modules
-    //   - filename / __dirname 也是 .t8c 原始路径,保证原代码的相对 require/路径推导正确
-    const script = generateScript(jsc, filename);
-
-    function req(id) {
-      try {
-        return fileModule.require(id);
-      } catch (e) {
-        // .t8c 文件在 resources/backend-enc/ 下(asar 外),
-        // 其 module.paths 无法到达 app.asar/node_modules,
-        // 因此需要在获不到外部依赖时回退到 loader.cjs(在 asar 内)的 require。
-        // 这使得加密后端能访问主包 node_modules 里的 express/cors/multer/sharp 等。
-        if (e && e.code === 'MODULE_NOT_FOUND') {
-          return require(id);
-        }
-        throw e;
-      }
-    }
-    req.resolve = function (request, options) {
-      try {
-        return Module._resolveFilename(request, fileModule, false, options);
-      } catch (e) {
-        if (e && e.code === 'MODULE_NOT_FOUND') {
-          return require.resolve(request, options);
-        }
-        throw e;
-      }
-    };
-    if (process.main) req.main = process.main;
-    req.extensions = Module._extensions;
-    req.cache = Module._cache;
-
-    const compiledWrapper = script.runInThisContext({
-      filename,
-      lineOffset: 0,
-      columnOffset: 0,
-      displayErrors: true,
-    });
-
-    const dirname = path.dirname(filename);
-    const args = [fileModule.exports, req, fileModule, filename, dirname, process, global];
-    return compiledWrapper.apply(fileModule.exports, args);
+    const jsc = decryptBuffer(enc); // 解密成 .jsc 字节码缓冲
+    // 写到 OS 临时目录(随进程生命周期),让 bytenode 读取
+    const os = require('os');
+    const tmpDir = path.join(os.tmpdir(), 't8pc-jsc');
+    if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+    const tmpFile = path.join(
+      tmpDir,
+      crypto.createHash('md5').update(filename).digest('hex') + '.jsc',
+    );
+    fs.writeFileSync(tmpFile, jsc);
+    // 让 bytenode 通过其 .jsc 扩展加载
+    mod.exports = require(tmpFile);
   };
 
   // 让 require('./foo') 在缺少 .js/.json 时自动尝试 .t8c
@@ -168,6 +90,7 @@ function registerLoader() {
     try {
       return _origResolve.call(this, request, parent, ...rest);
     } catch (e) {
+      // 尝试 .t8c
       try {
         return _origResolve.call(this, request + '.t8c', parent, ...rest);
       } catch (_) {

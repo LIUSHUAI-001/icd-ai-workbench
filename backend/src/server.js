@@ -59,16 +59,6 @@ app.use('/api/proxy', proxyRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/image', imageOpsRouter);
 
-// ========== 前端静态资源(仅打包模式) ==========
-// 开发模式下不启用,避免与 Vite dev server 打架。
-if (config.IS_PACKAGED && config.FRONTEND_DIST && fs.existsSync(config.FRONTEND_DIST)) {
-  app.use(express.static(config.FRONTEND_DIST));
-  // SPA 兑底: 除了 /api/* 与 /files/* 外,其他路由返回 index.html(允许前端路由)
-  app.get(/^\/(?!api\/|files\/|input\/|output\/).*/, (_req, res) => {
-    res.sendFile(path.join(config.FRONTEND_DIST, 'index.html'));
-  });
-}
-
 // ========== 启动 ==========
 const PORT = config.PORT;
 const HOST = config.HOST;

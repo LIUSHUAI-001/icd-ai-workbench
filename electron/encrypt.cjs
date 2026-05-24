@@ -22,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const bytenode = require('bytenode');
-const { encryptBuffer } = require('./loader.cjs');
+const { encryptBuffer } = require('./loader');
 
 const BACKEND_SRC = path.resolve(__dirname, '..', 'backend', 'src');
 const OUT_DIR = path.resolve(__dirname, '..', 'build', 'backend-enc');
@@ -77,17 +77,18 @@ function encryptFile(srcAbs) {
   let src = fs.readFileSync(srcAbs, 'utf-8');
   src = rewriteRequires(src);
 
-  // bytenode.compileCode 返回 V8 字节码 Buffer (同步,无需临时文件)
-  // compileAsModule 通过包装代码实现:外部传入 source 已经是 CommonJS 模块体,
-  // 直接 wrap 成 Module 包装函数体后再编译,运行时 require() 才能正确 resolve
-  // 注意: bytenode 内部 compileCode 不接受 compileAsModule 参数,
-  //       但当 src 已经是 CommonJS 模块顶层代码时, V8 会以脚本模式编译,
-  //       而 require/module/exports/__filename/__dirname 是 Node 在 require() 时
-  //       动态注入的形参,因此字节码运行起来时这些标识会作为闭包参数自然可用。
-  //       为保证与原 backend/src 行为一致,我们用 Module.wrap() 包裹后再编译。
-  const Module = require('module');
-  const wrapped = Module.wrap(src);
-  const jsc = bytenode.compileCode(wrapped);
+  // bytenode 编译需要先写到临时 .js 文件再产出 .jsc
+  const tmpJs = path.join(OUT_DIR, '_tmp_' + Date.now() + '_' + Math.random().toString(36).slice(2) + '.js');
+  ensureDir(path.dirname(tmpJs));
+  fs.writeFileSync(tmpJs, src, 'utf-8');
+  let jscPath;
+  try {
+    jscPath = bytenode.compileFile({ filename: tmpJs, output: tmpJs.replace(/\.js$/, '.jsc'), compileAsModule: true });
+  } finally {
+    try { fs.unlinkSync(tmpJs); } catch (_) {}
+  }
+  const jsc = fs.readFileSync(jscPath);
+  try { fs.unlinkSync(jscPath); } catch (_) {}
 
   const enc = encryptBuffer(jsc);
   fs.writeFileSync(dst, enc);

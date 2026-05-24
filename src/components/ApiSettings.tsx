@@ -14,7 +14,6 @@ interface ApiSettingsModalProps {
 type KeyField =
   | 'zhenzhenApiKey'
   | 'rhApiKey'
-  | 'rhWalletApiKey'
   | 'llmApiKey'
   | 'gptImageApiKey'
   | 'nanoBananaApiKey'
@@ -32,9 +31,8 @@ interface KeySpec {
 }
 
 const COMMON_KEYS: KeySpec[] = [
-  { field: 'zhenzhenApiKey', label: '贞贞工坑 API Key', desc: '· 通用后备 · 用于图像/视频/音频生成', bullet: 'bg-amber-400' },
+  { field: 'zhenzhenApiKey', label: '贞贞工坊 API Key', desc: '· 通用后备 · 用于图像/视频/音频生成', bullet: 'bg-amber-400' },
   { field: 'rhApiKey', label: 'RunningHub API Key', desc: '· 用于 RH 工作流', bullet: 'bg-cyan-400' },
-  { field: 'rhWalletApiKey', label: 'RH 钱包 APIKEY', desc: '· 用于 RH 钱包应用 · RH 企业级共享 APIKEY', bullet: 'bg-violet-400' },
   { field: 'llmApiKey', label: 'LLM 独立 API Key', desc: '· 额度隔离 · 用于 LLM/Vision', bullet: 'bg-emerald-400' },
 ];
 
@@ -54,12 +52,12 @@ const ALL_FIELDS: KeyField[] = [
 ];
 
 const emptyMap = (): Record<KeyField, string> => ({
-  zhenzhenApiKey: '', rhApiKey: '', rhWalletApiKey: '', llmApiKey: '',
+  zhenzhenApiKey: '', rhApiKey: '', llmApiKey: '',
   gptImageApiKey: '', nanoBananaApiKey: '', mjApiKey: '', veoApiKey: '',
   grokApiKey: '', seedanceApiKey: '', sunoApiKey: '',
 });
 const emptyShow = (): Record<KeyField, boolean> => ({
-  zhenzhenApiKey: false, rhApiKey: false, rhWalletApiKey: false, llmApiKey: false,
+  zhenzhenApiKey: false, rhApiKey: false, llmApiKey: false,
   gptImageApiKey: false, nanoBananaApiKey: false, mjApiKey: false, veoApiKey: false,
   grokApiKey: false, seedanceApiKey: false, sunoApiKey: false,
 });
@@ -263,11 +261,10 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
 
         {/* 表单 */}
         <div className="p-5 space-y-5 overflow-y-auto">
-          {/* 三套通用 Key + RH 钱包专用 Key */}
+          {/* 三套通用 Key */}
           {renderKey(COMMON_KEYS[0], { baseUrlNote: `Base URL 锁定: ${FIXED_ZHENZHEN_BASE}` })}
           {renderKey(COMMON_KEYS[1], { baseUrlNote: `Base URL: ${RH_BASE}` })}
-          {renderKey(COMMON_KEYS[2], { baseUrlNote: '注意：本节点用于RH钱包应用，需要设置RH企业级-共享APIKEY' })}
-          {renderKey(COMMON_KEYS[3], { baseUrlNote: `Base URL 锁定: ${FIXED_ZHENZHEN_BASE} (与贞贞同地址, Key 独立)` })}
+          {renderKey(COMMON_KEYS[2], { baseUrlNote: `Base URL 锁定: ${FIXED_ZHENZHEN_BASE} (与贞贞同地址, Key 独立)` })}
 
           {/* 分类独立 Key */}
           <div className={`pt-3 border-t ${isPixel ? 'border-[var(--px-ink)]/30' : isDark ? 'border-white/10' : 'border-black/10'}`}>
