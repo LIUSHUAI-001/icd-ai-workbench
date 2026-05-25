@@ -13,6 +13,7 @@ export type NodeType =
   | 'audio'
   | 'llm'
   | 'runninghub'
+  | 'runninghub-wallet'
   | 'rh-config'
   // Special (5)
   | 'multi-angle-3d'
