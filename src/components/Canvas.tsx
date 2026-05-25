@@ -1212,14 +1212,15 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         const targetHasConn = curEdges.some((e) => e.target === tgt!.id);
         if (targetHasConn) {
           const newId = `output-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-          // 新 output 节点放在原节点右侧(360宽 + 40床)
+          // v1.2.10.5-hotfix3: 使用 placeSingleNode 防重叠（之前硬编码 +360 会重叠）
+          const _tgtW = (tgt as any).measured?.width || 320;
+          const _desX = (tgt.position?.x ?? 0) + _tgtW + 40;
+          const _desY = tgt.position?.y ?? 0;
+          const _finalPos = placeSingleNode(_desX, _desY, 'output', curNodes, { source: 'placement:onConnect-dup-output' });
           const newNode: Node = {
             id: newId,
             type: 'output',
-            position: {
-              x: (tgt.position?.x ?? 0) + 360,
-              y: tgt.position?.y ?? 0,
-            },
+            position: { x: _finalPos.x, y: _finalPos.y },
             data: { ...(INITIAL_DATA['output'] || {}) },
           };
           setNodes((prev) => [...prev, newNode]);
@@ -1988,6 +1989,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         if (!usedHandles.has('last')) need.push('last');
         // 若 null 已占位, 仅备份 'last' 偶尔多补一个 (使用者手动拖一根默认就应默认 first)
         newSigPatches.push([n.id, sig]);
+        if (need.length === 0) continue; // v1.2.10.5-hotfix3: 无需创建则跳过，避免无用的 placeBatchNodes 调用 + 诊断噪音
         // v1.2.10.5: 整组防重叠 —— 先算期望单列矩形, 再求公共偏移
         const _szFP = defaultSizeOf('output');
         const _desiredFP: PlacementRect[] = need.map((_, i) => ({
@@ -2208,7 +2210,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         const newId = `output-auto-${n.id}-${Date.now()}-${offsetIndex}-${Math.random()
           .toString(36)
           .slice(2, 6)}`;
-        toAddNodes.push({
+        const _newNodeGen: Node = {
           id: newId,
           type: 'output',
           // 网格排列: 每行 3 个, 超过换行。
@@ -2222,7 +2224,11 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
           // 避免多图场景下所有 OutputNode 都重复显示全部输出
           data: { pickKind: item.kind, pickIndex: item.kindIndex },
           selected: false,
-        } as Node);
+        } as Node;
+        toAddNodes.push(_newNodeGen);
+        // v1.2.10.5-hotfix3: 通用路径也必须累积到 pendingPlacedNodes，
+        // 否则同一 effect 周期内后续源节点看不到本轮已创建的 OutputNode → 重叠
+        pendingPlacedNodes.push(_newNodeGen);
         toAddEdges.push({
           id: `e-auto-${newId}`,
           source: n.id,
@@ -2235,6 +2241,8 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
     // 先写 ref 避免下次 useEffect 重进入重复创建
     for (const [id, sig] of newSigPatches) autoOutputProcessedRef.current.set(id, sig);
     if (toAddNodes.length > 0) {
+      console.warn('[autoOutput] 创建', toAddNodes.length, '个节点, pending累积:', pendingPlacedNodes.length,
+        '\n  positions:', toAddNodes.map(n => `${n.id.slice(0,20)}.. (${Math.round(n.position.x)},${Math.round(n.position.y)})`));
       setNodes((prev) => [...prev, ...toAddNodes]);
       setEdges((prev) => [...prev, ...toAddEdges]);
     }
@@ -2303,11 +2311,24 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       const srcW = (src as any).measured?.width || (src as any).width || 320;
       const baseX = (src.position?.x ?? 0) + srcW + 80;
       const baseY = src.position?.y ?? 0;
+      // v1.2.10.5-hotfix3: 内部网格布局算好后，还要检查整组是否与外部节点碰撞，
+      // 若有碰撞则应用 placeBatchNodes 偏移，避免 reorder 覆盖 autoOutput 的避让。
+      const _groupDesired: PlacementRect[] = list.map((_, i) => {
+        const c = i % REORDER_COLS;
+        const r = Math.floor(i / REORDER_COLS);
+        return { x: baseX + colX[c], y: baseY + rowY[r], w: dims[i].w, h: dims[i].h };
+      });
+      const _excludeIds = new Set([srcId, ...list.map(n => n.id)]);
+      const _externalNodes = nodes.filter(n => !_excludeIds.has(n.id));
+      const _reorderOff = placeBatchNodes(_groupDesired, _externalNodes, {
+        source: 'placement:reorder-grid',
+        excludeIds: _excludeIds,
+      });
       list.forEach((n, i) => {
         const c = i % REORDER_COLS;
         const r = Math.floor(i / REORDER_COLS);
-        const newX = baseX + colX[c];
-        const newY = baseY + rowY[r];
+        const newX = baseX + colX[c] + _reorderOff.dx;
+        const newY = baseY + rowY[r] + _reorderOff.dy;
         const cx = n.position?.x ?? 0;
         const cy = n.position?.y ?? 0;
         // 用户手动拖动过的节点 (data.userMoved=true) 跳过, 保留位置

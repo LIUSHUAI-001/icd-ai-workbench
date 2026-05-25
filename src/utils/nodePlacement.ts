@@ -404,25 +404,46 @@ export function placeBatchNodes(
   opts: PlacementOptions & { excludeIds?: Set<string> } = {}
 ): { dx: number; dy: number } {
   const existing = collectRects(existingNodes, opts.excludeIds);
-  // DEBUG: 验证 placement 是否被调用
-  console.warn('[placement:batch]', {
-    desiredCount: desiredRects.length,
-    desiredRects: desiredRects.slice(0, 3),
-    existingCount: existing.length,
-    existingMeasured: existing.filter(r => r.w > 0 && r.h > 0).length,
-    source: opts.source,
-  });
+  // reorder-grid 频繁调用，不输出诊断日志避免刷屏
+  const _quiet = opts.source === 'placement:reorder-grid';
+  if (!_quiet) {
+    console.warn('[placement:batch]', {
+      desiredCount: desiredRects.length,
+      desiredRects: desiredRects.slice(0, 3),
+      existingCount: existing.length,
+      existingMeasured: existing.filter(r => r.w > 0 && r.h > 0).length,
+      source: opts.source,
+    });
+  }
   const result = resolveBatchSpawn(desiredRects, existing, opts);
   if (result.dx !== 0 || result.dy !== 0) {
-    console.warn('[placement:batch] MOVED by', result);
-  } else {
+    if (!_quiet) console.warn('[placement:batch] MOVED by', result);
+  } else if (!_quiet) {
     // 检查是否真的无碰撞
     const gap = opts.gap ?? PLACEMENT_GAP;
     let hasCollision = false;
     for (const r of desiredRects) {
       if (anyIntersect(r, existing, gap)) { hasCollision = true; break; }
     }
-    console.warn('[placement:batch] NO MOVE', hasCollision ? '⚠️ BUT COLLISION EXISTS! BUG!' : '(desired pos is clear)');
+    if (hasCollision) {
+      console.warn('[placement:batch] NO MOVE ⚠️ BUT COLLISION EXISTS! BUG!');
+    } else {
+      // 找最近的 existing rect 给调试
+      let minDist = Infinity;
+      let closestRect: Rect | null = null;
+      for (const d of desiredRects) {
+        for (const e of existing) {
+          const dx = Math.abs((d.x + d.w / 2) - (e.x + e.w / 2));
+          const dy = Math.abs((d.y + d.h / 2) - (e.y + e.h / 2));
+          const dist = dx + dy;
+          if (dist < minDist) { minDist = dist; closestRect = e; }
+        }
+      }
+      console.warn('[placement:batch] NO MOVE (desired pos clear)', {
+        desiredRects: desiredRects.map(r => `(${Math.round(r.x)},${Math.round(r.y)} ${r.w}x${r.h})`),
+        closestExisting: closestRect ? `(${Math.round(closestRect.x)},${Math.round(closestRect.y)} ${closestRect.w}x${closestRect.h}) dist=${Math.round(minDist)}` : 'none',
+      });
+    }
   }
   return result;
 }
