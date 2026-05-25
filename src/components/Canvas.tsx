@@ -34,6 +34,7 @@ import {
   placeSingleNode,
   placeBatchNodes,
   defaultSizeOf,
+  rectOf,
   type Rect as PlacementRect,
 } from '../utils/nodePlacement';
 import * as api from '../services/api';
@@ -1956,6 +1957,9 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       //          OutputNode 侧的 v1.2.9.10 修复 (hasAnyDirectAccumulated 跳过 pickKind) 是主双保险,
       //          本处跳过是避免不必要的 store write 和数据污染。
       if (d.__loopAccumulate) continue;
+      // v1.2.10.5-hotfix2: 跟過源节点尚未被 DOM 测量时跳过，下一轮 nodes 更新（带上 measured）会重新触发 effect。
+      // 避免用不准确的字典尺寸计算 baseX 导致 desired position 落在源节点可视范围内。
+      if (!(n as any).measured?.width) continue;
       // v1.2.8.2: 循环器仅在完成后才让 autoOutput 处理, 避免运行中注入 items[i] 时被误认为
       // “已生产产物” 并创建个空的 OutputNode。在 status='success' 时 d.imageUrls/videoUrls/audioUrls
       // 数组才是最终聚合产物, 交给 autoOutput 判并拆为 N 个 OutputNode (每行 3 个网格)。
@@ -1977,7 +1981,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
           usedHandles.add((e as any).sourceHandle ?? null);
         }
         // null/默认 handle 也能充当任意一边（兼容旧连接）——只要这边有一个 OutputNode 进来, 就不重复补
-        const baseX = (n.position?.x ?? 0) + (((n as any).width || (n as any).measured?.width || 280)) + 80;
+        const baseX = (n.position?.x ?? 0) + rectOf(n).w + 80;
         const baseY = n.position?.y ?? 0;
         const need: Array<'first' | 'last'> = [];
         if (!usedHandles.has('first') && !usedHandles.has(null)) need.push('first');
@@ -2028,7 +2032,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
           if (e.source !== n.id) continue;
           usedHandles.add((e as any).sourceHandle ?? null);
         }
-        const baseX = (n.position?.x ?? 0) + (((n as any).width || (n as any).measured?.width || 280)) + 80;
+        const baseX = (n.position?.x ?? 0) + rectOf(n).w + 80;
         const baseY = n.position?.y ?? 0;
         const need: Array<'audio-0' | 'audio-1'> = [];
         // null 默认占位则 audio-0 不重复创建（老连接兼容）
@@ -2180,7 +2184,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       }
       if (needCount <= 0) continue;
 
-      const srcW = (n as any).width || (n as any).measured?.width || 320;
+      const srcW = rectOf(n).w;
       const baseX = (n.position?.x ?? 0) + srcW + 80;
       const baseY = n.position?.y ?? 0;
 

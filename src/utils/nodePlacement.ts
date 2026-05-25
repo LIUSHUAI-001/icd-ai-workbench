@@ -83,23 +83,29 @@ export interface PlacementOptions {
 }
 
 // ===== 工具函数 =====
-/** 读取节点实际包围盒: measured > width/height > 字典默认 > FALLBACK_SIZE */
+/** 读取节点实际包围盒: measured > width/height > 字典默认 > FALLBACK_SIZE
+ * v1.2.10.5-hotfix2: 当 measured 不可用时(节点未被 DOM 渲染/测量), 字典默认值加 30% 安全边距,
+ * 避免实际渲染尺寸超出字典导致碰撞检测遍漏。
+ */
 export function rectOf(node: Node): Rect {
-  const w =
+  const hasMeasured = !!(node as any).measured?.width;
+  const rawW =
     (node as any).measured?.width ||
     (node as any).width ||
     (node.type ? NODE_DEFAULT_SIZE[node.type]?.w : undefined) ||
     FALLBACK_SIZE.w;
-  const h =
+  const rawH =
     (node as any).measured?.height ||
     (node as any).height ||
     (node.type ? NODE_DEFAULT_SIZE[node.type]?.h : undefined) ||
     FALLBACK_SIZE.h;
+  // 未测量时加 30% 安全边距（节点实际常比字典大）
+  const safetyFactor = hasMeasured ? 1 : 1.3;
   return {
     x: node.position?.x ?? 0,
     y: node.position?.y ?? 0,
-    w,
-    h,
+    w: Math.ceil(rawW * safetyFactor),
+    h: Math.ceil(rawH * safetyFactor),
   };
 }
 
@@ -372,7 +378,20 @@ export function placeSingleNode(
   const sz = defaultSizeOf(type);
   const desired: Rect = { x: desiredX, y: desiredY, w: sz.w, h: sz.h };
   const existing = collectRects(existingNodes);
-  return resolveSingleSpawn(desired, existing, opts);
+  // DEBUG: 验证 placement 是否被调用
+  console.warn('[placement:single]', {
+    desired,
+    existingCount: existing.length,
+    existingMeasured: existing.filter(r => r.w > 0 && r.h > 0).length,
+    source: opts.source,
+  });
+  const result = resolveSingleSpawn(desired, existing, opts);
+  if (result.x !== desiredX || result.y !== desiredY) {
+    console.warn('[placement:single] MOVED', { from: { x: desiredX, y: desiredY }, to: result });
+  } else {
+    console.warn('[placement:single] NO MOVE (desired pos is clear)');
+  }
+  return result;
 }
 
 /**
@@ -385,5 +404,25 @@ export function placeBatchNodes(
   opts: PlacementOptions & { excludeIds?: Set<string> } = {}
 ): { dx: number; dy: number } {
   const existing = collectRects(existingNodes, opts.excludeIds);
-  return resolveBatchSpawn(desiredRects, existing, opts);
+  // DEBUG: 验证 placement 是否被调用
+  console.warn('[placement:batch]', {
+    desiredCount: desiredRects.length,
+    desiredRects: desiredRects.slice(0, 3),
+    existingCount: existing.length,
+    existingMeasured: existing.filter(r => r.w > 0 && r.h > 0).length,
+    source: opts.source,
+  });
+  const result = resolveBatchSpawn(desiredRects, existing, opts);
+  if (result.dx !== 0 || result.dy !== 0) {
+    console.warn('[placement:batch] MOVED by', result);
+  } else {
+    // 检查是否真的无碰撞
+    const gap = opts.gap ?? PLACEMENT_GAP;
+    let hasCollision = false;
+    for (const r of desiredRects) {
+      if (anyIntersect(r, existing, gap)) { hasCollision = true; break; }
+    }
+    console.warn('[placement:batch] NO MOVE', hasCollision ? '⚠️ BUT COLLISION EXISTS! BUG!' : '(desired pos is clear)');
+  }
+  return result;
 }
