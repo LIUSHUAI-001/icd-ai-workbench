@@ -1,16 +1,33 @@
-import { memo, useState, type CSSProperties } from 'react';
-import { Handle, Position, useReactFlow, type Edge, type Node, type NodeProps } from '@xyflow/react';
+import { memo, useMemo, useState, type CSSProperties } from 'react';
+import {
+  Handle,
+  Position,
+  useNodeConnections,
+  useNodesData,
+  useReactFlow,
+  type Edge,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react';
 import {
   Aperture,
+  Box,
   Camera,
   Clapperboard,
+  Compass,
   Copy,
+  Crosshair,
+  Download,
   Film,
+  FolderOpen,
   Palette,
   Play,
   RotateCcw,
+  SlidersHorizontal,
   Sparkles,
+  Star,
   Sun,
+  Trash2,
   Wand2,
 } from 'lucide-react';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
@@ -24,11 +41,14 @@ import { useUpdateNodeData } from './useUpdateNodeData';
  * 通过 data.kind 区分:
  *   - 'cinematic' = 电影感组合器(风格 / 镜头 / 光影 / 调色 / 质感)
  *   - 'video-motion' = 视频运镜组合器(场景 / 动作 / 路径 / 节奏 / 稳定 / 主体)
+ *   - 'multi-angle-visual' = 可视化多角度(方位 / 俯仰 / 远近 → Qwen 多角度 prompt)
  *
  * 输出:data.prompt(下游通过 prompt 收集消费)
  */
 
 type PromptLanguage = 'en' | 'zh';
+type MultiAnglePromptMode = 'qwen' | 'general' | 'dual';
+type MultiAngleBatchMode = 'single' | 'three' | 'four' | 'eight' | 'custom';
 
 interface Preset {
   id: string;
@@ -51,6 +71,32 @@ interface MotionGroup {
   items: Preset[];
   columns?: number;
 }
+
+interface MultiAnglePreset {
+  id: string;
+  label: string;
+  azimuth: number;
+  elevation: number;
+  distance: number;
+}
+
+interface MultiAngleFavorite extends MultiAnglePreset {
+  createdAt?: number;
+}
+
+type MultiAnglePatch = Partial<{
+  multiAngleAzimuth: string | number;
+  multiAngleElevation: string | number;
+  multiAngleDistance: string | number;
+  multiAnglePromptMode: string;
+  multiAngleLanguage: string;
+  multiAngleBatchMode: string;
+  multiAngleBatchCustomAngles: string;
+  multiAnglePrefix: string;
+  multiAngleSuffix: string;
+  multiAngleCustom: string;
+  multiAngleFavorites: MultiAngleFavorite[];
+}>;
 
 type CinematicField =
   | 'cinematicPresetId'
@@ -292,6 +338,47 @@ const MOTION_GROUPS: MotionGroup[] = [
   },
 ];
 
+const MULTI_ANGLE_AZIMUTH_PRESETS: MultiAnglePreset[] = [
+  { id: 'front', label: '正面', azimuth: 0, elevation: 0, distance: 5 },
+  { id: 'front-right', label: '右前 45°', azimuth: 45, elevation: 0, distance: 5 },
+  { id: 'right', label: '右侧', azimuth: 90, elevation: 0, distance: 5 },
+  { id: 'back-right', label: '右后', azimuth: 135, elevation: 0, distance: 5 },
+  { id: 'back', label: '背面', azimuth: 180, elevation: 0, distance: 5 },
+  { id: 'back-left', label: '左后', azimuth: 225, elevation: 0, distance: 5 },
+  { id: 'left', label: '左侧', azimuth: 270, elevation: 0, distance: 5 },
+  { id: 'front-left', label: '左前 45°', azimuth: 315, elevation: 0, distance: 5 },
+];
+
+const MULTI_ANGLE_ELEVATION_PRESETS: MultiAnglePreset[] = [
+  { id: 'low', label: '仰拍', azimuth: 0, elevation: -30, distance: 5 },
+  { id: 'eye', label: '平视', azimuth: 0, elevation: 0, distance: 5 },
+  { id: 'elevated', label: '高机位', azimuth: 0, elevation: 30, distance: 5 },
+  { id: 'high', label: '俯拍', azimuth: 0, elevation: 60, distance: 5 },
+];
+
+const MULTI_ANGLE_DISTANCE_PRESETS: MultiAnglePreset[] = [
+  { id: 'wide', label: '远景', azimuth: 0, elevation: 0, distance: 1 },
+  { id: 'medium', label: '中景', azimuth: 0, elevation: 0, distance: 5 },
+  { id: 'close', label: '特写', azimuth: 0, elevation: 0, distance: 8 },
+];
+
+const MULTI_ANGLE_CREATIVE_PRESETS: MultiAnglePreset[] = [
+  { id: 'id-front', label: '正面设定', azimuth: 0, elevation: 0, distance: 4 },
+  { id: 'product-45', label: '产品 45°', azimuth: 45, elevation: 15, distance: 4 },
+  { id: 'hero-low', label: '英雄仰拍', azimuth: 25, elevation: -25, distance: 6.5 },
+  { id: 'top-display', label: '俯视展示', azimuth: 0, elevation: 58, distance: 3 },
+  { id: 'back-design', label: '背面设定', azimuth: 180, elevation: 0, distance: 5 },
+  { id: 'side-model', label: '侧面建模', azimuth: 90, elevation: 0, distance: 5 },
+];
+
+const MULTI_ANGLE_BATCH_PRESETS: Array<{ id: MultiAngleBatchMode; label: string; angles: number[] }> = [
+  { id: 'single', label: '单条', angles: [] },
+  { id: 'three', label: '三视图', angles: [0, 90, 180] },
+  { id: 'four', label: '四视图', angles: [0, 90, 180, 270] },
+  { id: 'eight', label: '八方位', angles: [0, 45, 90, 135, 180, 225, 270, 315] },
+  { id: 'custom', label: '自定义', angles: [] },
+];
+
 function findPreset(items: Preset[], id?: string): Preset | undefined {
   if (!id) return undefined;
   return items.find((item) => item.id === id);
@@ -300,6 +387,158 @@ function findPreset(items: Preset[], id?: string): Preset | undefined {
 function presetText(preset: Preset | undefined, lang: PromptLanguage) {
   if (!preset) return '';
   return lang === 'zh' ? preset.zhText : preset.text;
+}
+
+function clampNumber(value: any, min: number, max: number, fallback: number) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+
+function normalizeAngle(value: any) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return ((n % 360) + 360) % 360;
+}
+
+function angleDistance(a: number, b: number) {
+  const diff = Math.abs(normalizeAngle(a) - normalizeAngle(b));
+  return Math.min(diff, 360 - diff);
+}
+
+function roundAngle(value: number) {
+  return Math.round(value);
+}
+
+function normalizeMultiAngleBatchMode(value: any): MultiAngleBatchMode {
+  return value === 'three' || value === 'four' || value === 'eight' || value === 'custom' ? value : 'single';
+}
+
+function parseMultiAngleCustomAngles(value: any) {
+  if (typeof value !== 'string') return [];
+  const seen = new Set<number>();
+  return value
+    .split(/[,，\s]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => Number(part.replace('°', '')))
+    .filter((n) => Number.isFinite(n))
+    .map((n) => roundAngle(normalizeAngle(n)))
+    .filter((n) => {
+      if (seen.has(n)) return false;
+      seen.add(n);
+      return true;
+    });
+}
+
+function getMultiAngleLabels(azimuth: number, elevation: number, distance: number) {
+  const hAngle = normalizeAngle(azimuth);
+  let hEn = 'front view';
+  let hZh = '正面视角';
+  if (hAngle < 22.5 || hAngle >= 337.5) {
+    hEn = 'front view';
+    hZh = '正面视角';
+  } else if (hAngle < 67.5) {
+    hEn = 'front-right quarter view';
+    hZh = '右前方四分之三视角';
+  } else if (hAngle < 112.5) {
+    hEn = 'right side view';
+    hZh = '右侧视角';
+  } else if (hAngle < 157.5) {
+    hEn = 'back-right quarter view';
+    hZh = '右后方四分之三视角';
+  } else if (hAngle < 202.5) {
+    hEn = 'back view';
+    hZh = '背面视角';
+  } else if (hAngle < 247.5) {
+    hEn = 'back-left quarter view';
+    hZh = '左后方四分之三视角';
+  } else if (hAngle < 292.5) {
+    hEn = 'left side view';
+    hZh = '左侧视角';
+  } else {
+    hEn = 'front-left quarter view';
+    hZh = '左前方四分之三视角';
+  }
+
+  let vEn = 'eye-level shot';
+  let vZh = '平视镜头';
+  if (elevation < -15) {
+    vEn = 'low-angle shot';
+    vZh = '仰拍镜头';
+  } else if (elevation < 15) {
+    vEn = 'eye-level shot';
+    vZh = '平视镜头';
+  } else if (elevation < 45) {
+    vEn = 'elevated shot';
+    vZh = '高机位镜头';
+  } else {
+    vEn = 'high-angle shot';
+    vZh = '俯拍镜头';
+  }
+
+  let zEn = 'medium shot';
+  let zZh = '中景';
+  if (distance < 2) {
+    zEn = 'wide shot';
+    zZh = '远景';
+  } else if (distance < 6) {
+    zEn = 'medium shot';
+    zZh = '中景';
+  } else {
+    zEn = 'close-up';
+    zZh = '特写';
+  }
+
+  return { hEn, hZh, vEn, vZh, zEn, zZh };
+}
+
+function buildSingleMultiAnglePrompt(
+  data: any,
+  patch: MultiAnglePatch = {},
+) {
+  const next = { ...data, ...patch };
+  const azimuth = normalizeAngle(next.multiAngleAzimuth ?? 0);
+  const elevation = clampNumber(next.multiAngleElevation, -30, 60, 0);
+  const distance = clampNumber(next.multiAngleDistance, 0, 10, 5);
+  const mode: MultiAnglePromptMode =
+    next.multiAnglePromptMode === 'general' || next.multiAnglePromptMode === 'dual' ? next.multiAnglePromptMode : 'qwen';
+  const lang: PromptLanguage = next.multiAngleLanguage === 'zh' ? 'zh' : 'en';
+  const labels = getMultiAngleLabels(azimuth, elevation, distance);
+  const custom = typeof next.multiAngleCustom === 'string' ? next.multiAngleCustom.trim() : '';
+  const prefix = typeof next.multiAnglePrefix === 'string' ? next.multiAnglePrefix.trim() : '';
+  const suffix = typeof next.multiAngleSuffix === 'string' ? next.multiAngleSuffix.trim() : '';
+  const qwenParts = lang === 'zh' ? [labels.hZh, labels.vZh, labels.zZh] : [labels.hEn, labels.vEn, labels.zEn];
+  const qwenPrompt = [prefix, `<sks> ${qwenParts.join(' ')}`, suffix].filter(Boolean).join(' ');
+  const generalPrompt =
+    lang === 'zh'
+      ? [prefix, labels.hZh, labels.vZh, labels.zZh, '清晰的相机角度参考', custom, suffix].filter(Boolean).join('，')
+      : [prefix, labels.hEn, labels.vEn, labels.zEn, 'clear camera angle reference', custom, suffix].filter(Boolean).join(', ');
+  if (mode === 'general') return generalPrompt;
+  if (mode === 'dual') return `${qwenPrompt}\n${generalPrompt}`;
+  return qwenPrompt;
+}
+
+function getMultiAngleBatchAngles(data: any) {
+  const mode = normalizeMultiAngleBatchMode(data?.multiAngleBatchMode);
+  if (mode === 'single') return [];
+  if (mode === 'custom') return parseMultiAngleCustomAngles(data?.multiAngleBatchCustomAngles);
+  return MULTI_ANGLE_BATCH_PRESETS.find((preset) => preset.id === mode)?.angles ?? [];
+}
+
+function buildMultiAnglePrompt(data: any, patch: MultiAnglePatch = {}) {
+  const next = { ...data, ...patch };
+  const angles = getMultiAngleBatchAngles(next);
+  if (angles.length === 0) return buildSingleMultiAnglePrompt(next);
+  return angles
+    .map((angle, index) => {
+      const text = buildSingleMultiAnglePrompt(next, { multiAngleAzimuth: angle });
+      return text
+        .split('\n')
+        .map((line, lineIndex) => (lineIndex === 0 ? `${index + 1}. ${line}` : `   ${line}`))
+        .join('\n');
+    })
+    .join('\n');
 }
 
 function buildCinematicPrompt(
@@ -339,6 +578,8 @@ function buildMotionPrompt(
 
 const chipClass = 't8-btn min-h-7 min-w-0 px-1.5 text-[10px] leading-none whitespace-nowrap overflow-hidden text-ellipsis';
 const miniChipClass = 't8-btn min-h-6 min-w-0 px-1 text-[9px] leading-none whitespace-nowrap overflow-hidden text-ellipsis';
+const favoriteChipClass = 't8-btn w-full min-h-7 min-w-0 justify-start px-2.5 text-[10px] leading-none text-left';
+const compactSelectClass = 't8-select w-full h-8 px-2 text-[11px]';
 const miniControlStyle: CSSProperties = {
   width: 28,
   minWidth: 28,
@@ -506,16 +747,317 @@ function MotionRoutePreview({ actionId, pathId }: { actionId?: string; pathId?: 
   );
 }
 
+function collectFirstImageUrl(nodesData: any) {
+  const list = Array.isArray(nodesData) ? nodesData : nodesData ? [nodesData] : [];
+  const pushFrom = (value: any): string => {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    return '';
+  };
+  for (const node of list) {
+    const d = node?.data || {};
+    const direct = pushFrom(d.imageUrl) || (d.uploadType === 'image' ? pushFrom(d.url) : '');
+    if (direct) return direct;
+    for (const key of ['imageUrls', 'urls', 'generatedImages'] as const) {
+      const arr = d[key];
+      if (Array.isArray(arr)) {
+        const found = arr.find((item: any) => typeof item === 'string' && item.trim());
+        if (found) return found.trim();
+      }
+    }
+    const firstFrame = pushFrom(d.firstFrameUrl) || pushFrom(d.lastFrameUrl);
+    if (firstFrame) return firstFrame;
+  }
+  return '';
+}
+
+type MultiAngleControl = 'azimuth' | 'elevation' | 'distance';
+
+function MultiAngleStage({
+  azimuth,
+  elevation,
+  distance,
+  imageUrl,
+  clipId,
+  onChange,
+}: {
+  azimuth: number;
+  elevation: number;
+  distance: number;
+  imageUrl?: string;
+  clipId: string;
+  onChange: (patch: Partial<Record<'multiAngleAzimuth' | 'multiAngleElevation' | 'multiAngleDistance', number>>) => void;
+}) {
+  const [dragControl, setDragControl] = useState<MultiAngleControl | null>(null);
+  const labels = getMultiAngleLabels(azimuth, elevation, distance);
+  const cx = 178;
+  const cy = 138;
+  const ringR = 72;
+  const azRad = (normalizeAngle(azimuth) * Math.PI) / 180;
+  const camX = cx + Math.sin(azRad) * ringR;
+  const camY = cy + Math.cos(azRad) * ringR;
+  const distX1 = 252;
+  const distX2 = 330;
+  const distY = 202;
+  const distX = distX1 + (clampNumber(distance, 0, 10, 5) / 10) * (distX2 - distX1);
+  const elevTop = 58;
+  const elevBottom = 218;
+  const elevCenter = (elevTop + elevBottom) / 2;
+  const safeElevation = clampNumber(elevation, -30, 60, 0);
+  const elevY =
+    safeElevation >= 0
+      ? elevCenter - (safeElevation / 60) * (elevCenter - elevTop)
+      : elevCenter + (Math.abs(safeElevation) / 30) * (elevBottom - elevCenter);
+
+  const svgPoint = (e: React.PointerEvent<SVGElement>) => {
+    const svg = e.currentTarget instanceof SVGSVGElement ? e.currentTarget : e.currentTarget.ownerSVGElement;
+    if (!svg) return { x: 0, y: 0 };
+    const rect = svg.getBoundingClientRect();
+    return {
+      x: ((e.clientX - rect.left) / Math.max(1, rect.width)) * 360,
+      y: ((e.clientY - rect.top) / Math.max(1, rect.height)) * 260,
+    };
+  };
+
+  const applyDrag = (control: MultiAngleControl, e: React.PointerEvent<SVGElement>) => {
+    const pt = svgPoint(e);
+    if (control === 'azimuth') {
+      const deg = normalizeAngle((Math.atan2(pt.x - cx, pt.y - cy) * 180) / Math.PI);
+      onChange({ multiAngleAzimuth: Math.round(deg) });
+    } else if (control === 'elevation') {
+      const y = clampNumber(pt.y, elevTop, elevBottom, elevY);
+      const next =
+        y <= elevCenter
+          ? ((elevCenter - y) / (elevCenter - elevTop)) * 60
+          : -((y - elevCenter) / (elevBottom - elevCenter)) * 30;
+      onChange({ multiAngleElevation: Math.round(next) });
+    } else {
+      const x = clampNumber(pt.x, distX1, distX2, distX);
+      const next = ((x - distX1) / (distX2 - distX1)) * 10;
+      onChange({ multiAngleDistance: Number(next.toFixed(1)) });
+    }
+  };
+
+  const startDrag = (control: MultiAngleControl, e: React.PointerEvent<SVGElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const svg = e.currentTarget instanceof SVGSVGElement ? e.currentTarget : e.currentTarget.ownerSVGElement;
+    try {
+      svg?.setPointerCapture(e.pointerId);
+    } catch {}
+    setDragControl(control);
+    applyDrag(control, e);
+  };
+
+  return (
+    <div className="t8-card p-2 space-y-2">
+      <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--t8-text-muted)' }}>
+        <Compass size={12} />
+        可视化机位
+        <span className="ml-auto text-[10px] font-semibold" style={{ color: 'var(--t8-text-dim)' }}>
+          {roundAngle(azimuth)}° / {roundAngle(elevation)}° / {distance.toFixed(1)}
+        </span>
+      </div>
+      <svg
+        viewBox="0 0 360 260"
+        className="block w-full h-[230px] cursor-crosshair select-none"
+        aria-label="可视化多角度相机控制"
+        onPointerMove={(e) => {
+          if (dragControl) applyDrag(dragControl, e);
+        }}
+        onPointerUp={() => setDragControl(null)}
+        onPointerLeave={() => setDragControl(null)}
+      >
+        <defs>
+          <clipPath id={clipId}>
+            <rect x="142" y="89" width="72" height="98" rx="9" />
+          </clipPath>
+          <linearGradient id={`${clipId}-card`} x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stopColor="var(--t8-bg-panel-elevated)" />
+            <stop offset="1" stopColor="var(--t8-bg-panel-muted)" />
+          </linearGradient>
+        </defs>
+        <rect x="8" y="8" width="344" height="244" rx="18" fill="var(--t8-bg-panel-muted)" opacity="0.7" />
+        {Array.from({ length: 8 }).map((_, i) => (
+          <path
+            key={`grid-${i}`}
+            d={`M${48 + i * 36} 34 V226`}
+            stroke="var(--t8-grid-line)"
+            strokeDasharray="2 8"
+            opacity="0.42"
+          />
+        ))}
+        {Array.from({ length: 5 }).map((_, i) => (
+          <path
+            key={`grid-h-${i}`}
+            d={`M34 ${58 + i * 38} H326`}
+            stroke="var(--t8-grid-line)"
+            strokeDasharray="2 8"
+            opacity="0.34"
+          />
+        ))}
+
+        <circle
+          cx={cx}
+          cy={cy}
+          r={ringR}
+          fill="none"
+          stroke="var(--t8-accent)"
+          strokeWidth="5"
+          opacity="0.16"
+          onPointerDown={(e) => startDrag('azimuth', e)}
+        />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={ringR}
+          fill="none"
+          stroke="var(--t8-accent)"
+          strokeWidth="2"
+          strokeDasharray="5 7"
+          opacity="0.62"
+          onPointerDown={(e) => startDrag('azimuth', e)}
+        />
+        <line x1={camX} y1={camY} x2={cx} y2={cy} stroke="var(--t8-accent)" strokeWidth="2" opacity="0.76" />
+        <circle cx={camX} cy={camY} r="12" fill="var(--t8-accent)" opacity="0.25" />
+        <circle
+          cx={camX}
+          cy={camY}
+          r="7"
+          fill="var(--t8-accent)"
+          stroke="var(--t8-bg-panel)"
+          strokeWidth="2"
+          onPointerDown={(e) => startDrag('azimuth', e)}
+        />
+        <path d={`M74 ${elevBottom} C48 154 52 96 74 ${elevTop}`} fill="none" stroke="var(--t8-secondary)" strokeWidth="5" opacity="0.18" />
+        <path
+          d={`M74 ${elevBottom} C48 154 52 96 74 ${elevTop}`}
+          fill="none"
+          stroke="var(--t8-secondary)"
+          strokeWidth="2"
+          opacity="0.7"
+          onPointerDown={(e) => startDrag('elevation', e)}
+        />
+        <circle
+          cx="74"
+          cy={elevY}
+          r="7"
+          fill="var(--t8-secondary)"
+          stroke="var(--t8-bg-panel)"
+          strokeWidth="2"
+          onPointerDown={(e) => startDrag('elevation', e)}
+        />
+        <text x="32" y="54" fontSize="9" fontWeight="800" fill="var(--t8-text-dim)">高</text>
+        <text x="32" y="222" fontSize="9" fontWeight="800" fill="var(--t8-text-dim)">低</text>
+
+        <line x1={distX1} y1={distY} x2={distX2} y2={distY} stroke="var(--t8-warning, #f59e0b)" strokeWidth="7" opacity="0.22" />
+        <line
+          x1={distX1}
+          y1={distY}
+          x2={distX2}
+          y2={distY}
+          stroke="var(--t8-warning, #f59e0b)"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          onPointerDown={(e) => startDrag('distance', e)}
+        />
+        <circle
+          cx={distX}
+          cy={distY}
+          r="7"
+          fill="var(--t8-warning, #f59e0b)"
+          stroke="var(--t8-bg-panel)"
+          strokeWidth="2"
+          onPointerDown={(e) => startDrag('distance', e)}
+        />
+        <text x="246" y="186" fontSize="9" fontWeight="800" fill="var(--t8-text-dim)">远</text>
+        <text x="324" y="186" fontSize="9" fontWeight="800" fill="var(--t8-text-dim)">近</text>
+
+        <rect x="142" y="89" width="72" height="98" rx="9" fill={`url(#${clipId}-card)`} stroke="var(--t8-border-strong)" strokeWidth="2" />
+        {imageUrl ? (
+          <image href={imageUrl} x="142" y="89" width="72" height="98" preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clipId})`} />
+        ) : (
+          <g opacity="0.85">
+            <circle cx="178" cy="127" r="10" fill="var(--t8-accent)" opacity="0.22" />
+            <path d="M164 169 C168 154 188 154 192 169" fill="var(--t8-accent)" opacity="0.18" />
+            <path d="M164 169 C168 154 188 154 192 169" fill="none" stroke="var(--t8-accent)" strokeWidth="2" />
+            <circle cx="178" cy="127" r="9" fill="none" stroke="var(--t8-accent)" strokeWidth="2" />
+          </g>
+        )}
+        <rect x="142" y="89" width="72" height="98" rx="9" fill="none" stroke="var(--t8-border-strong)" strokeWidth="2" />
+        <path d="M142 187 L214 187 L224 201 L132 201 Z" fill="var(--t8-accent)" opacity="0.12" />
+        <g fontSize="10" fontWeight="800">
+          <text x="178" y="32" textAnchor="middle" fill="var(--t8-text-main)">背面 180°</text>
+          <text x="178" y="240" textAnchor="middle" fill="var(--t8-text-main)">正面 0°</text>
+          <text x="315" y="142" textAnchor="middle" fill="var(--t8-text-main)">右侧</text>
+          <text x="43" y="142" textAnchor="middle" fill="var(--t8-text-main)">左侧</text>
+        </g>
+      </svg>
+      <div className="grid grid-cols-3 gap-1 text-[10px]">
+        <div className="t8-card px-2 py-1">
+          <div style={{ color: 'var(--t8-text-dim)' }}>水平</div>
+          <div className="font-bold truncate">{labels.hZh}</div>
+        </div>
+        <div className="t8-card px-2 py-1">
+          <div style={{ color: 'var(--t8-text-dim)' }}>垂直</div>
+          <div className="font-bold truncate">{labels.vZh}</div>
+        </div>
+        <div className="t8-card px-2 py-1">
+          <div style={{ color: 'var(--t8-text-dim)' }}>远近</div>
+          <div className="font-bold truncate">{labels.zZh}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ToolboxParamNode = (p: NodeProps) => {
   const update = useUpdateNodeData(p.id);
   const rf = useReactFlow();
   const d = p.data as any;
-  const kind: 'cinematic' | 'video-motion' | string = d?.kind || 'cinematic';
+  const kind: 'cinematic' | 'video-motion' | 'multi-angle-visual' | string = d?.kind || 'cinematic';
   const prompt: string = d?.prompt || '';
   const [error, setError] = useState('');
+  const upstreamConnections = useNodeConnections({ id: p.id, handleType: 'target' });
+  const upstreamIds = useMemo(
+    () => Array.from(new Set(upstreamConnections.map((c: any) => c.source).filter(Boolean))) as string[],
+    [upstreamConnections],
+  );
+  const upstreamNodesData = useNodesData(upstreamIds);
+  const upstreamPreviewImage = useMemo(() => collectFirstImageUrl(upstreamNodesData), [upstreamNodesData]);
 
   const cinematicLang: PromptLanguage = d?.cinematicLanguage === 'zh' ? 'zh' : 'en';
   const motionLang: PromptLanguage = d?.motionLanguage === 'zh' ? 'zh' : 'en';
+  const multiAnglePromptMode: MultiAnglePromptMode =
+    d?.multiAnglePromptMode === 'general' || d?.multiAnglePromptMode === 'dual' ? d.multiAnglePromptMode : 'qwen';
+  const multiAngleLanguage: PromptLanguage = d?.multiAngleLanguage === 'zh' ? 'zh' : 'en';
+  const multiAngleAzimuth = normalizeAngle(d?.multiAngleAzimuth ?? 0);
+  const multiAngleElevation = clampNumber(d?.multiAngleElevation, -30, 60, 0);
+  const multiAngleDistance = clampNumber(d?.multiAngleDistance, 0, 10, 5);
+  const multiAngleLabels = getMultiAngleLabels(multiAngleAzimuth, multiAngleElevation, multiAngleDistance);
+  const multiAngleBatchMode = normalizeMultiAngleBatchMode(d?.multiAngleBatchMode);
+  const multiAngleBatchAngles = getMultiAngleBatchAngles(d);
+  const multiAngleFavorites: MultiAngleFavorite[] = Array.isArray(d?.multiAngleFavorites)
+    ? d.multiAngleFavorites
+        .filter((item: any) => item && typeof item.label === 'string')
+        .map((item: any) => ({
+          id: String(item.id || `${item.label}-${item.azimuth}-${item.elevation}-${item.distance}`),
+          label: String(item.label),
+          azimuth: normalizeAngle(item.azimuth ?? 0),
+          elevation: clampNumber(item.elevation, -30, 60, 0),
+          distance: clampNumber(item.distance, 0, 10, 5),
+          createdAt: Number(item.createdAt) || undefined,
+        }))
+    : [];
+  const selectedAzimuthPresetId = MULTI_ANGLE_AZIMUTH_PRESETS.find((ps) => angleDistance(multiAngleAzimuth, ps.azimuth) < 1)?.id || '';
+  const selectedElevationPresetId = MULTI_ANGLE_ELEVATION_PRESETS.find((ps) => Math.abs(multiAngleElevation - ps.elevation) < 1)?.id || '';
+  const selectedDistancePresetId = MULTI_ANGLE_DISTANCE_PRESETS.find((ps) => Math.abs(multiAngleDistance - ps.distance) < 0.15)?.id || '';
+  const selectedCreativePresetId =
+    MULTI_ANGLE_CREATIVE_PRESETS.find(
+      (ps) =>
+        angleDistance(multiAngleAzimuth, ps.azimuth) < 1 &&
+        Math.abs(multiAngleElevation - ps.elevation) < 1 &&
+        Math.abs(multiAngleDistance - ps.distance) < 0.15,
+    )?.id || '';
   const selectedMotionActionId: string | undefined = d?.motionActionId || d?.presetId;
   const selectedMotionSceneId: string | undefined = d?.motionSceneId;
   const selectedMotionPathId: string | undefined = d?.motionPathId;
@@ -572,15 +1114,173 @@ const ToolboxParamNode = (p: NodeProps) => {
     setError('');
   };
 
+  const updateMultiAngle = (patch: MultiAnglePatch) => {
+    const normalizedPatch: typeof patch = { ...patch };
+    if (patch.multiAngleAzimuth !== undefined) normalizedPatch.multiAngleAzimuth = normalizeAngle(patch.multiAngleAzimuth);
+    if (patch.multiAngleElevation !== undefined) normalizedPatch.multiAngleElevation = clampNumber(patch.multiAngleElevation, -30, 60, 0);
+    if (patch.multiAngleDistance !== undefined) normalizedPatch.multiAngleDistance = clampNumber(patch.multiAngleDistance, 0, 10, 5);
+    const promptText = buildMultiAnglePrompt(d, normalizedPatch);
+    update({ ...normalizedPatch, prompt: promptText });
+    setError('');
+  };
+
+  const clearMultiAngle = () => {
+    const reset = {
+      multiAngleAzimuth: 0,
+      multiAngleElevation: 0,
+      multiAngleDistance: 5,
+      multiAnglePromptMode: 'qwen',
+      multiAngleLanguage: 'en',
+      multiAngleBatchMode: 'single',
+      multiAngleBatchCustomAngles: '',
+      multiAnglePrefix: '',
+      multiAngleSuffix: '',
+      multiAngleCustom: '',
+    };
+    update({ ...reset, prompt: buildMultiAnglePrompt(reset) });
+    setError('');
+  };
+
+  const addMultiAngleFavorite = () => {
+    const label = `${multiAngleLabels.hZh}/${multiAngleLabels.vZh}/${multiAngleLabels.zZh}`;
+    const favorite: MultiAngleFavorite = {
+      id: `fav-${Date.now()}`,
+      label,
+      azimuth: roundAngle(multiAngleAzimuth),
+      elevation: roundAngle(multiAngleElevation),
+      distance: Number(multiAngleDistance.toFixed(1)),
+      createdAt: Date.now(),
+    };
+    const nextFavorites = [favorite, ...multiAngleFavorites].slice(0, 12);
+    updateMultiAngle({ multiAngleFavorites: nextFavorites });
+  };
+
+  const applyMultiAngleFavorite = (favorite: MultiAngleFavorite) => {
+    updateMultiAngle({
+      multiAngleAzimuth: favorite.azimuth,
+      multiAngleElevation: favorite.elevation,
+      multiAngleDistance: favorite.distance,
+    });
+  };
+
+  const removeMultiAngleFavorite = (id: string) => {
+    updateMultiAngle({ multiAngleFavorites: multiAngleFavorites.filter((item) => item.id !== id) });
+  };
+
+  const normalizeImportedFavorites = (value: any): MultiAngleFavorite[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter((item: any) => item && typeof item === 'object')
+      .map((item: any, index: number) => ({
+        id: String(item.id || `import-${Date.now()}-${index}`),
+        label: String(item.label || `镜头 ${index + 1}`),
+        azimuth: roundAngle(normalizeAngle(item.azimuth ?? 0)),
+        elevation: roundAngle(clampNumber(item.elevation, -30, 60, 0)),
+        distance: Number(clampNumber(item.distance, 0, 10, 5).toFixed(1)),
+        createdAt: Number(item.createdAt) || Date.now(),
+      }))
+      .slice(0, 12);
+  };
+
+  const importMultiAnglePresetPayload = (payload: any) => {
+    const current = payload?.current || {};
+    const importedFavorites = normalizeImportedFavorites(payload?.favorites);
+    const batchAngles = Array.isArray(current.batchAngles)
+      ? current.batchAngles.map((n: any) => roundAngle(normalizeAngle(n))).join(',')
+      : '';
+    const patch: MultiAnglePatch = {};
+    if (current.azimuth !== undefined) patch.multiAngleAzimuth = current.azimuth;
+    if (current.elevation !== undefined) patch.multiAngleElevation = current.elevation;
+    if (current.distance !== undefined) patch.multiAngleDistance = current.distance;
+    if (current.promptMode === 'qwen' || current.promptMode === 'general' || current.promptMode === 'dual') patch.multiAnglePromptMode = current.promptMode;
+    if (current.language === 'zh' || current.language === 'en') patch.multiAngleLanguage = current.language;
+    if (current.batchMode === 'single' || current.batchMode === 'three' || current.batchMode === 'four' || current.batchMode === 'eight' || current.batchMode === 'custom') {
+      patch.multiAngleBatchMode = current.batchMode;
+    }
+    if (batchAngles) patch.multiAngleBatchCustomAngles = batchAngles;
+    if (typeof current.prefix === 'string') patch.multiAnglePrefix = current.prefix;
+    if (typeof current.suffix === 'string') patch.multiAngleSuffix = current.suffix;
+    if (typeof current.custom === 'string') patch.multiAngleCustom = current.custom;
+    if (importedFavorites.length > 0) {
+      patch.multiAngleFavorites = [...importedFavorites, ...multiAngleFavorites]
+        .filter((item, index, arr) => arr.findIndex((other) => other.id === item.id) === index)
+        .slice(0, 12);
+    }
+    if (Object.keys(patch).length === 0) {
+      setError('未识别到可导入的角度预设');
+      return;
+    }
+    updateMultiAngle(patch);
+  };
+
+  const importMultiAnglePresets = (file: File | null | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const payload = JSON.parse(String(reader.result || '{}'));
+        if (payload?.schema !== 't8-multi-angle-presets') {
+          setError('JSON 格式不是 T8 多角度预设');
+          return;
+        }
+        importMultiAnglePresetPayload(payload);
+      } catch {
+        setError('JSON 解析失败，请检查文件内容');
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  };
+
+  const exportMultiAnglePresets = () => {
+    const payload = {
+      schema: 't8-multi-angle-presets',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      current: {
+        azimuth: roundAngle(multiAngleAzimuth),
+        elevation: roundAngle(multiAngleElevation),
+        distance: Number(multiAngleDistance.toFixed(1)),
+        promptMode: multiAnglePromptMode,
+        language: multiAngleLanguage,
+        batchMode: multiAngleBatchMode,
+        batchAngles: multiAngleBatchAngles,
+        prefix: d?.multiAnglePrefix || '',
+        suffix: d?.multiAngleSuffix || '',
+        custom: d?.multiAngleCustom || '',
+      },
+      builtInBatches: MULTI_ANGLE_BATCH_PRESETS.map((item) => ({ id: item.id, label: item.label, angles: item.angles })),
+      favorites: multiAngleFavorites,
+    };
+    const text = JSON.stringify(payload, null, 2);
+    if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Blob === 'undefined') {
+      if (typeof navigator !== 'undefined') navigator.clipboard?.writeText(text).catch(() => undefined);
+      return;
+    }
+    const blob = new Blob([text], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `t8-multi-angle-presets-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const copyPrompt = () => {
-    if (!prompt || typeof navigator === 'undefined' || !navigator.clipboard) return;
-    navigator.clipboard.writeText(prompt).catch(() => undefined);
+    const text = prompt || (kind === 'multi-angle-visual' ? buildMultiAnglePrompt(d) : '');
+    if (!text || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    navigator.clipboard.writeText(text).catch(() => undefined);
   };
 
   const handleRun = async () => {
-    const finalPrompt = String((p.data as any)?.prompt || prompt || '').trim();
+    const fallbackPrompt = kind === 'multi-angle-visual' ? buildMultiAnglePrompt(p.data as any) : '';
+    const finalPrompt = String((p.data as any)?.prompt || prompt || fallbackPrompt || '').trim();
     if (!finalPrompt) {
-      const msg = kind === 'cinematic' ? '请先选择电影感风格或填写自定义补充' : '请先选择运镜动作或填写自定义补充';
+      const msg =
+        kind === 'cinematic'
+          ? '请先选择电影感风格或填写自定义补充'
+          : kind === 'multi-angle-visual'
+            ? '请先调整机位或选择多角度预设'
+            : '请先选择运镜动作或填写自定义补充';
       setError(msg);
       throw new Error(msg);
     }
@@ -608,7 +1308,7 @@ const ToolboxParamNode = (p: NodeProps) => {
     }
 
     const me = rf.getNode(p.id);
-    const myW = (me as any)?.measured?.width || (me as any)?.width || (kind === 'cinematic' ? 620 : 540);
+    const myW = (me as any)?.measured?.width || (me as any)?.width || (kind === 'cinematic' ? 620 : kind === 'multi-angle-visual' ? 760 : 540);
     const baseX = (me?.position?.x ?? 0) + myW + 80;
     const baseY = me?.position?.y ?? 0;
     const pos = placeSingleNode(baseX, baseY, 'output', nodes, { source: `placement:toolbox-output:${p.id}` });
@@ -632,6 +1332,255 @@ const ToolboxParamNode = (p: NodeProps) => {
   };
 
   useRunTrigger(p.id, handleRun);
+
+  if (kind === 'multi-angle-visual') {
+    return (
+      <div
+        className={`t8-node relative transition-all ${p.selected ? 'ring-2 ring-cyan-300' : ''}`}
+        style={{ width: 760, maxWidth: 760 }}
+      >
+        <Handle type="target" position={Position.Left} style={{ background: 'var(--t8-secondary)', border: 0 }} />
+        <Handle type="source" position={Position.Right} style={{ background: 'var(--t8-accent)', border: 0 }} />
+
+        <div className="t8-node-header flex items-center gap-2 px-3 py-2 rounded-t-[inherit]">
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{
+              background: 'color-mix(in srgb, var(--t8-accent) 18%, var(--t8-bg-panel-elevated))',
+              color: 'var(--t8-accent)',
+              boxShadow: 'inset 0 0 0 1px var(--t8-accent)',
+            }}
+          >
+            <Box size={15} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold">可视化多角度</div>
+            <div className="text-[10px] truncate" style={{ color: 'var(--t8-text-dim)' }}>
+              方位 / 俯仰 / 远近 → Qwen 多角度提示词
+            </div>
+          </div>
+          <button
+            type="button"
+            style={miniIconControlStyle}
+            title="重置机位"
+            aria-label="重置多角度机位"
+            onClick={clearMultiAngle}
+          >
+            <RotateCcw size={13} />
+          </button>
+        </div>
+
+        <div className="p-3 nodrag" onPointerDown={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          <div className="grid grid-cols-[340px_1fr] gap-3 items-start">
+            <div className="space-y-2 min-w-0">
+              <MultiAngleStage
+                azimuth={multiAngleAzimuth}
+                elevation={multiAngleElevation}
+                distance={multiAngleDistance}
+                imageUrl={upstreamPreviewImage}
+                clipId={`multi-angle-preview-${p.id}`}
+                onChange={updateMultiAngle}
+              />
+
+              <div className="t8-card px-2.5 py-2 text-[10px] leading-relaxed">
+                <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--t8-text-dim)' }}>
+                  <Sparkles size={10} />
+                  <span className="font-bold">输出 prompt</span>
+                  <span className="truncate">
+                    {multiAngleLabels.hZh} / {multiAngleLabels.vZh} / {multiAngleLabels.zZh}
+                  </span>
+                  <button
+                    type="button"
+                    className="ml-auto"
+                    title="复制输出文本"
+                    aria-label="复制输出文本"
+                    onClick={copyPrompt}
+                    disabled={!(prompt || kind === 'multi-angle-visual')}
+                    style={{
+                      ...miniIconControlStyle,
+                      width: 24,
+                      minWidth: 24,
+                      height: 24,
+                      minHeight: 24,
+                      opacity: prompt || kind === 'multi-angle-visual' ? 1 : 0.45,
+                      cursor: prompt || kind === 'multi-angle-visual' ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    <Copy size={11} />
+                  </button>
+                </div>
+                <div className="min-h-[72px] max-h-28 overflow-y-auto pr-1 whitespace-pre-wrap break-words" style={{ color: prompt ? 'var(--t8-text-main)' : 'var(--t8-text-dim)' }}>
+                  {prompt || buildMultiAnglePrompt(d)}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2 min-w-0">
+              <section className="t8-card p-2 space-y-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--t8-text-muted)' }}>
+                  <SlidersHorizontal size={12} />
+                  精准调节
+                </div>
+                <div className="grid grid-cols-[52px_1fr_40px] gap-2 items-center text-[11px]">
+                  <span style={{ color: 'var(--t8-text-dim)' }}>水平</span>
+                  <input type="range" min={0} max={360} step={1} value={roundAngle(multiAngleAzimuth)} onChange={(e) => updateMultiAngle({ multiAngleAzimuth: Number(e.target.value) })} style={{ accentColor: 'var(--t8-accent)' }} />
+                  <span className="text-right font-bold">{roundAngle(multiAngleAzimuth)}°</span>
+                  <span style={{ color: 'var(--t8-text-dim)' }}>垂直</span>
+                  <input type="range" min={-30} max={60} step={1} value={roundAngle(multiAngleElevation)} onChange={(e) => updateMultiAngle({ multiAngleElevation: Number(e.target.value) })} style={{ accentColor: 'var(--t8-secondary)' }} />
+                  <span className="text-right font-bold">{roundAngle(multiAngleElevation)}°</span>
+                  <span style={{ color: 'var(--t8-text-dim)' }}>远近</span>
+                  <input type="range" min={0} max={10} step={0.1} value={multiAngleDistance} onChange={(e) => updateMultiAngle({ multiAngleDistance: Number(e.target.value) })} style={{ accentColor: 'var(--t8-warning, #f59e0b)' }} />
+                  <span className="text-right font-bold">{multiAngleDistance.toFixed(1)}</span>
+                </div>
+              </section>
+
+              <section className="grid grid-cols-2 gap-2">
+                <div className="t8-card p-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--t8-text-muted)' }}>
+                    <Compass size={12} />
+                    角度列表
+                  </div>
+                  <select
+                    className={compactSelectClass}
+                    value={selectedAzimuthPresetId}
+                    onChange={(e) => {
+                      const ps = MULTI_ANGLE_AZIMUTH_PRESETS.find((item) => item.id === e.target.value);
+                      if (ps) updateMultiAngle({ multiAngleAzimuth: ps.azimuth });
+                    }}
+                  >
+                    <option value="">方向：当前 {roundAngle(multiAngleAzimuth)}°</option>
+                    {MULTI_ANGLE_AZIMUTH_PRESETS.map((ps) => <option key={ps.id} value={ps.id}>{ps.label}</option>)}
+                  </select>
+                  <select
+                    className={compactSelectClass}
+                    value={selectedElevationPresetId}
+                    onChange={(e) => {
+                      const ps = MULTI_ANGLE_ELEVATION_PRESETS.find((item) => item.id === e.target.value);
+                      if (ps) updateMultiAngle({ multiAngleElevation: ps.elevation });
+                    }}
+                  >
+                    <option value="">高度：当前 {roundAngle(multiAngleElevation)}°</option>
+                    {MULTI_ANGLE_ELEVATION_PRESETS.map((ps) => <option key={ps.id} value={ps.id}>{ps.label}</option>)}
+                  </select>
+                  <select
+                    className={compactSelectClass}
+                    value={selectedDistancePresetId}
+                    onChange={(e) => {
+                      const ps = MULTI_ANGLE_DISTANCE_PRESETS.find((item) => item.id === e.target.value);
+                      if (ps) updateMultiAngle({ multiAngleDistance: ps.distance });
+                    }}
+                  >
+                    <option value="">远近：当前 {multiAngleDistance.toFixed(1)}</option>
+                    {MULTI_ANGLE_DISTANCE_PRESETS.map((ps) => <option key={ps.id} value={ps.id}>{ps.label}</option>)}
+                  </select>
+                  <select
+                    className={compactSelectClass}
+                    value={selectedCreativePresetId}
+                    onChange={(e) => {
+                      const ps = MULTI_ANGLE_CREATIVE_PRESETS.find((item) => item.id === e.target.value);
+                      if (ps) updateMultiAngle({ multiAngleAzimuth: ps.azimuth, multiAngleElevation: ps.elevation, multiAngleDistance: ps.distance });
+                    }}
+                  >
+                    <option value="">快捷机位</option>
+                    {MULTI_ANGLE_CREATIVE_PRESETS.map((ps) => <option key={ps.id} value={ps.id}>{ps.label}</option>)}
+                  </select>
+                </div>
+
+                <div className="t8-card p-2 space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--t8-text-muted)' }}>
+                    <Wand2 size={12} />
+                    输出设置
+                  </div>
+                  <select className={compactSelectClass} value={multiAngleBatchMode} onChange={(e) => updateMultiAngle({ multiAngleBatchMode: e.target.value as MultiAngleBatchMode })}>
+                    {MULTI_ANGLE_BATCH_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}{preset.id === 'single' ? '' : ` · ${preset.id === 'custom' ? multiAngleBatchAngles.length || 0 : preset.angles.length}条`}
+                      </option>
+                    ))}
+                  </select>
+                  {multiAngleBatchMode === 'custom' && (
+                    <input className="t8-input w-full h-8 px-2 text-[11px]" value={d?.multiAngleBatchCustomAngles || ''} placeholder="0,45,90,180" onChange={(e) => updateMultiAngle({ multiAngleBatchCustomAngles: e.target.value })} />
+                  )}
+                  <select className={compactSelectClass} value={multiAnglePromptMode} onChange={(e) => updateMultiAngle({ multiAnglePromptMode: e.target.value as MultiAnglePromptMode })}>
+                    <option value="qwen">Prompt：Qwen</option>
+                    <option value="general">Prompt：通用</option>
+                    <option value="dual">Prompt：双格式</option>
+                  </select>
+                  <select className={compactSelectClass} value={multiAngleLanguage} onChange={(e) => updateMultiAngle({ multiAngleLanguage: e.target.value as PromptLanguage })}>
+                    <option value="en">语言：EN</option>
+                    <option value="zh">语言：中</option>
+                  </select>
+                </div>
+              </section>
+
+              <section className="t8-card p-2 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--t8-text-muted)' }}>
+                  <Film size={12} />
+                  文本补充
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <input className="t8-input h-8 px-2 text-[11px]" value={d?.multiAnglePrefix || ''} placeholder="前缀" onChange={(e) => updateMultiAngle({ multiAnglePrefix: e.target.value })} />
+                  <input className="t8-input h-8 px-2 text-[11px]" value={d?.multiAngleCustom || ''} placeholder="补充" onChange={(e) => updateMultiAngle({ multiAngleCustom: e.target.value })} />
+                  <input className="t8-input h-8 px-2 text-[11px]" value={d?.multiAngleSuffix || ''} placeholder="后缀" onChange={(e) => updateMultiAngle({ multiAngleSuffix: e.target.value })} />
+                </div>
+              </section>
+
+              <section className="t8-card p-2 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: 'var(--t8-text-muted)' }}>
+                  <Star size={12} />
+                  镜头收藏
+                  <button type="button" className={`${miniChipClass} ml-auto`} onClick={addMultiAngleFavorite} title="收藏当前机位">
+                    <Star size={10} />
+                    收藏
+                  </button>
+                  <label className={`${miniChipClass} cursor-pointer`} title="导入角度预设 JSON">
+                    <FolderOpen size={10} />
+                    导入
+                    <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => { importMultiAnglePresets(e.target.files?.[0]); e.currentTarget.value = ''; }} />
+                  </label>
+                  <button type="button" className={miniChipClass} onClick={exportMultiAnglePresets} title="导出角度预设 JSON">
+                    <Download size={10} />
+                    导出
+                  </button>
+                </div>
+                {multiAngleFavorites.length > 0 ? (
+                  <div
+                    className="nowheel grid max-h-28 grid-cols-1 gap-1 overflow-y-auto overscroll-contain pr-2"
+                    onWheelCapture={(e) => e.stopPropagation()}
+                    onWheel={(e) => e.stopPropagation()}
+                  >
+                    {multiAngleFavorites.map((favorite) => {
+                      const title = `${favorite.label}: ${favorite.azimuth}° / ${favorite.elevation}° / ${favorite.distance}`;
+                      return (
+                        <div key={favorite.id} className="grid min-w-0 grid-cols-[1fr_26px] items-center gap-1.5">
+                          <button type="button" className={favoriteChipClass} title={title} onClick={() => applyMultiAngleFavorite(favorite)}>
+                            <span className="block min-w-0 flex-1 truncate px-0.5">{favorite.label}</span>
+                          </button>
+                          <button type="button" style={{ ...miniIconControlStyle, width: 24, minWidth: 24, height: 24, minHeight: 24 }} title="删除收藏" aria-label="删除收藏" onClick={() => removeMultiAngleFavorite(favorite.id)}>
+                            <Trash2 size={10} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-[10px]" style={{ color: 'var(--t8-text-dim)' }}>
+                    收藏常用机位后，可一键应用并随画布保存。
+                  </div>
+                )}
+              </section>
+            </div>
+          </div>
+
+          <button type="button" className="t8-btn t8-btn-primary w-full min-h-9 text-xs mt-3" onClick={handleRun}>
+            <Play size={13} fill="currentColor" />
+            运行输出文本
+          </button>
+          {error && <div className="text-[10px] mt-1" style={{ color: 'var(--t8-danger, #ef4444)' }}>{error}</div>}
+        </div>
+      </div>
+    );
+  }
 
   if (kind === 'video-motion') {
     return (

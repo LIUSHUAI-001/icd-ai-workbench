@@ -35,7 +35,7 @@ export interface NodePorts {
 }
 
 /**
- * 节点端口注册表(覆盖全部 24 + upload 共 25 种节点)
+ * 节点端口注册表
  * 与 features.json 节点清单严格对齐
  */
 export const NODE_PORTS: Record<string, NodePorts> = {
@@ -100,6 +100,7 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   // ========== Toolbox ==========
   cinematic: { inputs: [], outputs: ['text'] },
   'video-motion': { inputs: [], outputs: ['text'] },
+  'multi-angle-visual': { inputs: ['image'], outputs: ['text'] },
 
   // ========== 上传素材节点 (NEW) ==========
   // 动态:由 data.uploadType 决定具体输出。未上传时 outputs=[],不允许连出。

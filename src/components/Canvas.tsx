@@ -134,9 +134,10 @@ const SPECIFIC_NODES: Record<string, any> = {
   bp: BpNode,
   relay: RelayNode,
   'video-output': VideoOutputNode,
-  // Toolbox (2)
+  // Toolbox (3)
   cinematic: ToolboxParamNode,
   'video-motion': ToolboxParamNode,
+  'multi-angle-visual': ToolboxParamNode,
   // Input (1) - 上传素材
   upload: UploadNode,
   // Output (1) - 输出素材(文本/图像/视频/音频 预览 + 文本双击编辑)
@@ -163,6 +164,21 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   },
   cinematic: { kind: 'cinematic', cinematicLanguage: 'en', cinematicStrength: 'balanced' },
   'video-motion': { kind: 'video-motion', motionLanguage: 'en' },
+  'multi-angle-visual': {
+    kind: 'multi-angle-visual',
+    multiAngleAzimuth: 0,
+    multiAngleElevation: 0,
+    multiAngleDistance: 5,
+    multiAnglePromptMode: 'qwen',
+    multiAngleLanguage: 'en',
+    multiAngleBatchMode: 'single',
+    multiAngleBatchCustomAngles: '',
+    multiAnglePrefix: '',
+    multiAngleSuffix: '',
+    multiAngleCustom: '',
+    multiAngleFavorites: [],
+    prompt: '<sks> front view eye-level shot medium shot',
+  },
   'multi-angle-3d': { preset: 'multi-angle-3d' },
   'panorama-720': { preset: 'panorama-720' },
   'penguin-portrait': { preset: 'penguin-portrait' },
@@ -219,8 +235,8 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'upload',
   // v1.2.8 工具节点 (循环器 / 从合集获取)
   'loop', 'pick-from-set',
-  // v1.4.7: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
-  'cinematic', 'video-motion',
+  // v1.4.8: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
+  'cinematic', 'video-motion', 'multi-angle-visual',
 ]);
 
 // 网格吸附步长 / 对齐阈值(世界坐标)
