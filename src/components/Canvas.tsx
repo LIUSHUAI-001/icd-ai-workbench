@@ -250,6 +250,7 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   // 从合集获取: 默认 image + 第 1 个
   'pick-from-set': { pickKind: 'image', pickIndex: 1 },
   'image-compare': { mode: 'slider', align: 'contain', split: 50, opacity: 50, threshold: 24 },
+  'drawing-board': { boardRatio: '16:9', boardWidth: 960, boardHeight: 540, boardElements: [], boardColor: '#111827', boardStrokeSize: 5 },
   'grid-crop': { rows: 3, cols: 3, gap: 0 },
 };
 
@@ -261,7 +262,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'video', 'seedance', 'audio', 'llm', 'runninghub', 'runninghub-wallet',
   // v1.2.10.1: rh-tools 与 RunningHub 同质，同样可被批量运行调起
   'rh-tools',
-  'resize', 'upscale', 'grid-crop', 'remove-bg', 'combine', 'image-compare',
+  'resize', 'upscale', 'grid-crop', 'remove-bg', 'combine', 'image-compare', 'drawing-board',
   'frame-extractor', 'frame-pair',
   'upload',
   // v1.2.8 工具节点 (循环器 / 从合集获取)
@@ -395,6 +396,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   const visualStyle = currentTemplate.visuals?.style || style;
   const isOp = visualStyle === 'op';
   const isNaruto = visualStyle === 'naruto';
+  const isEva = visualStyle === 'eva';
   const themeTokens = getTemplateMode(currentTemplate, theme).tokens;
   const { screenToFlowPosition, setCenter, getViewport } = useReactFlow();
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -3022,21 +3024,21 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
             </svg>
           </ViewportPortal>
         )}
-        <ThemeMusicToggle template={currentTemplate} />
-        <Controls
-          style={{
-            background: isOp
-              ? themeTokens.panelBg
-              : isDark ? 'rgba(20,20,22,.9)' : 'rgba(255,255,255,.9)',
-            border: isOp
-              ? `3px solid ${themeTokens.textMain}`
-              : `1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}`,
-            borderRadius: isOp ? '16px 16px 8px 8px' : 8,
-            left: isOp ? 18 : undefined,
-            bottom: isOp ? 34 : undefined,
-            boxShadow: isOp ? `4px 4px 0 ${themeTokens.textMain}` : undefined,
-          }}
-        />
+        <div className="t8-control-rail nodrag nopan" data-canvas-floating-ui="control-rail">
+          <ThemeMusicToggle template={currentTemplate} />
+          <Controls
+            style={{
+              background: isOp
+                ? themeTokens.panelBg
+                : isDark ? 'rgba(20,20,22,.9)' : 'rgba(255,255,255,.9)',
+              border: isOp
+                ? `3px solid ${themeTokens.textMain}`
+                : `1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}`,
+              borderRadius: isOp ? '16px 16px 8px 8px' : 8,
+              boxShadow: isOp ? `4px 4px 0 ${themeTokens.textMain}` : undefined,
+            }}
+          />
+        </div>
         <MiniMap
           pannable
           zoomable
@@ -3046,31 +3048,37 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
             setCenter(position.x, position.y, { zoom, duration: 400 });
           }}
           style={{
-            width: isOp ? 144 : isNaruto ? 182 : undefined,
-            height: isOp ? 144 : isNaruto ? 122 : undefined,
+            width: isOp ? 144 : isNaruto ? 182 : isEva ? 258 : undefined,
+            height: isOp ? 144 : isNaruto ? 122 : isEva ? 172 : undefined,
             background: isOp
               ? themeTokens.panelBg
               : isNaruto
+                ? themeTokens.panelBg
+              : isEva
                 ? themeTokens.panelBg
               : isDark ? 'rgba(20,20,22,.9)' : 'rgba(255,255,255,.9)',
             border: isOp
               ? `4px double ${themeTokens.textMain}`
               : isNaruto
                 ? `3px solid ${themeTokens.textMain}`
-              : `1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}`,
-            borderRadius: isOp ? 999 : isNaruto ? '18px 18px 12px 12px' : 8,
-            right: isOp ? 24 : isNaruto ? 24 : undefined,
-            bottom: isOp ? 42 : isNaruto ? 40 : undefined,
+              : isEva
+                  ? `2px solid ${themeTokens.borderStrong}`
+                : `1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}`,
+            borderRadius: isOp ? 999 : isNaruto ? '18px 18px 12px 12px' : isEva ? 8 : 8,
+            right: isOp ? 24 : isNaruto ? 24 : isEva ? 24 : undefined,
+            bottom: isOp ? 42 : isNaruto ? 40 : isEva ? 24 : undefined,
             boxShadow: isOp
               ? `0 0 0 7px ${themeTokens.warning}, 5px 5px 0 ${themeTokens.textMain}`
               : isNaruto
                 ? themeTokens.shadowPanel
+              : isEva
+                  ? `0 0 0 4px ${themeTokens.panelBgElevated}, 0 0 0 6px ${themeTokens.borderStrong}, 0 18px 46px rgba(0,0,0,.5), inset 0 0 34px ${themeTokens.accent}22`
               : undefined,
             cursor: 'pointer',
-            overflow: isOp || isNaruto ? 'hidden' : undefined,
+            overflow: isOp || isNaruto || isEva ? 'hidden' : undefined,
           }}
-          maskColor={isOp ? 'rgba(15,124,140,.28)' : isNaruto ? 'rgba(255,91,31,.22)' : isDark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.6)'}
-          nodeColor={() => (isOp ? themeTokens.secondary : isNaruto ? themeTokens.accent : isDark ? '#a1a1aa' : '#52525b')}
+          maskColor={isOp ? 'rgba(15,124,140,.28)' : isNaruto ? 'rgba(255,91,31,.22)' : isEva ? 'rgba(156,255,0,.18)' : isDark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.6)'}
+          nodeColor={() => (isOp ? themeTokens.secondary : isNaruto ? themeTokens.accent : isEva ? themeTokens.danger : isDark ? '#a1a1aa' : '#52525b')}
         />
         {/* 选中可执行节点时的浮动操作栏 (执行 / 中止 / 关闭) */}
         <NodeActionBar />
