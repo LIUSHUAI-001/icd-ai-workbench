@@ -132,6 +132,8 @@ export interface ApiSettings {
   resourceLibraryPath?: string;
   // v1.3.6: 自定义主题模板路径(主题 JSON 文件)
   themeTemplatePath?: string;
+  // 本地 Eagle API 地址(默认 http://127.0.0.1:41595)
+  eagleApiBase?: string;
   preferences?: {
     theme?: 'dark' | 'light';
     language?: string;

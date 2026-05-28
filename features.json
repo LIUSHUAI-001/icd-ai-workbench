@@ -1,7 +1,7 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "1.6.1",
-  "lastUpdated": "2026-05-28-v1.6.1-global-context-actions",
+  "version": "1.6.2",
+  "lastUpdated": "2026-05-28-v1.6.2-cross-canvas-eagle-send",
   "packaging": {
     "description": "Electron NSIS 桌面端打包链路(v1.2.1 起标准化, 严禁未明确指令主动打包)。完整产物拓扑: app.asar(electron/{main,loader,preload}.cjs + node_modules) + app.asar.unpacked(node_modules/sharp + @img) + resources/backend-enc/*.t8c(extraResources, asar 外) + resources/frontend(extraResources, asar 外)。前端版本号由 vite define 注入 __APP_VERSION__、Sidebar 左下角自动同步。",
     "scripts": {
@@ -16,15 +16,15 @@
       "T8PC_FRONTEND_DIST": "打包模式 = path.join(process.resourcesPath, 'frontend'); 开发模式 = <project>/dist",
       "T8PC_RES": "打包模式 = process.resourcesPath; 开发模式 = <project>"
     },
-    "version": "1.6.1",
-    "semverVersion": "1.6.1",
-    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.6.1：画板节点正式开放为可执行工具节点，支持图层 / 图层组 / 可见与锁定 / 载入图片 / 手绘文字图形箭头 / 缩放旋转 / JSON 导入导出 / PNG 输出；同时将主题音乐按钮与 ReactFlow Controls 合并到 .t8-control-rail，统一修复火影与 EVA 等主题的喇叭/缩放条漂移，并把画布水印固定在背景层，EVA 深色 NERV 水印改为不透明增强。已通过 npm run build；本次未重新打包 Electron。",
+    "version": "1.6.2",
+    "semverVersion": "1.6.2",
+    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.6.2：新增跨画布素材发送与本地 Eagle 入库能力，框选上传素材 / 输出素材 / 素材集可发送到其他画布、资源库或 Eagle；发送弹窗补充明确选中态、忙碌反馈、发送后自动切换并定位到新节点，同批素材重复发送会替换旧批次，避免旧发送结果累计。已通过 npm run build；本次未重新打包 Electron。",
     "installer": "本次未打包 Electron；最近一次安装包为 dist_electron/T8-PenguinCanvas-Setup-1.5.5.exe (NSIS, 108.96 MB)",
     "checklist": [
       "运行 npm run encrypt 前确认已 npm install bytenode 且使用 Electron 内置 Node",
       "backend/src/ 任何文件修改后必须重新 npm run encrypt 再打包",
       "main.cjs 的窗口标题 / log 窗口 / IPC version 三处版本号，以及 backend/src/config.js APP_VERSION 必须与 package.json 同步",
-      "_post_build.cjs 验证 11 个 .t8c 必存在: server/config + routes/{canvas,settings,proxy,files,imageOps,recharge,resources,themes} + utils/duckPayload",
+      "_post_build.cjs 验证 12 个 .t8c 必存在: server/config + routes/{canvas,settings,proxy,files,imageOps,recharge,resources,themes,eagle} + utils/duckPayload",
       "_post_build.cjs 验证 resources/frontend/index.html + assets/ 必存在",
       "_post_build.cjs 必须让 src/assets/theme-music/*.mp3 经 Vite 输出到 resources/frontend/assets，主题音乐默认静音且随前端资源一起打包",
       "_post_build.cjs 自动清除任何意外混入的 resources/{app,backend}/src 明文目录",
@@ -1255,6 +1255,19 @@
         "编辑图片弹窗的宫格切分默认从 2×2 调整为 3×3，并在预设宫格与自定义切线两种模式中给 gap 去缝间距补充滑杆；数字框与滑杆实时互相同步，方便用户快速感知缝隙大小。",
         "公开版本同步到 1.6.1：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 docs/theme-design-guide.md 同步；skill.md 仅本地更新，继续禁止推送 GitHub。"
       ]
+    },
+    "phase81": {
+      "label": "跨画布素材发送与 Eagle 入库 (v1.6.2)",
+      "status": "complete",
+      "items": [
+        "新增 SendMaterialsModal 发送素材弹窗，框选上传素材、输出素材、素材集或从资源库卡片触发时，会汇总图像 / 视频 / 音频 / 文本并显示素材概览。",
+        "发送方式支持智能保持、合并素材集、上传素材、拆成多个上传、输出素材；目标画布支持搜索与明确选中态，底部展示当前选择，发送 / 保存 / Eagle 操作都有忙碌反馈。",
+        "Canvas 跨画布写入目标画布 JSON 后刷新画布列表；勾选发送后切换时，会在目标画布加载完成后自动定位到新建素材节点中心，当前画布发送也会聚焦新节点。",
+        "同批素材发送写入 sendBridgeSignature / sendBridgeMode / sendBridgeSourceCanvasId；重复向同一画布发送相同素材时会先替换旧批次，旧版无签名但由发送功能创建的同素材节点也会被清理，避免 2 个素材多次累计成 8 个节点。",
+        "新增后端 /api/eagle/status 与 /api/eagle/import，本地 Eagle API 只允许 localhost / 127.0.0.1 / ::1，支持本地 input/output 文件、资源库文件、资源库素材集文件与文本临时 txt 入库。",
+        "设置页新增 Eagle 本地接口地址，默认 http://127.0.0.1:41595；_post_build.cjs 增加 routes/eagle.t8c 检查，确保 Electron 打包不会漏掉 Eagle 路由。",
+        "公开版本同步到 1.6.2：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 同步；skill.md 仅本地更新，继续禁止推送 GitHub。"
+      ]
     }
   },
   "categories": {
@@ -1910,6 +1923,10 @@
         "GET /api/resources/thumb/:id — 图片资源或素材集首图缩略图",
         "GET /api/resources/set/:id — 素材集 JSON manifest",
         "GET /api/resources/set-file/:id/:index — 素材集内第 index 个媒体文件"
+      ],
+      "eagle": [
+        "GET /api/eagle/status — 检查本机 Eagle API 可达性，仅允许 127.0.0.1/localhost",
+        "POST /api/eagle/import — 将上传素材、输出素材、素材集或文本发送到本机 Eagle，支持 /files/input、/files/output、资源库文件、素材集文件和 http(s) URL"
       ],
       "proxy": [
         "POST /api/proxy/image — 图像生成(贞贞工坊,自动转存)",
