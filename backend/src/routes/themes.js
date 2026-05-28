@@ -6,12 +6,12 @@ const config = require('../config');
 const router = express.Router();
 const SCHEMA = 't8-theme-template';
 const VERSION = 2;
-const VISUAL_STYLES = new Set(['plain', 'tech', 'pixel', 'op']);
+const VISUAL_STYLES = new Set(['plain', 'tech', 'pixel', 'op', 'rh', 'naruto']);
 const INTENSITIES = new Set(['subtle', 'medium', 'strong']);
-const ICON_PACKS = new Set(['default', 'op']);
-const CANVAS_PATTERNS = new Set(['none', 'dots', 'map', 'circuit', 'confetti']);
-const NODE_FRAMES = new Set(['plain', 'glass', 'sticker', 'wanted']);
-const MUSIC_PRESETS = new Set(['tech-pulse', 'pixel-pop', 'grand-line-adventure']);
+const ICON_PACKS = new Set(['default', 'op', 'naruto']);
+const CANVAS_PATTERNS = new Set(['none', 'dots', 'map', 'circuit', 'confetti', 'hub', 'chakra']);
+const NODE_FRAMES = new Set(['plain', 'glass', 'sticker', 'wanted', 'hub-card', 'shinobi-scroll']);
+const MUSIC_PRESETS = new Set(['tech-pulse', 'pixel-pop', 'grand-line-adventure', 'rh-pulse', 'shinobi-flame']);
 const MUSIC_SOURCES = new Set(['synth', 'url', 'upload']);
 
 function loadSettings() {
@@ -64,6 +64,10 @@ function normalizeVisuals(raw, legacyStyle) {
       ? source.canvasPattern
       : style === 'op'
         ? 'map'
+        : style === 'rh'
+          ? 'hub'
+        : style === 'naruto'
+          ? 'chakra'
         : style === 'tech'
           ? 'circuit'
           : 'dots',
@@ -71,6 +75,10 @@ function normalizeVisuals(raw, legacyStyle) {
       ? source.nodeFrame
       : style === 'op'
         ? 'wanted'
+        : style === 'rh'
+          ? 'hub-card'
+        : style === 'naruto'
+          ? 'shinobi-scroll'
         : style === 'tech'
           ? 'glass'
           : 'sticker',
@@ -88,6 +96,26 @@ function defaultMusicFor(legacyStyle, visuals) {
       volume: 0.16,
       bpm: 96,
       copyrightNote: '原创航海冒险风循环；可替换为已授权音频 URL。',
+    };
+  }
+  if (style === 'rh') {
+    return {
+      title: '潮鸣',
+      preset: 'rh-pulse',
+      source: 'synth',
+      volume: 0.14,
+      bpm: 104,
+      copyrightNote: 'RH 工作台氛围默认音乐；可替换为已授权音频 URL。',
+    };
+  }
+  if (style === 'naruto') {
+    return {
+      title: 'Shinobi Flame Loop',
+      preset: 'shinobi-flame',
+      source: 'synth',
+      volume: 0.16,
+      bpm: 146,
+      copyrightNote: '原创火焰查克拉氛围合成循环；可替换为已授权音频 URL。',
     };
   }
   if (legacyStyle === 'tech' || style === 'tech') {
@@ -117,6 +145,11 @@ function normalizeMusic(raw, legacyStyle, visuals) {
   const bpm = Number(source.bpm);
   const rawUrl = typeof source.url === 'string' ? source.url.trim() : '';
   const safeUrl = rawUrl.startsWith('data:audio/') || /^https?:\/\//i.test(rawUrl) ? rawUrl.slice(0, 45000000) : '';
+  const rawHiddenUrl = typeof source.hiddenUrl === 'string' ? source.hiddenUrl.trim() : '';
+  const safeHiddenUrl = rawHiddenUrl.startsWith('data:audio/') || /^https?:\/\//i.test(rawHiddenUrl)
+    ? rawHiddenUrl.slice(0, 45000000)
+    : '';
+  const hiddenVolume = Number(source.hiddenVolume);
   return {
     title: typeof source.title === 'string' && source.title.trim()
       ? source.title.trim().slice(0, 80)
@@ -124,6 +157,11 @@ function normalizeMusic(raw, legacyStyle, visuals) {
     preset: MUSIC_PRESETS.has(source.preset) ? source.preset : fallback.preset,
     source: MUSIC_SOURCES.has(source.source) ? source.source : fallback.source,
     url: safeUrl,
+    hiddenTitle: typeof source.hiddenTitle === 'string' && source.hiddenTitle.trim()
+      ? source.hiddenTitle.trim().slice(0, 80)
+      : '',
+    hiddenUrl: safeHiddenUrl,
+    hiddenVolume: Number.isFinite(hiddenVolume) ? Math.max(0, Math.min(hiddenVolume, 0.5)) : undefined,
     volume: Number.isFinite(volume) ? Math.max(0, Math.min(volume, 0.5)) : fallback.volume,
     bpm: Number.isFinite(bpm) ? Math.max(40, Math.min(Math.round(bpm), 220)) : fallback.bpm,
     copyrightNote: typeof source.copyrightNote === 'string'

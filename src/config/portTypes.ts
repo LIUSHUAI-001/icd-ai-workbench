@@ -35,7 +35,7 @@ export interface NodePorts {
 }
 
 /**
- * 节点端口注册表(覆盖全部 24 + upload 共 25 种节点)
+ * 节点端口注册表
  * 与 features.json 节点清单严格对齐
  */
 export const NODE_PORTS: Record<string, NodePorts> = {
@@ -81,6 +81,8 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   loop: { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
   // 从合集获取 (v1.2.8): 从上游集合中选中单一素材 → 输出按 kind 变化
   'pick-from-set': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
+  // 文本分割: 长文本/上游文本 → 多段 textSegments, 下游按多文本集合消费
+  'text-split': { inputs: ['text'], outputs: ['text'] },
   resize: { inputs: ['image'], outputs: ['image'] },
   combine: { inputs: ['image'], outputs: ['image'] },
   'remove-bg': { inputs: ['image'], outputs: ['image'] },
@@ -98,10 +100,13 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   // ========== Toolbox ==========
   cinematic: { inputs: [], outputs: ['text'] },
   'video-motion': { inputs: [], outputs: ['text'] },
+  'multi-angle-visual': { inputs: ['image'], outputs: ['text'] },
 
   // ========== 上传素材节点 (NEW) ==========
   // 动态:由 data.uploadType 决定具体输出。未上传时 outputs=[],不允许连出。
   upload: { inputs: [], outputs: [] },
+  // 素材集: 同类型素材集合，输入可收集四类素材，输出按 materialSetKind 动态决定。
+  'material-set': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
 
   // ========== 输出素材节点 (NEW) ==========
   // 任意上游节点的 文本/图像/视频/音频 都可连入；同时作为中继节点可继续向下游透传 (any)。
@@ -139,6 +144,23 @@ export function getNodeOutputs(node: Node | null | undefined): PortType[] {
     if (uploadType === 'video') return ['video'];
     if (uploadType === 'audio') return ['audio'];
     // 未上传时不暴露任何输出类型
+    return [];
+  }
+
+  if (node.type === 'material-set') {
+    const kind = (node.data as any)?.materialSetKind as
+      | 'text'
+      | 'image'
+      | 'video'
+      | 'audio'
+      | undefined;
+    const items = (node.data as any)?.materialSetItems;
+    const hasItems = Array.isArray(items) && items.length > 0;
+    if (!hasItems) return [];
+    if (kind === 'text') return ['text'];
+    if (kind === 'image') return ['image'];
+    if (kind === 'video') return ['video'];
+    if (kind === 'audio') return ['audio'];
     return [];
   }
 

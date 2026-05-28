@@ -7,7 +7,6 @@ import {
   useReactFlow,
   type EdgeProps,
 } from '@xyflow/react';
-import { Scissors } from 'lucide-react';
 
 export default function DeletableEdge(props: EdgeProps) {
   const {
@@ -21,8 +20,13 @@ export default function DeletableEdge(props: EdgeProps) {
     style,
     markerEnd,
     selected,
+    target,
+    data,
   } = props;
-  const { setEdges } = useReactFlow();
+  const { setEdges, getNode } = useReactFlow();
+  const targetNode = getNode(target);
+  const isRhDuckEdge = Boolean((data as any)?.rhDuckEdge || (targetNode?.data as any)?.rhDuckDecoded);
+  const edgeClassName = isRhDuckEdge ? 'rh-duck-edge' : undefined;
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -62,6 +66,7 @@ export default function DeletableEdge(props: EdgeProps) {
         id={id}
         path={edgePath}
         style={style}
+        className={edgeClassName}
         markerEnd={markerEnd}
         interactionWidth={24}
       />
@@ -78,6 +83,16 @@ export default function DeletableEdge(props: EdgeProps) {
       />
       <EdgeLabelRenderer>
         <div
+          className="t8-edge-theme-marker nodrag nopan"
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+            pointerEvents: 'none',
+            zIndex: 998,
+          }}
+          aria-hidden="true"
+        />
+        <div
           className="nodrag nopan"
           style={{
             position: 'absolute',
@@ -92,37 +107,13 @@ export default function DeletableEdge(props: EdgeProps) {
         >
           <button
             type="button"
+            className="t8-edge-cut-button"
             onClick={handleCut}
             onMouseDown={(e) => e.stopPropagation()}
             title="点击断开连线"
             aria-label="断开连线"
-            style={{
-              width: 26,
-              height: 26,
-              borderRadius: '50%',
-              background: '#fff',
-              border: '1.5px solid #ef4444',
-              color: '#ef4444',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
-              padding: 0,
-              transition: 'transform 0.15s, background 0.15s, color 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#ef4444';
-              (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.15)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = '#fff';
-              (e.currentTarget as HTMLButtonElement).style.color = '#ef4444';
-              (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
-            }}
           >
-            <Scissors size={14} strokeWidth={2.2} />
+            <span className="t8-edge-cut-glyph" aria-hidden="true" />
           </button>
         </div>
       </EdgeLabelRenderer>

@@ -4,6 +4,7 @@
  */
 import type { ApiSettings, CanvasData, CanvasListItem } from '../types/canvas';
 import type { ThemeTemplate } from '../theme/types';
+import type { MediaKind } from '../utils/mediaCollection';
 
 const BASE = '/api';
 
@@ -133,6 +134,34 @@ export async function saveAssetToDisk(
   }
 }
 
+export interface DuckDecodeFileItem {
+  sourceUrl: string;
+  decoded: boolean;
+  url?: string;
+  filename?: string;
+  size?: number;
+  kind?: MediaKind;
+  mime?: string;
+  originalExt?: string;
+  ext?: string;
+  isDuck?: boolean;
+  passwordProtected?: boolean;
+  reason?: string;
+}
+
+export async function decodeDuckFiles(
+  urls: string[],
+): Promise<{ items: DuckDecodeFileItem[]; decodedCount: number }> {
+  const res = await request<{
+    success: boolean;
+    data: { items: DuckDecodeFileItem[]; decodedCount: number };
+  }>(`${BASE}/files/duck-decode`, {
+    method: 'POST',
+    body: JSON.stringify({ urls }),
+  });
+  return res.data || { items: [], decodedCount: 0 };
+}
+
 // ========== RH 工具节点 (v1.2.10+) ==========
 //   与顶层控件区分：仅供 RHToolsNode 使用，与 RH 应用创意包数据完全分开。
 //   后端走 T8 自己的 18766 服务。
@@ -259,7 +288,8 @@ export function importRHToolsBackup(payload: RHToolsBackup, mode: 'replace' | 'm
 }
 
 // ========== 资源库 (v1.3.4) ==========
-export type ResourceKind = 'image' | 'video' | 'audio';
+export type ResourceKind = 'image' | 'video' | 'audio' | 'set';
+export type ResourceMaterialSetKind = 'text' | 'image' | 'video' | 'audio';
 
 export interface ResourceCategory {
   id: string;
@@ -286,9 +316,38 @@ export interface ResourceItem {
   sourceUrl?: string;
   sourceNodeId?: string;
   sourceCanvasId?: string;
+  materialSetKind?: ResourceMaterialSetKind;
+  materialSetItems?: Array<{
+    id: string;
+    kind: ResourceMaterialSetKind;
+    url?: string;
+    text?: string;
+    name?: string;
+    size?: number;
+    mime?: string;
+  }>;
   createdAt: number;
   updatedAt: number;
   lastUsedAt?: number;
+}
+
+export interface AddResourceSetPayload {
+  materialSetKind: ResourceMaterialSetKind;
+  materialSetItems: Array<{
+    id?: string;
+    kind: ResourceMaterialSetKind;
+    url?: string;
+    text?: string;
+    name?: string;
+    size?: number;
+    mime?: string;
+  }>;
+  categoryId?: string;
+  title?: string;
+  tags?: string[];
+  sourceNodeId?: string;
+  sourceCanvasId?: string;
+  favorite?: boolean;
 }
 
 export interface AddResourcePayload {
@@ -344,6 +403,13 @@ export function getResourceItems(params: {
 
 export function addResourceItem(payload: AddResourcePayload) {
   return safeRequest<ResourceItem & { duplicate?: boolean }>(`${BASE}/resources/items/add`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addResourceSet(payload: AddResourceSetPayload) {
+  return safeRequest<ResourceItem & { duplicate?: boolean }>(`${BASE}/resources/sets/add`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });

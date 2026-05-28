@@ -21,7 +21,7 @@ import {
   type EdgeChange,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Play, Copy, CopyPlus, Trash2, FolderPlus } from 'lucide-react';
+import { Play, Copy, CopyPlus, Trash2, FolderPlus, PackagePlus, Library } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { useCanvasStore } from '../stores/canvas';
 import { useThemeStore } from '../stores/theme';
@@ -39,6 +39,15 @@ import {
   type Rect as PlacementRect,
 } from '../utils/nodePlacement';
 import { createUploadDataFromItems, type MediaItem, type MediaKind } from '../utils/mediaCollection';
+import {
+  collectMaterialSetBucketsFromData,
+  isMaterialSetKind,
+  materialSetItemsToData,
+  nonEmptyMaterialSetKinds,
+  normalizeMaterialSetItems,
+  type MaterialSetItem,
+  type MaterialSetKind,
+} from '../utils/materialSet';
 import * as api from '../services/api';
 import CanvasToolbar from './CanvasToolbar';
 import TerminalPanel from './TerminalPanel';
@@ -77,6 +86,8 @@ import FrameExtractorNode from './nodes/FrameExtractorNode';
 import FramePairNode from './nodes/FramePairNode';
 import LoopNode from './nodes/LoopNode';
 import PickFromSetNode from './nodes/PickFromSetNode';
+import TextSplitNode from './nodes/TextSplitNode';
+import MaterialSetNode from './nodes/MaterialSetNode';
 import UploadNode from './nodes/UploadNode';
 import OutputNode from './nodes/OutputNode';
 import GroupBoxNode from './nodes/GroupBoxNode';
@@ -123,6 +134,8 @@ const SPECIFIC_NODES: Record<string, any> = {
   'frame-pair': FramePairNode,
   loop: LoopNode,
   'pick-from-set': PickFromSetNode,
+  'text-split': TextSplitNode,
+  'material-set': MaterialSetNode,
   resize: ResizeNode,
   combine: CombineNode,
   'remove-bg': RemoveBgNode,
@@ -134,9 +147,10 @@ const SPECIFIC_NODES: Record<string, any> = {
   bp: BpNode,
   relay: RelayNode,
   'video-output': VideoOutputNode,
-  // Toolbox (2)
+  // Toolbox (3)
   cinematic: ToolboxParamNode,
   'video-motion': ToolboxParamNode,
+  'multi-angle-visual': ToolboxParamNode,
   // Input (1) - 上传素材
   upload: UploadNode,
   // Output (1) - 输出素材(文本/图像/视频/音频 预览 + 文本双击编辑)
@@ -161,8 +175,40 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     pollInt: 10,
     frameMode: 'auto',
   },
-  cinematic: { kind: 'cinematic' },
-  'video-motion': { kind: 'video-motion' },
+  cinematic: { kind: 'cinematic', cinematicLanguage: 'en', cinematicStrength: 'balanced' },
+  'video-motion': { kind: 'video-motion', motionLanguage: 'en' },
+  'text-split': {
+    sourceText: '',
+    splitMode: 'line',
+    delimiter: '---',
+    chunkSize: 600,
+    regexPattern: '',
+    regexFlags: 'gm',
+    regexStrategy: 'split',
+    removeEmpty: true,
+    trim: true,
+    normalizeSpaces: false,
+    stripNumbering: false,
+    preferUpstream: true,
+    textSplitFavorites: [],
+    textSegments: [],
+    segments: [],
+  },
+  'multi-angle-visual': {
+    kind: 'multi-angle-visual',
+    multiAngleAzimuth: 0,
+    multiAngleElevation: 0,
+    multiAngleDistance: 5,
+    multiAnglePromptMode: 'qwen',
+    multiAngleLanguage: 'en',
+    multiAngleBatchMode: 'single',
+    multiAngleBatchCustomAngles: '',
+    multiAnglePrefix: '',
+    multiAngleSuffix: '',
+    multiAngleCustom: '',
+    multiAngleFavorites: [],
+    prompt: '<sks> front view eye-level shot medium shot',
+  },
   'multi-angle-3d': { preset: 'multi-angle-3d' },
   'panorama-720': { preset: 'panorama-720' },
   'penguin-portrait': { preset: 'penguin-portrait' },
@@ -177,6 +223,7 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     history: [],
   },
   upload: { uploadType: null },
+  'material-set': { materialSetKind: null, materialSetItems: [] },
   // RH 工具节点（v1.2.10.1+）：启动器状态字段 + 运行状态字段（与 RunningHubNode 对齐）
   // 启动器：rhToolsActiveCategoryId / rhToolsActiveAppId / rhToolsSearchQuery
   // 运行态：appInfo / paramValues / instanceType / status / taskId / urls / error / rhCode / materialOrder
@@ -203,6 +250,7 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   // 从合集获取: 默认 image + 第 1 个
   'pick-from-set': { pickKind: 'image', pickIndex: 1 },
   'image-compare': { mode: 'slider', align: 'contain', split: 50, opacity: 50, threshold: 24 },
+  'grid-crop': { rows: 3, cols: 3, gap: 0 },
 };
 
 // 可被“批量运行”调起的节点类型集合
@@ -218,6 +266,8 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'upload',
   // v1.2.8 工具节点 (循环器 / 从合集获取)
   'loop', 'pick-from-set',
+  // v1.4.8: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
+  'cinematic', 'video-motion', 'multi-angle-visual',
 ]);
 
 // 网格吸附步长 / 对齐阈值(世界坐标)
@@ -344,6 +394,7 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
   );
   const visualStyle = currentTemplate.visuals?.style || style;
   const isOp = visualStyle === 'op';
+  const isNaruto = visualStyle === 'naruto';
   const themeTokens = getTemplateMode(currentTemplate, theme).tokens;
   const { screenToFlowPosition, setCenter, getViewport } = useReactFlow();
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -634,6 +685,65 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       return true;
     },
     [screenToFlowPosition]
+  );
+
+  const getMaterialSetMergeCandidate = useCallback((ids: string[]): { kind: MaterialSetKind; items: MaterialSetItem[] } | null => {
+    const selectedNodes = nodesRef.current
+      .filter((node) => ids.includes(node.id) && node.type !== 'groupBox')
+      .sort((a, b) => {
+        const dy = (a.position?.y ?? 0) - (b.position?.y ?? 0);
+        if (Math.abs(dy) > 24) return dy;
+        return (a.position?.x ?? 0) - (b.position?.x ?? 0);
+      });
+    if (selectedNodes.length === 0) return null;
+
+    const buckets: Record<MaterialSetKind, MaterialSetItem[]> = {
+      text: [],
+      image: [],
+      video: [],
+      audio: [],
+    };
+    for (const node of selectedNodes) {
+      const nodeBuckets = collectMaterialSetBucketsFromData(node.data);
+      for (const kind of ['text', 'image', 'video', 'audio'] as MaterialSetKind[]) {
+        buckets[kind].push(...nodeBuckets[kind]);
+      }
+    }
+    const kinds = nonEmptyMaterialSetKinds(buckets);
+    if (kinds.length !== 1) return null;
+    const kind = kinds[0];
+    if (buckets[kind].length < 2) return null;
+    return { kind, items: buckets[kind] };
+  }, []);
+
+  const handleMergeToMaterialSet = useCallback(
+    (ids: string[], atScreen?: { x: number; y: number }) => {
+      const candidate = getMaterialSetMergeCandidate(ids);
+      if (!candidate) return;
+      const flowEl = document.querySelector('.react-flow') as HTMLElement | null;
+      const rect = flowEl?.getBoundingClientRect();
+      const screenPoint =
+        atScreen ||
+        (rect
+          ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          : { x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      const base = screenToFlowPosition(screenPoint);
+      const size = defaultSizeOf('material-set');
+      const desiredX = base.x - size.w / 2;
+      const desiredY = base.y - size.h / 2;
+      const finalPos = placeSingleNode(desiredX, desiredY, 'material-set', nodesRef.current, {
+        source: 'placement:merge-material-set',
+      });
+      const newNode: Node = {
+        id: `material-set-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type: 'material-set',
+        position: finalPos,
+        selected: true,
+        data: materialSetItemsToData(candidate.kind, candidate.items),
+      } as Node;
+      setNodes((prev) => [...prev.map((node) => ({ ...node, selected: false })), newNode]);
+    },
+    [getMaterialSetMergeCandidate, screenToFlowPosition],
   );
 
   const handleCanvasPointerMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -2172,10 +2282,12 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
     // v1.2.8.2: 'pick-from-set' 是中转节点 (从合集取一个供下游), 不应被自动挂 OutputNode
     // v1.2.9.9: 'loop' 也加入 — 循环器自身不产出最终结果 (累积已由下游 EXEC→OutputNode 链路接管),
     //          autoOutput 若给 LoopNode 自动建 OutputNode 会让用户看到 “循环器自己生了 N 个素材” 的错误体验。
-    const SKIP_TYPES = new Set(['output', 'groupBox', 'bulkPhantom', 'upload', 'pick-from-set', 'loop']);
+    const SKIP_TYPES = new Set(['output', 'groupBox', 'bulkPhantom', 'upload', 'material-set', 'pick-from-set', 'loop']);
 
     const toAddNodes: Node[] = [];
     const toAddEdges: Edge[] = [];
+    const toRemoveNodeIds = new Set<string>();
+    const toRemoveEdgeIds = new Set<string>();
     const newSigPatches: Array<[string, string]> = [];
     // v1.2.10.5-hotfix: 同一次 effect 内多个源节点补建的 OutputNode 之间互不可见 (nodes 快照不包含本轮刚 push 的节点),
     // 会导致多源场景下新 OutputNode 之间重叠。累积到 pendingPlacedNodes, 每次避让合并进 existing。
@@ -2369,7 +2481,14 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
       // 意图：N 个产物 → N 个独立 OutputNode。只要某个 OutputNode 仅从本节点连入且未带 pickKind，
       // 就给它“升级”为 pickKind+pickIndex（按 items 排序中未被占用的下一个），让它只显示一项；
       // 不够再补建 autoOutput 节点。
-      const downstreamOutputs: Array<{ id: string; pickKind?: string; pickIndex?: number; incomingFromMe: number }> = [];
+      const downstreamOutputs: Array<{
+        id: string;
+        pickKind?: string;
+        pickIndex?: number;
+        incomingFromMe: number;
+        auto: boolean;
+        removable: boolean;
+      }> = [];
       for (const e of edges) {
         if (e.source !== n.id) continue;
         const t = nodes.find((x) => x.id === e.target);
@@ -2378,26 +2497,50 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         // 限仅封闭: 如果该 OutputNode 还连了别的上游, 不能随便修改它的 pickKind
         const incomingFromMe = edges.filter((x) => x.target === t.id && x.source === n.id).length;
         const totalIncoming = edges.filter((x) => x.target === t.id).length;
+        const hasOutgoing = edges.some((x) => x.source === t.id);
+        const auto = t.id.startsWith('output-auto-') && e.id.startsWith('e-auto-');
+        const removable = auto && totalIncoming === 1 && !hasOutgoing && td.userMoved !== true;
         if (totalIncoming > 1) {
           // 多上游合并节点 → 不动 data, 但计数占位
-          downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, incomingFromMe });
+          downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, incomingFromMe, auto, removable: false });
           continue;
         }
-        downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, incomingFromMe });
+        downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, incomingFromMe, auto, removable });
+      }
+
+      const itemKey = (it: { kind: string; kindIndex: number }) => `${it.kind}:${it.kindIndex}`;
+      const validItemKeys = new Set(items.map(itemKey));
+      const activeDownstreamOutputs = downstreamOutputs.filter((o) => {
+        if (
+          o.removable &&
+          o.pickKind &&
+          typeof o.pickIndex === 'number' &&
+          !validItemKeys.has(`${o.pickKind}:${o.pickIndex}`)
+        ) {
+          toRemoveNodeIds.add(o.id);
+          for (const edge of edges) {
+            if (edge.source === o.id || edge.target === o.id) toRemoveEdgeIds.add(edge.id);
+          }
+          return false;
+        }
+        return true;
+      });
+
+      if (activeDownstreamOutputs.length !== downstreamOutputs.length) {
+        console.warn('[autoOutput] 清理过期自动输出节点', downstreamOutputs.length - activeDownstreamOutputs.length);
       }
 
       // 差异化处理:
       //   1) 已带 pickKind+pickIndex 的 → 计作“已占用该项”
       //   2) 未带 pickKind 的 → 依次升级为 items 中还未被占用的项
       const occupied = new Set<string>(); // key=`${kind}:${kindIndex}`
-      for (const o of downstreamOutputs) {
+      for (const o of activeDownstreamOutputs) {
         if (o.pickKind && typeof o.pickIndex === 'number') {
           occupied.add(`${o.pickKind}:${o.pickIndex}`);
         }
       }
-      const itemKey = (it: { kind: string; kindIndex: number }) => `${it.kind}:${it.kindIndex}`;
       const upgradePatches: Array<[string, { pickKind: string; pickIndex: number }]> = [];
-      for (const o of downstreamOutputs) {
+      for (const o of activeDownstreamOutputs) {
         if (o.pickKind) continue;
         // 指定下一个未占用项
         const next = items.find((it) => !occupied.has(itemKey(it)));
@@ -2481,11 +2624,21 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
 
     // 先写 ref 避免下次 useEffect 重进入重复创建
     for (const [id, sig] of newSigPatches) autoOutputProcessedRef.current.set(id, sig);
-    if (toAddNodes.length > 0) {
-      console.warn('[autoOutput] 创建', toAddNodes.length, '个节点, pending累积:', pendingPlacedNodes.length,
+    if (toRemoveNodeIds.size > 0 || toAddNodes.length > 0) {
+      if (toAddNodes.length > 0) {
+        console.warn('[autoOutput] 创建', toAddNodes.length, '个节点, pending累积:', pendingPlacedNodes.length,
         '\n  positions:', toAddNodes.map(n => `${n.id.slice(0,20)}.. (${Math.round(n.position.x)},${Math.round(n.position.y)})`));
-      setNodes((prev) => [...prev, ...toAddNodes]);
-      setEdges((prev) => [...prev, ...toAddEdges]);
+      }
+      setNodes((prev) => [
+        ...prev.filter((node) => !toRemoveNodeIds.has(node.id)),
+        ...toAddNodes,
+      ]);
+    }
+    if (toRemoveEdgeIds.size > 0 || toAddEdges.length > 0) {
+      setEdges((prev) => [
+        ...prev.filter((edge) => !toRemoveEdgeIds.has(edge.id)),
+        ...toAddEdges,
+      ]);
     }
   }, [nodes, edges, loaded]);
 
@@ -2681,6 +2834,34 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
     return dispose;
   }, []);
 
+  // ReactFlow 会在 pointerdown capture 阶段启动节点选中/拖拽。
+  // 节点内按钮（尤其运行按钮）必须先挡住 down 事件，否则未选中节点的首次点击可能只激活节点。
+  useEffect(() => {
+    const isNodeButtonDown = (event: PointerEvent | MouseEvent) => {
+      if (event.button !== 0) return false;
+      if ('isPrimary' in event && event.isPrimary === false) return false;
+      const target = event.target instanceof HTMLElement ? event.target : null;
+      if (!target) return false;
+      const button = target.closest('button, [role="button"]') as HTMLElement | null;
+      if (!button) return false;
+      if (button.closest('[data-node-action-bar]')) return false;
+      return !!button.closest('.react-flow__node, [data-node-action-bar]');
+    };
+
+    const stopNodeButtonDown = (event: PointerEvent | MouseEvent) => {
+      if (!isNodeButtonDown(event)) return;
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    };
+
+    document.addEventListener('pointerdown', stopNodeButtonDown, true);
+    document.addEventListener('mousedown', stopNodeButtonDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', stopNodeButtonDown, true);
+      document.removeEventListener('mousedown', stopNodeButtonDown, true);
+    };
+  }, []);
+
   const isDark = theme === 'dark';
   const isPixel = style === 'pixel';
   const guideColor = themeTokens.edgeSelected;
@@ -2865,25 +3046,31 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
             setCenter(position.x, position.y, { zoom, duration: 400 });
           }}
           style={{
-            width: isOp ? 144 : undefined,
-            height: isOp ? 144 : undefined,
+            width: isOp ? 144 : isNaruto ? 182 : undefined,
+            height: isOp ? 144 : isNaruto ? 122 : undefined,
             background: isOp
               ? themeTokens.panelBg
+              : isNaruto
+                ? themeTokens.panelBg
               : isDark ? 'rgba(20,20,22,.9)' : 'rgba(255,255,255,.9)',
             border: isOp
               ? `4px double ${themeTokens.textMain}`
+              : isNaruto
+                ? `3px solid ${themeTokens.textMain}`
               : `1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}`,
-            borderRadius: isOp ? 999 : 8,
-            right: isOp ? 24 : undefined,
-            bottom: isOp ? 42 : undefined,
+            borderRadius: isOp ? 999 : isNaruto ? '18px 18px 12px 12px' : 8,
+            right: isOp ? 24 : isNaruto ? 24 : undefined,
+            bottom: isOp ? 42 : isNaruto ? 40 : undefined,
             boxShadow: isOp
               ? `0 0 0 7px ${themeTokens.warning}, 5px 5px 0 ${themeTokens.textMain}`
+              : isNaruto
+                ? themeTokens.shadowPanel
               : undefined,
             cursor: 'pointer',
-            overflow: isOp ? 'hidden' : undefined,
+            overflow: isOp || isNaruto ? 'hidden' : undefined,
           }}
-          maskColor={isOp ? 'rgba(15,124,140,.28)' : isDark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.6)'}
-          nodeColor={() => (isOp ? themeTokens.secondary : isDark ? '#a1a1aa' : '#52525b')}
+          maskColor={isOp ? 'rgba(15,124,140,.28)' : isNaruto ? 'rgba(255,91,31,.22)' : isDark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.6)'}
+          nodeColor={() => (isOp ? themeTokens.secondary : isNaruto ? themeTokens.accent : isDark ? '#a1a1aa' : '#52525b')}
         />
         {/* 选中可执行节点时的浮动操作栏 (执行 / 中止 / 关闭) */}
         <NodeActionBar />
@@ -3029,6 +3216,14 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
         const ids = contextMenu.ids;
         const selNodes = nodes.filter((n) => ids.includes(n.id));
         const exeCount = selNodes.filter((n) => n.type && EXECUTABLE_NODE_TYPES.has(n.type)).length;
+        const mergeCandidate = getMaterialSetMergeCandidate(ids);
+        const materialSetNode = ids.length === 1 ? nodes.find((n) => n.id === ids[0] && n.type === 'material-set') : null;
+        const materialSetKind = isMaterialSetKind((materialSetNode?.data as any)?.materialSetKind)
+          ? ((materialSetNode?.data as any).materialSetKind as MaterialSetKind)
+          : null;
+        const materialSetItems = materialSetKind
+          ? normalizeMaterialSetItems((materialSetNode?.data as any)?.materialSetItems, materialSetKind)
+          : [];
         const menuItemCls = isPixel
           ? 'w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 hover:bg-[var(--px-yellow)] disabled:opacity-40 disabled:hover:bg-transparent'
           : `w-full text-left px-3 py-2 text-[12px] flex items-center gap-2 disabled:opacity-40 ${
@@ -3110,6 +3305,45 @@ function CanvasInner({ onAddNodeRef }: CanvasInnerProps) {
                 <FolderPlus size={13} />
                 <span>打组 (Ctrl+G)</span>
               </button>
+              <button
+                className={menuItemCls}
+                disabled={!mergeCandidate}
+                title={mergeCandidate ? `合并为${PORT_LABEL[mergeCandidate.kind]}素材集` : '请选择多个同类型素材'}
+                onClick={() => {
+                  closeContextMenu();
+                  handleMergeToMaterialSet(ids, { x: contextMenu.x, y: contextMenu.y });
+                }}
+              >
+                <PackagePlus size={13} />
+                <span>
+                  合并到素材集
+                  {mergeCandidate ? ` (${mergeCandidate.items.length})` : ''}
+                </span>
+              </button>
+              {materialSetNode && (
+                <button
+                  className={menuItemCls}
+                  disabled={!materialSetKind || materialSetItems.length === 0}
+                  title={materialSetKind && materialSetItems.length > 0 ? '把整个素材集保存到资源库' : '请右键一个非空素材集节点'}
+                  onClick={() => {
+                    closeContextMenu();
+                    if (!materialSetKind || materialSetItems.length === 0) return;
+                    window.dispatchEvent(new CustomEvent('penguin:open-material-set-resource-menu', {
+                      detail: {
+                        x: contextMenu.x,
+                        y: contextMenu.y,
+                        sourceNodeId: materialSetNode.id,
+                        title: `${PORT_LABEL[materialSetKind]}素材集`,
+                        materialSetKind,
+                        materialSetItems,
+                      },
+                    }));
+                  }}
+                >
+                  <Library size={13} />
+                  <span>保存素材集到资源库</span>
+                </button>
+              )}
               <button
                 className={menuItemCls}
                 onClick={() => {

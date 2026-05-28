@@ -40,6 +40,7 @@ export const NODE_DEFAULT_SIZE: Record<string, { w: number; h: number }> = {
   edit: { w: 320, h: 360 },
   output: { w: 320, h: 360 },
   upload: { w: 260, h: 360 },
+  'material-set': { w: 320, h: 300 },
   video: { w: 320, h: 380 },
   seedance: { w: 320, h: 380 },
   audio: { w: 320, h: 380 },
@@ -52,6 +53,7 @@ export const NODE_DEFAULT_SIZE: Record<string, { w: number; h: number }> = {
   'penguin-portrait': { w: 320, h: 380 },
   loop: { w: 320, h: 240 },
   'pick-from-set': { w: 280, h: 200 },
+  'text-split': { w: 760, h: 520 },
   resize: { w: 280, h: 220 },
   combine: { w: 280, h: 220 },
   'remove-bg': { w: 280, h: 220 },
@@ -59,6 +61,9 @@ export const NODE_DEFAULT_SIZE: Record<string, { w: number; h: number }> = {
   'frame-extractor': { w: 320, h: 300 },
   'frame-pair': { w: 320, h: 360 },
   'grid-crop': { w: 320, h: 360 },
+  cinematic: { w: 720, h: 460 },
+  'video-motion': { w: 720, h: 460 },
+  'multi-angle-visual': { w: 760, h: 520 },
   groupBox: { w: 480, h: 320 },
 };
 
