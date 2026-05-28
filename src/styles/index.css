@@ -5,6 +5,7 @@
 @import './theme-op.css';
 @import './theme-rh.css';
 @import './theme-naruto.css';
+@import './theme-eva.css';
 
 @tailwind base;
 @tailwind components;
