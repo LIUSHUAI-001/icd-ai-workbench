@@ -1,7 +1,7 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "1.6.5",
-  "lastUpdated": "2026-05-29-v1.6.5-portrait-master-avatar-llm-model",
+  "version": "1.6.6",
+  "lastUpdated": "2026-05-29-v1.6.6-canvas-g-nearest-node",
   "packaging": {
     "description": "Electron NSIS 桌面端打包链路(v1.2.1 起标准化, 严禁未明确指令主动打包)。完整产物拓扑: app.asar(electron/{main,loader,preload}.cjs + node_modules) + app.asar.unpacked(node_modules/sharp + @img) + resources/backend-enc/*.t8c(extraResources, asar 外) + resources/frontend(extraResources, asar 外)。前端版本号由 vite define 注入 __APP_VERSION__、Sidebar 左下角自动同步。",
     "scripts": {
@@ -16,9 +16,9 @@
       "T8PC_FRONTEND_DIST": "打包模式 = path.join(process.resourcesPath, 'frontend'); 开发模式 = <project>/dist",
       "T8PC_RES": "打包模式 = process.resourcesPath; 开发模式 = <project>"
     },
-    "version": "1.6.5",
-    "semverVersion": "1.6.5",
-    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.6.5：肖像大师词库扩展为每个小参数 100 个可选词条，Avatar 预览修复秃顶、视觉偏右和左右端口裁切问题；LLM 默认模型显示名与后端调用模型统一为 gemini-3.1-flash-lite-preview。已通过 npm run build；本次未重新打包 Electron。",
+    "version": "1.6.6",
+    "semverVersion": "1.6.6",
+    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.6.6：完成肖像大师 roadmap 第三/第四阶段，并补充画布空白处 G 定位当前视野最近节点快捷键。已通过 npm run build；本次未重新打包 Electron。",
     "installer": "本次未打包 Electron；最近一次安装包为 dist_electron/T8-PenguinCanvas-Setup-1.5.5.exe (NSIS, 108.96 MB)",
     "checklist": [
       "运行 npm run encrypt 前确认已 npm install bytenode 且使用 Electron 内置 Node",
@@ -1321,6 +1321,28 @@
         "LLM/Vision 第一个模型的显示名与实际后端模型 id 统一为 gemini-3.1-flash-lite-preview，减少用户误判。",
         "公开版本同步到 1.6.5：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 同步；skill.md 仅本地更新，继续禁止推送 GitHub。"
       ]
+    },
+    "phase87": {
+      "label": "肖像大师角色库与高级随机批量 (v1.6.6)",
+      "status": "complete",
+      "items": [
+        "肖像大师编辑器完成 roadmap 第三阶段：支持当前角色 JSON 导出、角色库 JSON 导入/导出、本机常用角色收藏、跨画布发送肖像大师配置、跨画布发送输出 prompt，以及一键在当前画布生成文本节点。",
+        "肖像大师可保存到资源库「角色」分类，沿用现有文本素材集协议保存 t8-portrait-master JSON；资源库插入时会识别该 JSON 并直接恢复为肖像大师节点，避免新增后端资源类型造成兼容风险。",
+        "肖像大师编辑器完成 roadmap 第四阶段：支持随机全部、只填空项、只随机当前大类、重随未锁定项，支持随机种子复现和清纯/御姐/赛博/古风/学院/暗黑/偶像/战斗/洛丽塔/职场等风格包。",
+        "高级随机增加基础冲突规则：套装优先覆盖上衣/下装，帽子/头盔/兜帽类头饰会清理刘海，减少 prompt 自相矛盾。",
+        "批量角色支持一次生成 1-24 条 prompt，可输出为多个文本节点，也可输出为一个文本素材集，方便接入循环器、文本分割、图像、视频、LLM 与 RunningHub 链路。",
+        "公开版本同步到 1.6.6：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 同步；skill.md 仅本地更新，继续禁止推送 GitHub。"
+      ]
+    },
+    "phase88": {
+      "label": "画布最近节点定位快捷键 (v1.6.6-hotfix)",
+      "status": "complete",
+      "items": [
+        "新增画布空白处 G 快捷键：未选中任何节点时，以当前屏幕中心对应的画布坐标为基准，定位到最近的普通节点并居中显示。",
+        "G 快捷键复用 Z 全貌视图的防误触边界：输入框、节点、弹窗、侧边栏、工具栏、右键菜单聚焦时不会触发；Ctrl+G 打组逻辑保持不变。",
+        "定位时保持当前 zoom 的自然感并限制在 0.55-1.15 之间，节点居中后添加一次临时高亮，不写入节点 data，避免触发自动保存或跨画布同步副作用。",
+        "快捷键面板、README 和 features.json shortcuts 同步新增 G 说明。"
+      ]
     }
   },
   "categories": {
@@ -1567,7 +1589,7 @@
         {
           "type": "portrait-master",
           "label": "肖像大师",
-          "description": "捏人 Prompt 设计器：9 大类词库，每个小参数 100 个可选词条；支持 Avatar 分层预览、不选、随机、锁定、权重、自定义补充、默认英文 prompt 与运行输出到 OutputNode"
+          "description": "捏人 Prompt 设计器：9 大类词库，每个小参数 100 个可选词条；支持 Avatar 分层预览、不选、锁定、权重、自定义补充、默认英文 prompt、角色库收藏、JSON 导入导出、资源库角色分类、跨画布发送配置/Prompt、高级随机、种子复现、风格包与批量输出文本节点/文本素材集"
         }
       ]
     }
@@ -2077,6 +2099,7 @@
     "打组后右上角 ▶": "执行组内所有节点",
     "打组后双击标题": "重命名节点组",
     "Z": "焦点在画布空白处时缩小并查看画布全貌",
+    "G": "焦点在画布空白处且未选中节点时定位当前视野最近节点",
     "中键 / 右键拖动": "平移画布",
     "空格 + 拖拽": "平移画布(备选)",
     "ESC (拖拽素材中)": "取消跨节点拖拽"

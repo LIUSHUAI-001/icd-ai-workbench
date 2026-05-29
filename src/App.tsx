@@ -17,6 +17,16 @@ import type { ResourceItem } from './services/api';
 import { applyThemeTemplate } from './theme/applyTheme';
 import { resolveThemeTemplate } from './theme/defaultTemplates';
 import { materialSetItemsToData, type MaterialSetKind, type MaterialSetItem } from './utils/materialSet';
+import {
+  buildPortraitPrompt,
+  normalizePortraitLocks,
+  normalizePortraitSelection,
+  normalizePortraitWeights,
+  portraitSelectionStats,
+  resolvePortraitPreview,
+  summarizePortraitSelection,
+  type PortraitLanguage,
+} from './data/portraitMasterOptions';
 
 // vite.config 注入的编译期常量（与 package.json 同步），勿硬编码 v1.x.x
 declare const __APP_VERSION__: string;
@@ -31,6 +41,54 @@ function isShortcutTypingTarget(target: EventTarget | null): boolean {
     target.isContentEditable ||
     Boolean(target.closest('[contenteditable="true"]'))
   );
+}
+
+function safePortraitLanguage(value: unknown): PortraitLanguage {
+  return value === 'zh' ? 'zh' : 'en';
+}
+
+function portraitResourceToNodeData(item: ResourceItem): Record<string, any> | null {
+  if (item.kind !== 'set' || item.materialSetKind !== 'text' || !Array.isArray(item.materialSetItems)) return null;
+  const rawText = item.materialSetItems
+    .map((entry) => String(entry.text || '').trim())
+    .find((text) => text.includes('"t8-portrait-master"'));
+  if (!rawText) return null;
+  try {
+    const parsed = JSON.parse(rawText);
+    if (!parsed || parsed.schema !== 't8-portrait-master') return null;
+    const selection = normalizePortraitSelection(parsed.selection);
+    const locks = normalizePortraitLocks(parsed.locks);
+    const weights = normalizePortraitWeights(parsed.weights);
+    const customText = typeof parsed.customText === 'string' ? parsed.customText : '';
+    const language = safePortraitLanguage(parsed.language);
+    const prompt = buildPortraitPrompt({ selection, weights, customText, language });
+    return {
+      portraitLanguage: language,
+      portraitSelection: selection,
+      portraitLocks: locks,
+      portraitWeights: weights,
+      portraitCustomText: customText,
+      prompt,
+      text: prompt,
+      outputText: prompt,
+      portraitMetadata: {
+        schema: 't8-portrait-master',
+        version: 1,
+        selection,
+        locks,
+        weights,
+        customText,
+        language,
+        prompt,
+        preview: resolvePortraitPreview(selection),
+      },
+      portraitSummary: summarizePortraitSelection(selection, 'zh'),
+      portraitStats: portraitSelectionStats(selection),
+      portraitSchemaVersion: 1,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -260,6 +318,12 @@ function App() {
   };
 
   const handleInsertResource = (item: ResourceItem) => {
+    const portraitData = portraitResourceToNodeData(item);
+    if (portraitData) {
+      addNodeRef.current?.('portrait-master', { data: portraitData });
+      void api.updateResourceItem(item.id, { touch: true });
+      return;
+    }
     if (item.kind === 'set' && item.materialSetKind && item.materialSetItems?.length) {
       addNodeRef.current?.('material-set', {
         data: materialSetItemsToData(

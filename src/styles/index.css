@@ -772,6 +772,37 @@ html[data-theme-visual="op"] .t8-group-box__handle {
   pointer-events: none;
 }
 
+.react-flow__node.t8-nearest-node-pulse {
+  z-index: 1000 !important;
+}
+
+.react-flow__node.t8-nearest-node-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border: 2px solid var(--t8-accent, #38bdf8);
+  border-radius: 18px;
+  pointer-events: none;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--t8-accent, #38bdf8) 44%, transparent);
+  animation: t8-nearest-node-pulse 1.15s ease-out both;
+}
+
+@keyframes t8-nearest-node-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--t8-accent, #38bdf8) 46%, transparent);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+    box-shadow: 0 0 0 14px color-mix(in srgb, var(--t8-accent, #38bdf8) 0%, transparent);
+  }
+}
+
 .t8-context-menu {
   background: var(--t8-context-menu-bg, color-mix(in srgb, var(--t8-bg-panel-elevated, #111827) 96%, transparent));
   color: var(--t8-text-main, #f8fafc);
