@@ -17,7 +17,7 @@ import { useNodes, useViewport, useReactFlow, type Node } from '@xyflow/react';
 import { Play, Square, X } from 'lucide-react';
 import { useThemeStore } from '../stores/theme';
 import { useRunBusStore } from '../stores/runBus';
-import { useHiddenFeatureStore, isRhDuckUploadEnabled } from '../stores/hiddenFeatures';
+import { useHiddenFeatureStore, isRhDuckUploadEnabled, isYyhPortraitEnabled } from '../stores/hiddenFeatures';
 import { resolveThemeTemplate } from '../theme/defaultTemplates';
 import { getMediaItemsFromData } from '../utils/mediaCollection';
 
@@ -35,6 +35,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'loop', 'pick-from-set',
   // v1.4.6: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
   'cinematic', 'video-motion',
+  'portrait-master',
 ]);
 
 const BAR_GAP_PX = 8; // 与节点顶部的世界坐标系间距
@@ -65,12 +66,17 @@ const NodeActionBar = () => {
   const isRhDomVisual =
     typeof document !== 'undefined' && document.documentElement.dataset.themeVisual === 'rh';
   const isRhVisual = visualStyle === 'rh' || isRhDomVisual;
+  const isYyhDomVisual =
+    typeof document !== 'undefined' && document.documentElement.dataset.themeVisual === 'yyh';
+  const isYyhVisual = visualStyle === 'yyh' || isYyhDomVisual;
 
   const currentRunId = useRunBusStore((s) => s.currentRunId);
   const triggerRun = useRunBusStore((s) => s.triggerRun);
   const cancelAll = useRunBusStore((s) => s.cancelAll);
   const rhDuckUploadIds = useHiddenFeatureStore((s) => s.rhDuckUploadIds);
+  const yyhPortraitIds = useHiddenFeatureStore((s) => s.yyhPortraitIds);
   const toggleRhDuckUpload = useHiddenFeatureStore((s) => s.toggleRhDuckUpload);
+  const toggleYyhPortrait = useHiddenFeatureStore((s) => s.toggleYyhPortrait);
   const holdTimerRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
   const [holdArmed, setHoldArmed] = useState(false);
@@ -95,6 +101,14 @@ const NodeActionBar = () => {
       getMediaItemsFromData(selectedData, 'image').length > 0,
   );
   const rhDuckMode = isRhDuckUploadEnabled(rhDuckUploadIds, selectedExe?.id);
+  const yyhPortraitEligible = Boolean(isYyhVisual && selectedExe?.type === 'portrait-master');
+  const yyhPortraitMode = isYyhPortraitEnabled(yyhPortraitIds, selectedExe?.id);
+  const hiddenHoldEligible = rhDuckEligible || yyhPortraitEligible;
+  const hiddenModeKind = rhDuckEligible && rhDuckMode
+    ? 'rh-duck'
+    : yyhPortraitEligible && yyhPortraitMode
+      ? 'yyh-portrait'
+      : undefined;
 
   const clearHoldTimer = () => {
     if (holdTimerRef.current) {
@@ -113,7 +127,7 @@ const NodeActionBar = () => {
   useEffect(() => {
     clearHoldTimer();
     suppressClickRef.current = false;
-  }, [selectedExe?.id, isRhVisual]);
+  }, [selectedExe?.id, isRhVisual, isYyhVisual]);
 
   if (!selectedExe) return null;
 
@@ -156,7 +170,7 @@ const NodeActionBar = () => {
   };
   const onRunPointerDown = (e: React.PointerEvent) => {
     e.stopPropagation();
-    if (e.button !== 0 || isRunning || !rhDuckEligible || !selectedExe) return;
+    if (e.button !== 0 || isRunning || !hiddenHoldEligible || !selectedExe) return;
     try {
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     } catch {
@@ -165,7 +179,8 @@ const NodeActionBar = () => {
     clearHoldTimer();
     setHoldArmed(true);
     holdTimerRef.current = window.setTimeout(() => {
-      toggleRhDuckUpload(selectedExe.id);
+      if (rhDuckEligible) toggleRhDuckUpload(selectedExe.id);
+      else if (yyhPortraitEligible) toggleYyhPortrait(selectedExe.id);
       suppressClickRef.current = true;
       holdTimerRef.current = null;
       setHoldArmed(false);
@@ -191,8 +206,12 @@ const NodeActionBar = () => {
 
   const runColor = rhDuckEligible && rhDuckMode
     ? '#ff345f'
+    : yyhPortraitEligible && yyhPortraitMode
+      ? '#ff4fd8'
     : holdArmed
-      ? '#fb7185'
+      ? yyhPortraitEligible
+        ? '#ff8be8'
+        : '#fb7185'
       : actionColors.run;
 
   // 按钮通用样式生成器
@@ -279,6 +298,7 @@ const NodeActionBar = () => {
         // 真正的浮动条
         data-node-action-bar
         data-theme-visual={visualStyle}
+        data-hidden-mode={hiddenModeKind}
         className={`nodrag nopan t8-node-action-bar t8-node-action-bar--${visualStyle}`}
         onClick={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
