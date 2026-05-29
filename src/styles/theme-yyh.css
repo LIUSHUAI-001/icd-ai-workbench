@@ -20,6 +20,8 @@ html[data-theme-visual="yyh"] {
   --yyh-red: var(--t8-danger);
   --yyh-red-wire: #ff344f;
   --yyh-blue-wire: #4cecff;
+  --yyh-hidden-pink: #ff4fd8;
+  --yyh-hidden-pink-soft: color-mix(in srgb, var(--yyh-hidden-pink) 22%, transparent);
   --yyh-gold: var(--t8-warning);
   --yyh-green: var(--t8-success);
   --yyh-border: color-mix(in srgb, var(--t8-border-strong) 74%, #000);
@@ -424,6 +426,24 @@ html[data-theme-visual="yyh"] .react-flow__edge-interaction {
   filter: none !important;
 }
 
+html[data-theme-visual="yyh"] .react-flow__edge.yyh-portrait-hidden-edge .react-flow__edge-path,
+html[data-theme-visual="yyh"] .react-flow__edge-path.yyh-portrait-hidden-edge,
+html[data-theme-visual="yyh"] .react-flow__edge.selected.yyh-portrait-hidden-edge .react-flow__edge-path,
+html[data-theme-visual="yyh"] .react-flow__edge.yyh-portrait-hidden-edge:hover .react-flow__edge-path {
+  stroke: var(--yyh-hidden-pink) !important;
+  stroke-width: 3.4px !important;
+  stroke-dasharray: 10 8 !important;
+  animation: yyh-spirit-flow 0.9s linear infinite;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--yyh-hidden-pink) 46%, transparent)) !important;
+}
+
+html[data-theme-visual="yyh"] .t8-node-action-bar[data-hidden-mode="yyh-portrait"] {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 72%, transparent) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 24%, transparent),
+    0 0 20px color-mix(in srgb, var(--yyh-hidden-pink) 42%, transparent) !important;
+}
+
 html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > div:first-child,
 html[data-theme-visual="yyh"] .react-flow__node-llm .llm-chat-panel,
 html[data-theme-visual="yyh"] .react-flow__node-llm > div:first-child > div:not(.react-flow__handle) {
@@ -438,6 +458,52 @@ html[data-theme-visual="yyh"] .react-flow__node-llm > div:first-child > div:not(
     var(--t8-bg-node) !important;
   color: var(--yyh-ink) !important;
   box-shadow: var(--t8-shadow-panel) !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden="true"],
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden-output="true"],
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden-upload="true"],
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden-output-frame="true"] {
+  --yyh-node-glow: var(--yyh-hidden-pink);
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 82%, transparent) !important;
+  border-top-color: var(--yyh-hidden-pink) !important;
+  outline: 1px solid color-mix(in srgb, var(--yyh-hidden-pink) 76%, transparent) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--yyh-hidden-pink) 26%, transparent) 0 11px, transparent 12px),
+    linear-gradient(315deg, color-mix(in srgb, var(--yyh-purple) 20%, transparent) 0 11px, transparent 12px),
+    linear-gradient(180deg, color-mix(in srgb, var(--yyh-hidden-pink) 12%, transparent), transparent 58%),
+    var(--t8-bg-node) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 18%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--yyh-hidden-pink) 13%, transparent),
+    0 0 34px color-mix(in srgb, var(--yyh-hidden-pink) 34%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__node.selected:not(.react-flow__node-groupBox):has(> [data-yyh-portrait-hidden="true"]) > div:first-child,
+html[data-theme-visual="yyh"] .react-flow__node.selected:not(.react-flow__node-groupBox):has(> [data-yyh-portrait-hidden-output="true"]) > div:first-child,
+html[data-theme-visual="yyh"] .react-flow__node.selected:not(.react-flow__node-groupBox):has(> [data-yyh-portrait-hidden-upload="true"]) > div:first-child {
+  outline: 1px solid var(--yyh-hidden-pink) !important;
+  border-color: var(--yyh-hidden-pink) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 32%, transparent),
+    0 0 0 7px color-mix(in srgb, var(--yyh-hidden-pink) 16%, transparent),
+    0 0 40px color-mix(in srgb, var(--yyh-hidden-pink) 42%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden="true"] .react-flow__handle,
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden-output="true"] .react-flow__handle,
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden-upload="true"] .react-flow__handle {
+  background: var(--yyh-hidden-pink) !important;
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--yyh-hidden-pink) 18%, transparent),
+    0 0 20px color-mix(in srgb, var(--yyh-hidden-pink) 48%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden-panel="true"] {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 52%, transparent) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--yyh-hidden-pink) 10%, transparent), transparent 62%),
+    var(--t8-bg-panel) !important;
 }
 
 html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > div:first-child::before {
@@ -1004,4 +1070,143 @@ html[data-theme-visual="yyh"][data-theme-mode="light"] .t8-sidebar-search-box in
 html[data-theme-visual="yyh"][data-theme-mode="light"] .t8-sidebar input {
   background: color-mix(in srgb, var(--yyh-panel) 94%, #fff) !important;
   color: var(--yyh-ink) !important;
+}
+
+/* 幽游白书隐藏肖像模式：整套节点/编辑器从灵界蓝切换为粉色能量态。 */
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"],
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] {
+  --yyh-cyan: var(--yyh-hidden-pink);
+  --yyh-blue-wire: var(--yyh-hidden-pink);
+  --yyh-node-glow: var(--yyh-hidden-pink);
+  --t8-accent: var(--yyh-hidden-pink);
+  --t8-accent-hover: #ff7fe4;
+  --t8-border: color-mix(in srgb, var(--yyh-hidden-pink) 42%, transparent);
+  --t8-border-strong: color-mix(in srgb, var(--yyh-hidden-pink) 78%, transparent);
+  --t8-bg-node: color-mix(in srgb, #21061c 76%, var(--yyh-panel));
+  --t8-bg-panel: color-mix(in srgb, #21061c 72%, var(--yyh-panel));
+  --t8-bg-panel-elevated: color-mix(in srgb, #33102c 78%, var(--yyh-panel-2));
+  --t8-shadow-panel:
+    0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 30%, transparent),
+    0 0 30px color-mix(in srgb, var(--yyh-hidden-pink) 34%, transparent),
+    10px 12px 0 rgba(12, 2, 12, 0.36);
+}
+
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden="true"],
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 86%, transparent) !important;
+  border-top-color: var(--yyh-hidden-pink) !important;
+  outline: 1px solid color-mix(in srgb, var(--yyh-hidden-pink) 78%, transparent) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--yyh-hidden-pink) 30%, transparent) 0 14px, transparent 15px),
+    linear-gradient(315deg, color-mix(in srgb, var(--yyh-purple) 24%, transparent) 0 12px, transparent 13px),
+    radial-gradient(circle at 18% 18%, color-mix(in srgb, var(--yyh-hidden-pink) 18%, transparent), transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--yyh-hidden-pink) 15%, transparent), transparent 58%),
+    var(--t8-bg-node) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 22%, transparent),
+    0 0 0 5px color-mix(in srgb, var(--yyh-hidden-pink) 13%, transparent),
+    0 0 38px color-mix(in srgb, var(--yyh-hidden-pink) 40%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__node.selected:not(.react-flow__node-groupBox):has(> [data-yyh-portrait-hidden="true"]) > div:first-child {
+  border-color: var(--yyh-hidden-pink) !important;
+  outline-color: var(--yyh-hidden-pink) !important;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 36%, transparent),
+    0 0 0 7px color-mix(in srgb, var(--yyh-hidden-pink) 18%, transparent),
+    0 0 44px color-mix(in srgb, var(--yyh-hidden-pink) 48%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden="true"]::before {
+  background:
+    linear-gradient(90deg, var(--yyh-hidden-pink) 0 34px, transparent 34px),
+    linear-gradient(180deg, transparent 0 35px, color-mix(in srgb, var(--yyh-hidden-pink) 36%, transparent) 36px, transparent 37px),
+    radial-gradient(circle at 88% 16%, color-mix(in srgb, var(--yyh-purple) 48%, transparent), transparent 18%),
+    var(--yyh-hud-grid) !important;
+  opacity: 0.24 !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden="true"]::after {
+  content: "HIDDEN" !important;
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 70%, transparent) !important;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--yyh-hidden-pink) 34%, #140513), color-mix(in srgb, var(--yyh-purple) 22%, #140513)) !important;
+  color: color-mix(in srgb, var(--yyh-hidden-pink) 82%, #fff) !important;
+}
+
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] .t8-node-header,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] .t8-node-header {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 42%, transparent) !important;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--yyh-hidden-pink) 20%, #160416), color-mix(in srgb, var(--yyh-purple) 12%, #140513)) !important;
+  color: #fff7fd !important;
+}
+
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] .t8-card,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] .t8-card {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 38%, transparent) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--yyh-hidden-pink) 9%, transparent), transparent 64%),
+    color-mix(in srgb, #180518 74%, var(--yyh-panel-2)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 8%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] .t8-input,
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] .t8-select,
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] input,
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] textarea,
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] select,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] .t8-input,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] .t8-select,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] input,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] textarea,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] select {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 42%, transparent) !important;
+  background-color: color-mix(in srgb, #130512 82%, var(--yyh-panel)) !important;
+  color: #fff7fd !important;
+}
+
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] .t8-btn,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] .t8-btn,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] .t8-mini-icon-button {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 46%, transparent) !important;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--yyh-hidden-pink) 15%, transparent), color-mix(in srgb, #120512 86%, transparent)) !important;
+  color: #fff7fd !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--yyh-hidden-pink) 10%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] .t8-btn-primary,
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] .t8-btn-primary {
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 72%, #fff) !important;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--yyh-hidden-pink) 72%, #2d0828), color-mix(in srgb, var(--yyh-purple) 28%, #180518)) !important;
+  color: #fff !important;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--yyh-hidden-pink) 32%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] [data-yyh-portrait-hidden="true"] input[type="range"],
+html[data-theme-visual="yyh"] [data-yyh-portrait-editor-hidden="true"] input[type="range"] {
+  accent-color: var(--yyh-hidden-pink) !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox):has(> [data-yyh-portrait-hidden="true"]) .react-flow__handle,
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden="true"] .react-flow__handle,
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden-output="true"] .react-flow__handle,
+html[data-theme-visual="yyh"] .react-flow__node:not(.react-flow__node-groupBox) > [data-yyh-portrait-hidden-upload="true"] .react-flow__handle {
+  background: var(--yyh-hidden-pink) !important;
+  border-color: color-mix(in srgb, var(--yyh-hidden-pink) 58%, #fff) !important;
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--yyh-hidden-pink) 18%, transparent),
+    0 0 22px color-mix(in srgb, var(--yyh-hidden-pink) 56%, transparent) !important;
+}
+
+html[data-theme-visual="yyh"] .react-flow__edge.yyh-portrait-hidden-edge .react-flow__edge-path,
+html[data-theme-visual="yyh"] .react-flow__edge-path.yyh-portrait-hidden-edge,
+html[data-theme-visual="yyh"] .react-flow__edge.selected.yyh-portrait-hidden-edge .react-flow__edge-path,
+html[data-theme-visual="yyh"] .react-flow__edge.yyh-portrait-hidden-edge:hover .react-flow__edge-path {
+  stroke: var(--yyh-hidden-pink) !important;
+  stroke-width: 3.7px !important;
+  stroke-dasharray: 9 7 !important;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--yyh-hidden-pink) 42%, transparent)) !important;
 }
