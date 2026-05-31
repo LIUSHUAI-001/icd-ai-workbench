@@ -1331,12 +1331,22 @@ const VIDEO_FAL_REGISTRY = {
     referenceEndpoint: 'xai/grok-imagine-video/reference-to-video',
     paramKind: 'grok-fal',
     maxRefImages: 7,
+    defaultImageMode: 'base64',
+  },
+  'grok-imagine-video-1.5': {
+    endpoint: 'xai/grok-imagine-video/v1.5/image-to-video',
+    paramKind: 'grok-fal',
+    maxRefImages: 1,
+    defaultImageMode: 'base64',
+    requiresImage: true,
+    disableAspectRatio: true,
   },
   'sora-2': {
     endpoint: 'fal-ai/sora-2/text-to-video',
     i2vEndpoint: 'fal-ai/sora-2/image-to-video',
     paramKind: 'sora-fal',
     maxRefImages: 1,
+    defaultImageMode: 'base64',
   },
 };
 
@@ -1441,7 +1451,10 @@ router.post('/video/fal/submit', async (req, res) => {
       }
     } else if (reg.paramKind === 'grok-fal') {
       // ===== Grok Video FAL (主项目 runGrokFal line 3787) =====
-      const mode = String(gkMode || 'image_to_video') === 'reference_to_video' ? 'reference_to_video' : 'image_to_video';
+      const isV15 = effectiveApiModel === 'grok-imagine-video-1.5';
+      const mode = isV15
+        ? 'image_to_video'
+        : String(gkMode || 'image_to_video') === 'reference_to_video' ? 'reference_to_video' : 'image_to_video';
       const extraReferenceUrls = splitGrokReferenceUrls(gkReferenceUrls);
       const hasImg = trimmedRefs.length > 0;
       const effectiveRatio = (mode === 'reference_to_video' || !hasImg) && String(gkRatio || '16:9') === 'auto'
@@ -1450,11 +1463,19 @@ router.post('/video/fal/submit', async (req, res) => {
       payload = {
         prompt,
         duration: parseInt(gkDuration ?? 6, 10) || 6,
-        aspect_ratio: effectiveRatio,
         resolution: String(resolution || '720p'),
       };
-      const useBase64 = String(image_mode || 'base64') === 'base64';
-      if (mode === 'reference_to_video') {
+      if (!isV15) payload.aspect_ratio = effectiveRatio;
+      const useBase64 = String(image_mode || reg.defaultImageMode || 'base64') === 'base64';
+      if (isV15) {
+        endpoint = reg.endpoint;
+        if (!hasImg) throw new Error('Grok Video 1.5 requires one uploaded image');
+        const imgData = useBase64
+          ? await refToBananaImage(trimmedRefs[0])
+          : await uploadRefToZhenzhen(trimmedRefs[0], apiKey);
+        if (imgData) payload.image_url = imgData;
+        else throw new Error('Grok Video 1.5 参考图处理失败');
+      } else if (mode === 'reference_to_video') {
         endpoint = reg.referenceEndpoint || reg.i2vEndpoint || reg.endpoint;
         const referenceImageUrls = [];
         const uploadRefs = trimmedRefs.slice(0, 7);

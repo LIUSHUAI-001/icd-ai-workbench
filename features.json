@@ -1,7 +1,7 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "1.7.7",
-  "lastUpdated": "2026-06-01-v1.7.7-slamdunk-theme-polish",
+  "version": "1.7.8",
+  "lastUpdated": "2026-06-01-v1.7.8-grok-video-1.5-electron",
   "packaging": {
     "description": "Electron NSIS 桌面端打包链路(v1.2.1 起标准化, 严禁未明确指令主动打包)。完整产物拓扑: app.asar(electron/{main,loader,preload}.cjs + node_modules) + app.asar.unpacked(node_modules/sharp + @img) + resources/backend-enc/*.t8c(extraResources, asar 外) + resources/frontend(extraResources, asar 外)。前端版本号由 vite define 注入 __APP_VERSION__、Sidebar 左下角自动同步。",
     "scripts": {
@@ -16,10 +16,10 @@
       "T8PC_FRONTEND_DIST": "打包模式 = path.join(process.resourcesPath, 'frontend'); 开发模式 = <project>/dist",
       "T8PC_RES": "打包模式 = process.resourcesPath; 开发模式 = <project>"
     },
-    "version": "1.7.7",
-    "semverVersion": "1.7.7",
-    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.7.7：新增第八套官方主题「灌篮高手风格」，使用原创篮球馆视觉母题，覆盖木地板球场、计分牌节点、传球弧线、战术板 MiniMap、篮球/哨子 SHIFT 剪线和内置主题音乐；后续热修补充樱木 10 号球衣 LOGO、新篮球传球动画、断线按钮统一篮球资源和深色控制条可读性。本次只推源码，不打包 Electron。",
-    "installer": "本次未打包 Electron；最近一次安装包为 dist_electron/T8-PenguinCanvas-Setup-1.5.5.exe (NSIS, 108.96 MB)",
+    "version": "1.7.8",
+    "semverVersion": "1.7.8",
+    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.7.8：视频节点默认模型类型改为 Grok Video，并按 Grok Video / Veo 3.1 / Sora2 排序；Grok Video TAB 新增并默认使用 Grok Video 1.5 (FAL)，图像传入默认 base64，只支持 1 张参考图且不发送比例参数；模型注意事项同步补充最新 Grok/Seedance/Sora 使用说明。本次按规范打包 Electron。",
+    "installer": "已按 npm run dist 打包 Electron；最终安装包为 dist_electron/T8-PenguinCanvas-Setup-1.7.8.exe (NSIS, 129.20 MB)，并通过 win-unpacked 10 秒启动冒烟。",
     "checklist": [
       "运行 npm run encrypt 前确认已 npm install bytenode 且使用 Electron 内置 Node",
       "backend/src/ 任何文件修改后必须重新 npm run encrypt 再打包",
@@ -1600,6 +1600,19 @@
         "验证：npm run build 通过；浏览器验证灌篮主题下每条连线仅 1 个传球篮球，断线按钮/光标使用新版篮球资源，深色模式 ReactFlow Controls 背景、图标和禁用态均有可读对比。",
         "公开版本同步到 1.7.7：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md、docs/theme-design-guide.md 同步；skill.md 仅本地更新，继续禁止推送 GitHub。"
       ]
+    },
+    "phase109": {
+      "label": "Grok Video 1.5 FAL 默认模型 (v1.7.8)",
+      "status": "complete",
+      "items": [
+        "视频节点模型类型下拉顺序调整为 Grok Video / Veo 3.1 / Sora2，新建视频节点默认进入 Grok Video。",
+        "视频节点 Grok Video TAB 的具体模型新增 Grok Video 1.5 (FAL)，并作为该 TAB 默认子模型；旧版 grok-video-3 和 grok-video-fal 仍保留可选，历史画布不强制迁移。",
+        "Grok Video 1.5 对齐 gpt-image-2-web v4.5U：走 xai/grok-imagine-video/v1.5/image-to-video，只支持图生视频，最多 1 张参考图，不发送 aspect_ratio 参数。",
+        "Grok Video 1.5 的图像传入模式默认 base64；前端提交固定 image_mode=base64，后端默认使用 refToBananaImage 转换本地/远端参考图后写入 image_url。",
+        "Grok Video FAL 旧版链路继续支持 image-to-video、reference-to-video 和无图 text-to-video fallback；Grok Video 1.5 缺少参考图时会前后端明确报错。",
+        "模型注意事项弹窗同步补充最新视频模型说明：Grok Video 1.5 可作为 SD 平替图生视频，Sora2 当前先不建议使用，Seedance 预扣/退补规则保持清晰提示。",
+        "公开版本同步到 1.7.8：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 同步；skill.md 仅本地更新，继续禁止推送 GitHub；本次按规范打包 Electron。"
+      ]
     }
   },
   "categories": {
@@ -1992,16 +2005,41 @@
     ],
     "video": [
       {
+        "id": "grok-video",
+        "label": "Grok Video",
+        "provider": "zhenzhen",
+        "endpoint": "/v1/videos/generations",
+        "defaultModel": "grok-imagine-video-1.5",
+        "falModels": [
+          {
+            "id": "grok-imagine-video-1.5",
+            "endpoint": "/fal/xai/grok-imagine-video/v1.5/image-to-video",
+            "mode": "image-to-video",
+            "imageMode": "base64",
+            "maxRefs": 1
+          },
+          {
+            "id": "grok-video-fal",
+            "endpoint": "/fal/xai/grok-imagine-video/{text-to-video|image-to-video|reference-to-video}",
+            "imageMode": "base64",
+            "maxRefs": 7
+          }
+        ]
+      },
+      {
         "id": "veo-3.1",
         "label": "Veo 3.1",
         "provider": "zhenzhen",
         "endpoint": "/v1/videos/generations"
       },
       {
-        "id": "grok-video",
-        "label": "Grok Video",
+        "id": "sora-2",
+        "label": "Sora2",
         "provider": "zhenzhen",
-        "endpoint": "/v1/videos/generations"
+        "endpoint": "/fal/fal-ai/sora-2/{text-to-video|image-to-video}",
+        "defaultModel": "sora-2",
+        "imageMode": "base64",
+        "maxRefs": 1
       },
       {
         "id": "seedance-2.0",
