@@ -1,7 +1,7 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "1.8.5",
-  "lastUpdated": "2026-06-01-v1.8.5-advanced-provider-settings-guidance",
+  "version": "1.8.6",
+  "lastUpdated": "2026-06-01-ai-watermark-full-runtime-packaging",
   "packaging": {
     "description": "Electron NSIS 桌面端打包链路(v1.2.1 起标准化, 严禁未明确指令主动打包)。完整产物拓扑: app.asar(electron/{main,loader,preload}.cjs + node_modules) + app.asar.unpacked(node_modules/sharp + @img) + resources/backend-enc/*.t8c(extraResources, asar 外) + resources/frontend(extraResources, asar 外)。前端版本号由 vite define 注入 __APP_VERSION__、Sidebar 左下角自动同步。",
     "scripts": {
@@ -16,17 +16,19 @@
       "T8PC_FRONTEND_DIST": "打包模式 = path.join(process.resourcesPath, 'frontend'); 开发模式 = <project>/dist",
       "T8PC_RES": "打包模式 = process.resourcesPath; 开发模式 = <project>"
     },
-    "version": "1.8.5",
-    "semverVersion": "1.8.5",
-    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.8.5：扩展 API 平台设置页可读性与排版修复。OpenAI 兼容、ModelScope、火山引擎、本地 ComfyUI、即梦 CLI 现在按平台用途、适用节点、连接配置、模型列表和高级项分区说明，避免新手误以为必填或看不懂内部字段；默认主流程仍保持贞贞工坊 / RunningHub / LLM 独立 Key 不变。",
-    "installer": "本次只推送 GitHub 源码新版本，未重新打包 Electron；最近一次安装包仍为 dist_electron/T8-PenguinCanvas-Setup-1.8.4.exe（NSIS，129.35 MB），并已通过 win-unpacked 10 秒启动冒烟。",
+    "version": "1.8.6",
+    "semverVersion": "1.8.6",
+    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.8.6：去AI水印辅助节点补齐 full optional dependency 运行规范、上游更新扩展标准和 Electron sidecar runtime 打包规范。默认主流程仍保持贞贞工坊 / RunningHub / LLM 独立 Key 不变。",
+    "installer": "本次按规范重新打包 Electron，安装包产物为 dist_electron/T8-PenguinCanvas-Setup-1.8.6.exe（NSIS，129.40 MB）；去AI水印完整离线能力需要在 tools/remove-ai-watermarks-runtime 准备 sidecar runtime 并可用 T8_REQUIRE_AI_WATERMARK_RUNTIME=1 强制校验。",
     "checklist": [
       "运行 npm run encrypt 前确认已 npm install bytenode 且使用 Electron 内置 Node",
       "backend/src/ 任何文件修改后必须重新 npm run encrypt 再打包",
       "main.cjs 的窗口标题 / log 窗口 / IPC version 三处版本号，以及 backend/src/config.js APP_VERSION 必须与 package.json 同步",
-      "_post_build.cjs 验证 21 个 .t8c 必存在: server/config + routes/{canvas,settings,proxy,externalProviders,files,imageOps,recharge,resources,themes,eagle} + providers/{registry,mediaResolver,adapters,openaiCompatible,modelscope,volcengine,comfyui,jimengCli} + utils/duckPayload",
+      "_post_build.cjs 验证 24 个 .t8c 必存在: server/config + routes/{canvas,settings,proxy,externalProviders,files,imageOps,recharge,resources,themes,eagle,aiWatermark} + providers/{registry,mediaResolver,adapters,openaiCompatible,modelscope,volcengine,comfyui,jimengCli} + tools/aiWatermark/{runner,media} + utils/duckPayload",
       "_post_build.cjs 验证 resources/frontend/index.html + assets/ 必存在",
       "_post_build.cjs 必须让 src/assets/theme-music/*.mp3 经 Vite 输出到 resources/frontend/assets，主题音乐默认静音且随前端资源一起打包",
+      "_post_build.cjs 必须检查 resources/tools/remove-ai-watermarks sidecar runtime slot；普通源码构建缺少 runtime 时只警告，正式用户包设置 T8_REQUIRE_AI_WATERMARK_RUNTIME=1 后缺少 remove-ai-watermarks.exe / Scripts/remove-ai-watermarks.exe / python.exe 等入口必须失败",
+      "去AI水印 full runtime 不提交 Git；如需离线用户包，先把 Python/Torch/remove-ai-watermarks[gpu,detect,trustmark,lama] sidecar 放入 tools/remove-ai-watermarks-runtime，再执行 npm run dist",
       "_post_build.cjs 自动清除任何意外混入的 resources/{app,backend}/src 明文目录",
       "_post_build.cjs 必须拦截源码中的非空 RECHARGE_DEFAULT_ENC，以及 resources 中的 data/recharge.private.json、非空 AGENT_HMAC_KEY / DULUPAY_KEY、RECHARGE_DEFAULT_ENC 可逆密文；用户分发包不得携带充值 agent HMAC",
       "打包完成后必须实测启动 win-unpacked/T8-PenguinCanvas.exe 检查日志: 环境=production / 数据目录=AppData/t8-penguin-canvas / GET / 200",
@@ -238,7 +240,43 @@
     ]
   },
   "repository": "https://github.com/T8mars/T8-penguin-canvas",
-  "totalNodes": 40,
+  "aiWatermarkRuntime": {
+    "upstream": "https://github.com/wiltodelta/remove-ai-watermarks",
+    "upstreamLicense": "MIT",
+    "nodeType": "remove-ai-watermark",
+    "category": "auxiliary",
+    "fullInstall": "remove-ai-watermarks[gpu,detect,trustmark,lama]",
+    "runtimeResolutionOrder": [
+      "T8_REMOVE_AI_WATERMARKS_RUNTIME sidecar root",
+      "Electron resources/tools/remove-ai-watermarks",
+      "T8_REMOVE_AI_WATERMARKS_BIN executable",
+      "T8_REMOVE_AI_WATERMARKS_SRC source clone",
+      "E:/PenguinPravite/_external/remove-ai-watermarks development clone",
+      "PATH remove-ai-watermarks(.exe/.cmd)"
+    ],
+    "electronPackaging": {
+      "sourceSlot": "tools/remove-ai-watermarks-runtime",
+      "packagedSlot": "resources/tools/remove-ai-watermarks",
+      "trackedPolicy": "只提交 README 占位与规范，Python/Torch/模型文件继续由 .gitignore 排除",
+      "strictEnv": "T8_REQUIRE_AI_WATERMARK_RUNTIME=1",
+      "acceptedEntrypoints": [
+        "remove-ai-watermarks.exe",
+        "remove-ai-watermarks.cmd",
+        "Scripts/remove-ai-watermarks.exe",
+        "python.exe",
+        "python/python.exe",
+        ".venv/Scripts/python.exe",
+        "bin/python"
+      ]
+    },
+    "upstreamUpdateRule": [
+      "不要复制上游算法源码到 T8；通过 CLI/Python 包能力探测消费上游。",
+      "上游新增 mark 时优先依赖 watermark_registry.mark_keys() 动态暴露，前端只补充显示文案或兜底。",
+      "上游新增 mode/options 时扩展 runner 参数映射、节点 UI 和 tests/aiWatermarkRunner.test.ts，不破坏旧画布数据字段。",
+      "每次同步上游后必须重新跑 status/capability、代表性 process smoke、node --test tests/*.test.ts、npm run build 和 Electron 打包后置检查。"
+    ]
+  },
+  "totalNodes": 41,
   "phases": {
     "phase0": {
       "label": "基础设施",
@@ -1709,12 +1747,25 @@
         "顶部摘要简化为已启用数量和密钥数量，详细 ComfyUI/即梦状态移到展开说明里，避免折叠按钮信息过密。",
         "验证：node --test tests/advancedProviderFrontend.test.ts tests/advancedProviders.test.ts 通过 13/13；npm run build 通过（仅保留既有 chunk size 与 react-vendor 空 chunk 警告）；浏览器截图检查当前灌篮主题下无横向溢出。"
       ]
+    },
+    "phase118": {
+      "label": "去AI水印完整运行时与打包规范 (v1.8.6)",
+      "status": "complete",
+      "items": [
+        "remove-ai-watermark 节点固定桥接 wiltodelta/remove-ai-watermarks，上游算法不复制到 T8；T8 负责画布节点、媒体解析、CLI/Python 调用、输出转存和错误文案。",
+        "后端 runner 优先探测 T8_REMOVE_AI_WATERMARKS_RUNTIME、Electron resources/tools/remove-ai-watermarks sidecar、T8_REMOVE_AI_WATERMARKS_BIN、T8_REMOVE_AI_WATERMARKS_SRC、开发期 _external clone，再 fallback PATH CLI。",
+        "状态接口动态返回 upstream version、markKeys 与 optionalFeatures(invisible/lama/detect/trustmark)，前端 mark 列表必须以动态结果为准并以 auto/gemini/doubao/jimeng 兜底。",
+        "完整能力依赖 remove-ai-watermarks[gpu,detect,trustmark,lama]、CUDA Torch、OpenCV 兼容版本和 LaMA/invisible 可选模型；缺依赖时后端必须优雅显示未安装或能力不可用，不允许炸后端。",
+        "隐形水印参数在 T8 层钳制安全边界：steps 至少 4，非 0 maxResolution 至少 256，strength 至少保证一个 diffusion timestep，避免上游 diffusers 空 latent 崩溃。",
+        "Electron 用户包若要开箱可用，必须准备 tools/remove-ai-watermarks-runtime sidecar runtime，electron-builder 会复制到 resources/tools/remove-ai-watermarks；正式发版可设置 T8_REQUIRE_AI_WATERMARK_RUNTIME=1 强制缺失即失败。",
+        "上游仓库更新后只同步 registry、命令参数、mark/mode/options 与能力探测适配；新增能力必须补 tests/aiWatermarkRunner.test.ts 并更新 README/features/skill 的 MIT attribution 与打包说明。"
+      ]
     }
   },
   "categories": {
     "input": {
       "label": "素材资源",
-      "count": 5,
+      "count": 3,
       "nodes": [
         {
           "type": "upload",
@@ -1904,7 +1955,7 @@
     },
     "auxiliary": {
       "label": "辅助节点",
-      "count": 5,
+      "count": 6,
       "nodes": [
         {
           "type": "edit",
@@ -1927,6 +1978,11 @@
           "description": "数据中转"
         },
         {
+          "type": "remove-ai-watermark",
+          "label": "去AI水印",
+          "description": "接入 wiltodelta/remove-ai-watermarks，可处理已知可见 AI 水印、框选擦除(cv2/LaMA)、隐形水印、AI 元数据清理与来源鉴别；支持本地 Python 包或 Electron sidecar runtime，视频/音频首阶段支持元数据检查和清理"
+        },
+        {
           "type": "video-output",
           "label": "视频输出",
           "description": "视频结果展示"
@@ -1935,7 +1991,7 @@
     },
     "toolbox": {
       "label": "工具箱",
-      "count": 4,
+      "count": 5,
       "nodes": [
         {
           "type": "cinematic",
@@ -2462,6 +2518,10 @@
         "GET /api/eagle/status — 检查本机 Eagle API 可达性，仅允许 127.0.0.1/localhost",
         "POST /api/eagle/import — 将上传素材、输出素材、素材集或文本发送到本机 Eagle，支持 /files/input、/files/output、资源库文件、素材集文件和 http(s) URL"
       ],
+      "aiWatermark": [
+        "GET /api/ai-watermark/status — 检测 remove-ai-watermarks CLI/Python 包或 Electron sidecar runtime、版本、已知 visible mark 与 optionalFeatures(invisible/lama/detect/trustmark)",
+        "POST /api/ai-watermark/process — 去AI水印辅助节点处理入口，支持 smart/visible/erase(cv2/LaMA)/invisible/metadata-check/metadata-remove/identify，输出统一转存 /files/output 或返回文本报告"
+      ],
       "proxy": [
         "POST /api/proxy/image — 图像生成(贞贞工坊,自动转存)",
         "POST /api/proxy/image/fal/submit — FAL Queue 提交(gpt-image-2-fal / nano-banana-pro-fal,同步返 images[] 或异步返 requestId+responseUrl)",
@@ -2526,7 +2586,8 @@
     "video-motion",
     "multi-angle-visual",
     "portrait-master",
-    "pose-master"
+    "pose-master",
+    "remove-ai-watermark"
   ],
   "nonExecutableNodeTypes": {
     "description": "不参与批量运行的节点(纯展示 / 参数记录 / 隐藏配置)",

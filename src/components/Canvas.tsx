@@ -109,6 +109,7 @@ import PoseMasterNode from './nodes/PoseMasterNode';
 import IdeaNode from './nodes/IdeaNode';
 import BpNode from './nodes/BpNode';
 import RelayNode from './nodes/RelayNode';
+import RemoveAiWatermarkNode from './nodes/RemoveAiWatermarkNode';
 import VideoOutputNode from './nodes/VideoOutputNode';
 import PortraitMetadataNode from './nodes/PortraitMetadataNode';
 import StoryboardGridNode from './nodes/StoryboardGridNode';
@@ -179,6 +180,7 @@ const SPECIFIC_NODES: Record<string, any> = {
   idea: IdeaNode,
   bp: BpNode,
   relay: RelayNode,
+  'remove-ai-watermark': RemoveAiWatermarkNode,
   'video-output': VideoOutputNode,
   // Toolbox (5)
   cinematic: ToolboxParamNode,
@@ -329,6 +331,32 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   'image-compare': { mode: 'slider', align: 'contain', split: 50, opacity: 50, threshold: 24 },
   'drawing-board': { boardRatio: '16:9', boardWidth: 960, boardHeight: 540, boardElements: [], boardColor: '#111827', boardStrokeSize: 5 },
   'grid-crop': { rows: 3, cols: 3, gap: 0 },
+  'remove-ai-watermark': {
+    aiWatermarkMode: 'smart',
+    aiWatermarkProcessAll: false,
+    aiWatermarkOptions: {
+      mark: 'auto',
+      detect: true,
+      inpaint: true,
+      inpaintMethod: 'ns',
+      inpaintStrength: 0.85,
+      stripMetadata: true,
+      runInvisible: false,
+      regions: [],
+      backend: 'cv2',
+      eraseMethod: 'telea',
+      dilate: 3,
+      pipeline: 'default',
+      device: 'auto',
+      steps: 50,
+      humanize: 0,
+      maxResolution: 0,
+      protectText: true,
+      protectFaces: true,
+      keepStandardMetadata: true,
+      noVisible: false,
+    },
+  },
 };
 
 // 可被“批量运行”调起的节点类型集合
@@ -346,6 +374,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'loop', 'pick-from-set',
   // v1.4.8: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
   'cinematic', 'video-motion', 'multi-angle-visual', 'portrait-master', 'pose-master',
+  'remove-ai-watermark',
 ]);
 
 // 网格吸附步长 / 对齐阈值(世界坐标)

@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v1.8.5
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v1.8.6
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器即可使用，亦可一键打包为 Windows 桌面端（NSIS 安装包）。
 
-![status](https://img.shields.io/badge/version-v1.8.5-brightgreen) ![node](https://img.shields.io/badge/node-%E2%89%A518-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v1.8.6-brightgreen) ![node](https://img.shields.io/badge/node-%E2%89%A518-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -35,7 +35,7 @@ My favorite girl Go YounJung
 
 ## ✨ 功能亮点
 
-- 🎨 **40 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集
+- 🎨 **41 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
 - 🗂️ **素材集节点 + 资源库整套复用**：可把同类型文本 / 图像 / 视频 / 音频合并为素材集，支持拖拽排序、反转 / 文件名 / 随机排序、导入素材集 / 导出素材集、保存到资源库、从资源库整套插入画布；未选中节点时按 `R` 可快速打开 / 关闭资源库
 - 🚚 **跨画布节点 / 素材发送 + Eagle 本地入库**：框选多个带连线节点可用“节点片段”发送到其他画布并保留内部连线；上传素材、输出素材或素材集仍支持智能保持 / 合并素材集 / 上传素材 / 拆分上传 / 输出素材，发送弹窗提供最近画布、发送历史和重复素材提示，发送后可自动切换并定位到新内容，资源库素材也可一键发送，Eagle 入库仅允许本机 localhost 接口
@@ -58,6 +58,7 @@ My favorite girl Go YounJung
 - 🖌️ **图层画板节点**：工具分类开放画板节点，支持 16:9 / 9:16 等画布比例、空白图层、图层组折叠、可见 / 锁定状态、载入上游或本地图片、手绘 / 文字 / 图形 / 箭头、缩放旋转、导入导出画板 JSON 与运行输出 PNG
 - 🔑 **分类独立 API Key 可选 · 默认折叠**（v1.2.6）：gpt-image / nano-banana / mj / veo / grok / seedance / suno 七个分类 Key 未填自动 fallback 贞贞通用 Key，新手默认折叠不被干扰
 - 🧭 **扩展 API 平台高级入口**（v1.8.5）：API 设置页默认折叠的「扩展 API 平台【高级/可选】」可配置 OpenAI 兼容、ModelScope、火山引擎、本地 ComfyUI、即梦 CLI；面板已按平台用途、适用节点、连接配置、模型列表和高级项分区说明，启用后图像 / 视频 / SD2.0 / LLM 节点可选择高级来源，默认不改变主流程
+- 🧽 **去AI水印辅助节点**（v1.8.6）：桥接 `wiltodelta/remove-ai-watermarks`，支持可见水印识别去除、框选擦除（cv2 / LaMA）、隐形水印、AI 元数据检查 / 清理和来源鉴别；开发环境可使用本地 Python 包，用户 Electron 完整包可通过 `tools/remove-ai-watermarks-runtime` sidecar runtime 随包分发
 - 🧲 **智能对齐辅助线 + snap-to-grid**：拖动时检测同列 / 同行 / 居中对齐并弱吸附
 - 📦 **GroupBox 打组**：框选 ≥2 节点一键套色框容器，可拖拽联动、整体执行、12 色调色板
 - 🖱️ **右键画布快速添加节点**：菜单列出 7 个高频节点（upload / text / image / video / seedance / audio / llm）
@@ -128,7 +129,9 @@ npm run dist
 
 产物：`dist_electron/T8-PenguinCanvas-Setup-<version>.exe`（安装包大小以实际构建为准）
 
-打包链路：`vite build` → `bytenode + T8ENC1` 加密后端为 `.t8c` 字节码 → `electron-builder --win --x64` 出 NSIS 安装包 → `_post_build.cjs` 自动校验后端加密路由、前端 dist 与主题音乐资源完整性。
+打包链路：`vite build` → `bytenode + T8ENC1` 加密后端为 `.t8c` 字节码 → `electron-builder --win --x64` 出 NSIS 安装包 → `_post_build.cjs` 自动校验后端加密路由、前端 dist、主题音乐资源和去AI水印 runtime slot 完整性。
+
+去AI水印完整能力依赖 Python / Torch / 上游 `remove-ai-watermarks`。源码默认不提交这类大体积运行时；如果要做可离线使用的用户 Electron 包，请先把准备好的 sidecar runtime 放入 `tools/remove-ai-watermarks-runtime/`，打包时会复制为 `resources/tools/remove-ai-watermarks/`。正式分发包建议设置 `T8_REQUIRE_AI_WATERMARK_RUNTIME=1` 后再执行 `npm run dist`，这样缺少 runtime 会直接失败，避免用户装包后节点不可用。
 
 详细 SOP 与历史踩坑修复记录维护在本地私有 `skill.md`，该文件不随公开仓库发布。
 
@@ -306,6 +309,7 @@ MIT License © T8mars
 - 主作者：[T8mars](https://github.com/T8mars)
 - 灵感来源：PenguinPravite · Infinite Canvas · zhenzhen-web
 - 致谢上游服务：贞贞工坊（T8star）· RunningHub · OpenAI 兼容生态
+- 去AI水印辅助节点桥接 [wiltodelta/remove-ai-watermarks](https://github.com/wiltodelta/remove-ai-watermarks)（MIT License），算法能力由上游 Python 包 / CLI 提供；完整 Electron 用户包可随 `resources/tools/remove-ai-watermarks` sidecar runtime 分发
 - 桌面端打包方案：bytenode + electron-builder + NSIS
 
 如果这个项目对你有帮助，欢迎给一个 ⭐ Star！
