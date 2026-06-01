@@ -31,6 +31,7 @@ import {
   queryMjTask,
   uploadMjImage,
   buildMjPrompt,
+  generateExternalImage,
   type MjSpeed,
 } from '../../services/generation';
 import { useUpdateNodeData } from './useUpdateNodeData';
@@ -40,10 +41,18 @@ import { useThemeStore } from '../../stores/theme';
 import { logBus } from '../../stores/logs';
 import { useDragMaterialStore, type MaterialPayload } from '../../stores/dragMaterial';
 import { useMaterialDropTarget } from '../../hooks/useMaterialDropTarget';
+import { taskCompletionSound } from '../../stores/taskCompletionSound';
+import { useApiKeysStore } from '../../stores/apiKeys';
+import {
+  advancedProviderModelOptions,
+  advancedProvidersForNode,
+  externalImageSizeFor,
+  resolveAdvancedProviderSelection,
+} from '../../utils/advancedProviders';
 
 /**
  * ImageNode - 图像生成(ZhenzhenMagic)
- * 多 TAB 切换:GPT2 / 香蕉2 / 香蕉Pro,参数与主项目 gpt-image-2-web 对齐
+ * 多 TAB 切换:GPT2 / 香蕉2 / 香蕉Pro / Grok / MJ,参数与主项目 gpt-image-2-web 对齐
  * 参数:模型 TAB / 比例 / 尺寸 / 多张参考图 / 本地 prompt
  * 上游 text 节点 → prompt(优先);上游 image 节点 → 参考图(并入 references)
  */
@@ -64,6 +73,25 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const d = data as any;
   const model = d?.model || IMAGE_MODELS[0].id;
   const modelDef = useMemo(() => IMAGE_MODELS.find((m) => m.id === model) || IMAGE_MODELS[0], [model]);
+  const advancedProviders = useApiKeysStore((s) => s.settings.advancedProviders);
+  const imageAdvancedProviders = useMemo(
+    () => advancedProvidersForNode(advancedProviders, 'image'),
+    [advancedProviders],
+  );
+  const providerSelection = useMemo(
+    () => resolveAdvancedProviderSelection(advancedProviders, 'image', {
+      providerSource: d?.providerSource,
+      providerId: d?.providerId,
+      providerModel: d?.providerModel,
+    }),
+    [advancedProviders, d?.providerSource, d?.providerId, d?.providerModel],
+  );
+  const isExternalSelected = providerSelection.available && providerSelection.providerSource !== 'zhenzhen';
+  const savedExternalMissing = !!d?.providerSource && d.providerSource !== 'zhenzhen' && !providerSelection.available;
+  const externalModelOptions = providerSelection.provider
+    ? advancedProviderModelOptions(providerSelection.provider, 'image')
+    : [];
+  const externalProviderModel = providerSelection.providerModel || externalModelOptions[0] || '';
 
   const aspectRatio = d?.aspectRatio || modelDef.defaultAspectRatio;
   const sizeLevel = d?.sizeLevel || modelDef.defaultSize;
@@ -95,6 +123,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
 
   // ========== MJ 渠道识别及参数(完全对齐 gpt-image-2-web mj_* 控件 L1552~L1580) ==========
   const isMj = modelDef.paramKind === 'mj';
+  const isGrokImage = modelDef.paramKind === 'grok-image';
   const mjVersion: string = d?.mjVersion || DEFAULT_MJ_VERSION;
   const mjAr: string = d?.mjAr || DEFAULT_MJ_RATIO;
   const mjSpeed: MjSpeed = (d?.mjSpeed as MjSpeed) || DEFAULT_MJ_SPEED;
@@ -112,7 +141,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const MJ_REF_MAX = 2; // sref 与 oref 各最多 2 张
 
   // 参考图上限(FAL 使用 FAL_REGISTRY.maxRefs,其他走原设计)
-  const maxRefs = falDef?.maxRefs ?? modelDef.maxReferenceImages;
+  const maxRefs = isExternalSelected ? Math.max(8, modelDef.maxReferenceImages || 0) : (falDef?.maxRefs ?? modelDef.maxReferenceImages);
   const status: 'idle' | 'generating' | 'success' | 'error' = d?.status || 'idle';
   const imageUrl = d?.imageUrl as string | undefined;
   const localPrompt = d?.prompt || '';
@@ -179,7 +208,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
     void getNodes;
     return {
       prompt: prompts.join('\n').trim(),
-      images: images.slice(0, modelDef.maxReferenceImages),
+      images: images.slice(0, maxRefs),
     };
   };
 
@@ -248,11 +277,47 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
       logBus.error('生成中止: 缺少 prompt', src);
       return;
     }
+    taskCompletionSound.primeAudio();
     update({ status: 'generating', progress: '0%', error: null });
     try {
       // collectUpstream 已返回「本地上传 + 上游接入」按用户拖拽顺序合并后的列表,
       // 这里不再二次叠加 refImages, 避免本地参考图重复传递。
       const allRefs = upstreamImages.slice(0, maxRefs);
+
+      if (isExternalSelected && providerSelection.provider) {
+        const providerModel = externalProviderModel;
+        if (!providerModel) throw new Error('扩展平台未配置可用图像模型');
+        const size = externalImageSizeFor(aspectRatio, sizeLevel);
+        logBus.info(
+          `扩展平台提交: ${providerSelection.provider.label || providerSelection.provider.id} · ${providerModel} · size=${size} · 参考图=${allRefs.length}`,
+          src,
+        );
+        const res = await generateExternalImage({
+          providerId: providerSelection.provider.id,
+          providerModel,
+          model: providerModel,
+          prompt: finalPrompt,
+          size,
+          images: allRefs,
+          n: Math.max(1, Math.min(4, Number(d?.providerParams?.n || 1))),
+          providerParams: d?.providerParams || {},
+        });
+        const urls = res.imageUrls || [];
+        if (!urls.length) throw new Error('扩展平台完成但未返回图片');
+        update({
+          status: 'success',
+          progress: '100%',
+          imageUrl: urls[0],
+          imageUrls: urls,
+          remoteImageUrls: res.remoteImageUrls,
+          lastPrompt: finalPrompt,
+          usedI2I: allRefs.length > 0,
+          taskId: res.taskId || d?.taskId,
+        });
+        logBus.success(`扩展平台完成 → ${urls[0]}`, src);
+        taskCompletionSound.notifyComplete(id, 'image');
+        return;
+      }
 
       // ============ MJ 路径(对齐 gpt-image-2-web runMJ L4437~L4716) ============
       if (isMj) {
@@ -344,6 +409,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
               lastPrompt: finalPrompt,
               usedI2I: allRefs.length > 0 || mjSrefImages.length > 0 || mjOrefImages.length > 0,
             });
+            taskCompletionSound.notifyComplete(id, 'image');
             return;
           }
         }
@@ -392,6 +458,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
             lastPrompt: finalPrompt,
             usedI2I: allRefs.length > 0,
           });
+          taskCompletionSound.notifyComplete(id, 'image');
           return;
         }
 
@@ -422,6 +489,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
               lastPrompt: finalPrompt,
               usedI2I: allRefs.length > 0,
             });
+            taskCompletionSound.notifyComplete(id, 'image');
             return;
           }
           if (st === 'failed') {
@@ -460,9 +528,11 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           status: 'success',
           progress: '100%',
           imageUrl: submit.urls[0],
+          imageUrls: submit.urls,
           lastPrompt: finalPrompt,
           usedI2I: allRefs.length > 0,
         });
+        taskCompletionSound.notifyComplete(id, 'image');
         return;
       }
 
@@ -493,9 +563,11 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
             status: 'success',
             progress: '100%',
             imageUrl: url,
+            imageUrls: q.urls,
             lastPrompt: finalPrompt,
             usedI2I: allRefs.length > 0,
           });
+          taskCompletionSound.notifyComplete(id, 'image');
           return;
         }
         if (st === 'failed' || st === 'failure' || st === 'error') {
@@ -512,7 +584,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   };
 
   // 接入运行总线,供批量运行调起
-  useRunTrigger(id, handleGenerate);
+  useRunTrigger(id, handleGenerate, 'image');
 
   // === 跨节点拖拽: source (从输出图 Ctrl+拖出) ===
   const startDrag = useDragMaterialStore((s) => s.start);
@@ -566,14 +638,85 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
         </div>
         <div className="flex-1">
           <div className="text-sm font-semibold text-white">图像</div>
-          <div className="text-[10px] text-white/40">{modelDef.label} · {modelDef.description}</div>
+          <div className="text-[10px] text-white/40">
+            {isExternalSelected && providerSelection.provider
+              ? `${providerSelection.provider.label || providerSelection.provider.id} · ${externalProviderModel || '未选模型'}`
+              : `${modelDef.label} · ${modelDef.description}`}
+          </div>
         </div>
       </div>
 
       {/* 配置区 */}
       <div className="p-2.5 space-y-2" onMouseDown={(e) => e.stopPropagation()}>
+        {imageAdvancedProviders.length > 0 && (
+          <div className="rounded border border-white/10 bg-white/[0.03] p-2 space-y-2">
+            <button
+              type="button"
+              onClick={() => update({ advancedProviderOpen: !d?.advancedProviderOpen })}
+              className="w-full flex items-center justify-between text-[10px] font-semibold text-white/70 hover:text-white"
+            >
+              <span>高级来源</span>
+              <span>{isExternalSelected && providerSelection.provider ? providerSelection.provider.label : '默认贞贞工坊'}</span>
+            </button>
+            {d?.advancedProviderOpen && (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] text-white/50 block mb-1">平台</label>
+                  <select
+                    value={isExternalSelected ? providerSelection.providerId : 'zhenzhen'}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      if (nextId === 'zhenzhen') {
+                        update({ providerSource: 'zhenzhen', providerId: '', providerModel: '' });
+                        return;
+                      }
+                      const provider = imageAdvancedProviders.find((item) => item.id === nextId);
+                      if (!provider) return;
+                      const nextModels = advancedProviderModelOptions(provider, 'image');
+                      update({
+                        providerSource: provider.protocol,
+                        providerId: provider.id,
+                        providerModel: nextModels[0] || '',
+                      });
+                    }}
+                    style={{ background: '#18181b', color: '#ffffff' }}
+                    className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                  >
+                    <option value="zhenzhen" style={{ background: '#18181b', color: '#ffffff' }}>贞贞工坊（默认）</option>
+                    {imageAdvancedProviders.map((provider) => (
+                      <option key={provider.id} value={provider.id} style={{ background: '#18181b', color: '#ffffff' }}>
+                        {provider.label || provider.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {isExternalSelected && providerSelection.provider && (
+                  <div>
+                    <label className="text-[10px] text-white/50 block mb-1">外部模型</label>
+                    <select
+                      value={externalProviderModel}
+                      onChange={(e) => update({ providerModel: e.target.value })}
+                      style={{ background: '#18181b', color: '#ffffff' }}
+                      className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                    >
+                      {externalModelOptions.map((m) => (
+                        <option key={m} value={m} style={{ background: '#18181b', color: '#ffffff' }}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {savedExternalMissing && (
+                  <div className="text-[10px] text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
+                    当前画布记录的扩展平台未启用或不存在，已临时回到默认来源。
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 模型 TAB 切换(对应主项目 gpt-image-2-web Tab 0/1/2) */}
-        <div>
+        {!isExternalSelected && <div>
           <label className="text-[10px] text-white/50 block mb-1">模型</label>
           <div
             className={`flex gap-0.5 p-0.5 rounded ${isPixel ? '' : 'bg-white/5'}`}
@@ -600,10 +743,10 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
               );
             })}
           </div>
-        </div>
+        </div>}
 
         {/* 子模型选择(对齐主项目 Tab 内的 model 下拉) - MJ 模式隐藏(用下面专属版本选择) */}
-        {!isMj && (
+        {!isExternalSelected && !isMj && (
           <div>
             <label className="text-[10px] text-white/50 block mb-1">具体模型</label>
             <select
@@ -619,9 +762,9 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           </div>
         )}
 
-        {/* 比例 + 尺寸 并排(非 FAL 且非 MJ 模型) */}
-        {!isFal && !isMj && (
-          <div className="grid grid-cols-2 gap-2">
+        {/* 比例 + 尺寸 并排(非 FAL 且非 MJ 模型);Grok Image 只需要比例 */}
+        {(!isFal && !isMj || isExternalSelected) && (
+          <div className={`grid gap-2 ${isGrokImage || !modelDef.sizes.length ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <div>
               <label className="text-[10px] text-white/50 block mb-1">比例</label>
               <select
@@ -635,24 +778,26 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-[10px] text-white/50 block mb-1">尺寸</label>
-              <select
-                value={sizeLevel}
-                onChange={(e) => update({ sizeLevel: e.target.value })}
-                style={{ background: '#18181b', color: '#ffffff' }}
-                className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
-              >
-                {modelDef.sizes.map((s) => (
-                  <option key={s} value={s} style={{ background: '#18181b', color: '#ffffff' }}>{s}</option>
-                ))}
-              </select>
-            </div>
+            {!isGrokImage && modelDef.sizes.length > 0 && (
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">尺寸</label>
+                <select
+                  value={sizeLevel}
+                  onChange={(e) => update({ sizeLevel: e.target.value })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                >
+                  {modelDef.sizes.map((s) => (
+                    <option key={s} value={s} style={{ background: '#18181b', color: '#ffffff' }}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
 
         {/* ========== FAL 专属参数面板(完全对齐 gpt-image-2-web gf_panel / nano_fal_panel) ========== */}
-        {isFal && falKind === 'gpt-fal' && (
+        {!isExternalSelected && isFal && falKind === 'gpt-fal' && (
           <div className="space-y-2 rounded border border-blue-400/30 bg-blue-500/5 p-2">
             <div className="text-[10px] text-blue-300 font-semibold tracking-wide">
               💡 FAL Queue API · openai/gpt-image-2
@@ -758,7 +903,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           </div>
         )}
 
-        {isFal && falKind === 'nbpro-fal' && (
+        {!isExternalSelected && isFal && falKind === 'nbpro-fal' && (
           <div className="space-y-2 rounded border border-blue-400/30 bg-blue-500/5 p-2">
             <div className="text-[10px] text-blue-300 font-semibold tracking-wide">
               💡 FAL Queue API · fal-ai/nano-banana-pro/edit (需参考图)
@@ -879,7 +1024,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
         )}
 
         {/* ========== MJ 专属参数面板(完全对齐 gpt-image-2-web mj_* 控件 L1552~L1580) ========== */}
-        {isMj && (
+        {!isExternalSelected && isMj && (
           <div className="space-y-2 rounded border border-purple-400/30 bg-purple-500/5 p-2">
             <div className="text-[10px] text-purple-300 font-semibold tracking-wide">
               ✨ Midjourney(严格对齐主项目 runMJ)
@@ -1083,7 +1228,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
         )}
 
         {/* 上游素材聚合预览区 (新机制) - 本地上传 + 上游接入统一呈现, 可拖动排序 */}
-        {modelDef.supportsReference && (
+        {(isExternalSelected || modelDef.supportsReference) && (
           <MaterialPreviewSection
             texts={orderedTexts}
             images={orderedImages}

@@ -1,8 +1,30 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import { AlertCircle, Loader2, Video as VideoIcon, Sparkles, Square, X } from 'lucide-react';
-import { VIDEO_MODELS, isFalVideoModel, VIDEO_FAL_REGISTRY, VEO_FAL_RATIOS, VEO_FAL_DURATIONS, VEO_FAL_RESOLUTIONS, GROK_FAL_RATIOS, GROK_FAL_RESOLUTIONS } from '../../providers/models';
-import { submitVideo, queryVideo, submitVideoFal, queryVideoFal, type VideoSubmitRequest, type VideoFalSubmitRequest } from '../../services/generation';
+import {
+  VIDEO_MODELS,
+  isFalVideoModel,
+  VIDEO_FAL_REGISTRY,
+  VEO_FAL_RATIOS,
+  VEO_FAL_DURATIONS,
+  VEO_FAL_RESOLUTIONS,
+  GROK_FAL_RATIOS,
+  GROK_FAL_RESOLUTIONS,
+  GROK_FAL_MODES,
+  SORA2_FAL_MODES,
+  SORA2_FAL_RATIOS,
+  SORA2_FAL_DURATIONS,
+  SORA2_FAL_RESOLUTIONS,
+} from '../../providers/models';
+import {
+  generateExternalVideo,
+  submitVideo,
+  queryVideo,
+  submitVideoFal,
+  queryVideoFal,
+  type VideoSubmitRequest,
+  type VideoFalSubmitRequest,
+} from '../../services/generation';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useHasAutoOutput } from './useHasAutoOutput';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
@@ -15,15 +37,29 @@ import MentionPromptInput from './MentionPromptInput';
 import { resolveMediaMentions, type MediaMention } from './mediaMentions';
 import { useDragMaterialStore, type MaterialPayload } from '../../stores/dragMaterial';
 import { useMaterialDropTarget } from '../../hooks/useMaterialDropTarget';
+import { taskCompletionSound } from '../../stores/taskCompletionSound';
+import { useApiKeysStore } from '../../stores/apiKeys';
+import {
+  advancedProviderModelOptions,
+  advancedProvidersForNode,
+  resolveAdvancedProviderSelection,
+} from '../../utils/advancedProviders';
 
 /**
  * VideoNode - 异步视频生成(完全对齐 gpt-image-2-web)
  * 支持:
  *   - Veo 3.1   (kind=veo)      — 13 个子模型 / aspect_ratio(16:9|9:16) / seed / enhance_prompt / enable_upsample / images(≤3)
- *   - Grok Video(kind=grok)     — grok-video-3 / ratio / duration(s) / resolution(480P|720P) / seed / images(≤7)
+ *   - Grok Video(kind=grok)     — Grok Video 1.5 FAL 默认 / 旧版 FAL / grok-video-3 / images(≤7)
+ *   - Sora2 FAL (kind=sora)     — 文生/图生视频 / Base64 参考图(≤1) / duration / resolution
  *   - Seedance  (kind=seedance) — 零破坏兼容旧 veo 字段
  * 流程: submit → poll(5s 间隔) → 转存 → 展示
  */
+const splitGrokFalRefUrls = (raw: string): string[] =>
+  String(raw || '')
+    .split(/[\n,，]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
 const VideoNode = ({ id, data, selected }: NodeProps) => {
   const update = useUpdateNodeData(id);
   const hasAutoOutput = useHasAutoOutput(id);
@@ -38,8 +74,29 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   const isPixel = themeStyle === 'pixel';
 
   const d = data as any;
+  const advancedProviders = useApiKeysStore((s) => s.settings.advancedProviders);
+  const videoAdvancedProviders = useMemo(
+    () => advancedProvidersForNode(advancedProviders, 'video'),
+    [advancedProviders],
+  );
+  const providerSelection = useMemo(
+    () => resolveAdvancedProviderSelection(advancedProviders, 'video', {
+      providerSource: d?.providerSource,
+      providerId: d?.providerId,
+      providerModel: d?.providerModel,
+    }),
+    [advancedProviders, d?.providerSource, d?.providerId, d?.providerModel],
+  );
+  const isExternalSelected = providerSelection.available && providerSelection.providerSource !== 'zhenzhen';
+  const savedExternalMissing = !!d?.providerSource && d.providerSource !== 'zhenzhen' && !providerSelection.available;
+  const externalModelOptions = providerSelection.provider
+    ? advancedProviderModelOptions(providerSelection.provider, 'video')
+    : [];
+  const externalProviderModel = providerSelection.providerModel || externalModelOptions[0] || '';
   // 主模型 id (对应 VIDEO_MODELS 项)
-  const mainId = d?.mainId || (d?.model && VIDEO_MODELS.find((m) => m.id === d.model || m.apiModelOptions.some((o) => o.value === d.model))?.id) || VIDEO_MODELS[0].id;
+  const rawModel = typeof d?.model === 'string' ? d.model : '';
+  const isLegacySora2Model = /^sora-2(?:-\d{4}-\d{2}-\d{2})?$/.test(rawModel);
+  const mainId = d?.mainId || (isLegacySora2Model ? 'sora-2' : (d?.model && VIDEO_MODELS.find((m) => m.id === d.model || m.apiModelOptions.some((o) => o.value === d.model))?.id)) || VIDEO_MODELS[0].id;
   const modelDef = useMemo(() => VIDEO_MODELS.find((m) => m.id === mainId) || VIDEO_MODELS[0], [mainId]);
   // 子模型(上游真实 model 名)
   const apiModel: string = d?.model && modelDef.apiModelOptions.some((o) => o.value === d.model) ? d.model : modelDef.apiModelOptions[0].value;
@@ -54,6 +111,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   // FAL 专属参数
   const isFal = isFalVideoModel(apiModel);
   const falReg = isFal ? VIDEO_FAL_REGISTRY[apiModel] : null;
+  const isGrokFalV15 = apiModel === 'grok-imagine-video-1.5';
   // veo-fal 专属
   const vfRatio: string = d?.vfRatio || '16:9';
   const vfDuration: string = d?.vfDuration || '8s';
@@ -61,9 +119,21 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   const vfAudio: boolean = d?.vfAudio ?? false;
   const vfSafety: number = d?.vfSafety ?? 4;
   // grok-fal 专属
+  const gkfMode: 'image_to_video' | 'reference_to_video' = isGrokFalV15
+    ? 'image_to_video'
+    : d?.gkfMode === 'image_to_video' ? 'image_to_video' : 'reference_to_video';
   const gkfRatio: string = d?.gkfRatio || '16:9';
   const gkfDuration: number = d?.gkfDuration ?? 6;
   const gkfResolution: string = d?.gkfResolution || '720p';
+  const gkfReferenceUrls: string = d?.gkfReferenceUrls || '';
+  // sora-fal 专属(图片传入默认 base64,与 gpt-image-2-web srf_imgway 默认一致)
+  const soraMode: 'auto' | 'text_to_video' | 'image_to_video' = d?.soraMode || 'auto';
+  const soraRatio: string = d?.soraRatio || '16:9';
+  const soraDuration: number = d?.soraDuration ?? 4;
+  const soraResolution: string = d?.soraResolution || '720p';
+  const soraDeleteVideo: boolean = d?.soraDeleteVideo ?? true;
+  const soraBlockIp: boolean = d?.soraBlockIp ?? false;
+  const soraCharacterIds: string = d?.soraCharacterIds || '';
 
   const status: 'idle' | 'submitting' | 'polling' | 'success' | 'error' = d?.status || 'idle';
   const taskId: string | undefined = d?.taskId;
@@ -95,7 +165,12 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
       })),
     [localRefImages, id],
   );
-  const maxMentionRefs = isFal && falReg ? falReg.maxRefImages : modelDef.maxRefImages;
+  const maxMentionRefs =
+    isFal && falReg
+      ? falReg.paramKind === 'grok-fal' && (isGrokFalV15 || gkfMode !== 'reference_to_video')
+        ? 1
+        : falReg.maxRefImages
+      : modelDef.maxRefImages;
   const mentionMaterials = useMemo(
     () => [...orderedImages, ...localRefImageMaterials].slice(0, maxMentionRefs),
     [orderedImages, localRefImageMaterials, maxMentionRefs],
@@ -142,12 +217,14 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   // 切主模型时重置所有参数为该模型默认值(避免跨模型参数遗留)
   const switchMainModel = (nextId: string) => {
     const def = VIDEO_MODELS.find((m) => m.id === nextId) || VIDEO_MODELS[0];
+    const nextModel = def.apiModelOptions[0].value;
     update({
       mainId: def.id,
-      model: def.apiModelOptions[0].value,
+      model: nextModel,
       ratio: def.defaultRatio,
       duration: def.defaultDuration ?? def.durations?.[0],
       resolution: def.defaultResolution || '',
+      ...(nextModel === 'grok-imagine-video-1.5' ? { gkfMode: 'image_to_video' } : {}),
     });
   };
 
@@ -183,6 +260,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
             stopPoll();
             update({ status: 'success', videoUrl: r.videoUrl, progress: '100%' });
             logBus.success(`任务完成 → ${r.videoUrl}`, src);
+            taskCompletionSound.notifyComplete(id, 'video');
             resolve();
           } else if (r.status === 'FAILURE') {
             stopPoll();
@@ -229,6 +307,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
             stopPoll();
             update({ status: 'success', videoUrl: r.videoUrl, progress: '100%' });
             logBus.success(`FAL 视频完成 → ${r.videoUrl}`, src);
+            taskCompletionSound.notifyComplete(id, 'video');
             resolve();
           } else if (r.status === 'failed') {
             stopPoll();
@@ -257,11 +336,52 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
       logBus.error('生成中止: 缺少 prompt', src);
       return;
     }
+    taskCompletionSound.primeAudio();
     update({ status: 'submitting', error: null, videoUrl: null, taskId: null });
     try {
+      if (isExternalSelected && providerSelection.provider) {
+        const providerModel = externalProviderModel;
+        const refs = imageUrls.slice(0, Math.max(1, maxMentionRefs || modelDef.maxRefImages || 8));
+        logBus.info(
+          `扩展平台视频提交: ${providerSelection.provider.label || providerSelection.provider.id} · ${providerModel} · refs=${refs.length}`,
+          src,
+        );
+        const r = await generateExternalVideo({
+          providerId: providerSelection.provider.id,
+          providerModel,
+          model: providerModel,
+          prompt: finalPrompt,
+          aspect_ratio: ratio,
+          ratio,
+          duration,
+          resolution,
+          seed: seed > 0 ? seed : undefined,
+          images: refs,
+          providerParams: d?.providerParams,
+        });
+        const nextVideoUrl = r.videoUrls[0];
+        if (!nextVideoUrl) throw new Error('扩展平台没有返回视频。');
+        update({
+          status: 'success',
+          videoUrl: nextVideoUrl,
+          videoUrls: r.videoUrls,
+          remoteVideoUrls: r.remoteVideoUrls,
+          taskId: r.taskId || null,
+          lastPrompt: finalPrompt,
+          progress: '100%',
+        });
+        logBus.success(`扩展平台视频完成 → ${nextVideoUrl}`, src);
+        taskCompletionSound.notifyComplete(id, 'video');
+        return;
+      }
+
       // === FAL 分支 ===
       if (isFal && falReg) {
-        const refs = imageUrls.slice(0, falReg.maxRefImages);
+        const falMaxRefs =
+          falReg.paramKind === 'grok-fal' && (isGrokFalV15 || gkfMode !== 'reference_to_video')
+            ? 1
+            : falReg.maxRefImages;
+        const refs = imageUrls.slice(0, falMaxRefs);
         let images: string[] | undefined;
         if (refs.length > 0) {
           // FAL 参考图直传 URL 或 base64，后端会处理上传
@@ -278,17 +398,48 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
           falReq.generate_audio = vfAudio;
           falReq.safety_tolerance = vfSafety;
         } else if (falReg.paramKind === 'grok-fal') {
-          falReq.gkRatio = gkfRatio;
+          const effectiveGkfMode = isGrokFalV15 ? 'image_to_video' : gkfMode;
+          const pastedReferenceUrls = isGrokFalV15
+            ? []
+            : splitGrokFalRefUrls(gkfReferenceUrls).slice(0, Math.max(0, 7 - (images?.length || 0)));
+          if (isGrokFalV15 && (!images || images.length === 0)) {
+            throw new Error('Grok Video 1.5 需要至少 1 张参考图');
+          }
+          if (!isGrokFalV15 && effectiveGkfMode === 'reference_to_video' && (!images || images.length === 0) && pastedReferenceUrls.length === 0) {
+            throw new Error('Grok FAL 参考生视频需要至少 1 张参考图或 URL');
+          }
+          falReq.gkMode = effectiveGkfMode;
+          if (!isGrokFalV15) {
+            falReq.gkRatio = effectiveGkfMode === 'reference_to_video' && gkfRatio === 'auto' ? '16:9' : gkfRatio;
+          }
           falReq.gkDuration = gkfDuration;
           falReq.resolution = gkfResolution;
+          falReq.image_mode = falReg.defaultImageMode || 'base64';
+          if (pastedReferenceUrls.length) falReq.gkReferenceUrls = pastedReferenceUrls;
+        } else if (falReg.paramKind === 'sora-fal') {
+          if (soraMode === 'image_to_video' && (!images || images.length === 0)) {
+            throw new Error('Sora2 图生视频需要 1 张参考图');
+          }
+          falReq.soraMode = soraMode;
+          falReq.soraRatio = soraRatio;
+          falReq.soraDuration = soraDuration;
+          falReq.soraResolution = soraResolution;
+          falReq.soraDeleteVideo = soraDeleteVideo;
+          falReq.soraBlockIp = soraBlockIp;
+          falReq.soraCharacterIds = soraCharacterIds;
+          falReq.image_mode = falReg.defaultImageMode || 'base64';
         }
 
-        logBus.info(
-          `提交 FAL 视频: ${apiModel} ` +
-          (falReg.paramKind === 'veo-fal'
+        const falInfo =
+          falReg.paramKind === 'veo-fal'
             ? `ratio=${vfRatio} dur=${vfDuration} res=${vfResolution} audio=${vfAudio}`
-            : `ratio=${gkfRatio} dur=${gkfDuration}s res=${gkfResolution}`) +
-          ` refs=${images?.length || 0} prompt="${finalPrompt.slice(0, 30)}…"`,
+            : falReg.paramKind === 'grok-fal'
+              ? isGrokFalV15
+                ? `model=1.5 mode=image_to_video dur=${gkfDuration}s res=${gkfResolution} image=${falReg.defaultImageMode || 'base64'}`
+                : `mode=${gkfMode} ratio=${gkfMode === 'reference_to_video' && gkfRatio === 'auto' ? '16:9' : gkfRatio} dur=${gkfDuration}s res=${gkfResolution} image=${falReg.defaultImageMode || 'base64'} urls=${splitGrokFalRefUrls(gkfReferenceUrls).length}`
+              : `mode=${soraMode} ratio=${soraRatio} dur=${soraDuration}s res=${soraResolution} image=base64`;
+        logBus.info(
+          `提交 FAL 视频: ${apiModel} ${falInfo} refs=${images?.length || 0} prompt="${finalPrompt.slice(0, 30)}…"`,
           src,
         );
 
@@ -296,6 +447,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
         if (r.sync && r.videoUrl) {
           update({ status: 'success', videoUrl: r.videoUrl, lastPrompt: finalPrompt, progress: '100%' });
           logBus.success(`FAL 同步完成 → ${r.videoUrl}`, src);
+          taskCompletionSound.notifyComplete(id, 'video');
         } else {
           falPollRef.current = { responseUrl: r.responseUrl, endpoint: r.endpoint, requestId: r.requestId };
           update({ status: 'polling', lastPrompt: finalPrompt, progress: '15%' });
@@ -371,7 +523,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   useRunTrigger(id, async () => {
     if (status === 'submitting' || status === 'polling') return;
     await handleGenerate();
-  });
+  }, 'video');
 
   // === 跨节点拖拽: source (输出视频可拖出) ===
   const startDrag = useDragMaterialStore((s) => s.start);
@@ -427,12 +579,84 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
         </div>
         <div className="flex-1">
           <div className="text-sm font-semibold text-white">视频</div>
-          <div className="text-[10px] text-white/40">{modelDef.label} · {modelDef.kind}</div>
+          <div className="text-[10px] text-white/40">
+            {isExternalSelected && providerSelection.provider
+              ? `${providerSelection.provider.label || providerSelection.provider.id} · ${externalProviderModel || '未选模型'}`
+              : `${modelDef.label} · ${modelDef.kind}`}
+          </div>
         </div>
       </div>
 
       <div className="p-2.5 space-y-2" onMouseDown={(e) => e.stopPropagation()}>
+        {videoAdvancedProviders.length > 0 && (
+          <div className="rounded border border-white/10 bg-white/[0.03] p-2 space-y-2">
+            <button
+              type="button"
+              onClick={() => update({ advancedProviderOpen: !d?.advancedProviderOpen })}
+              className="w-full flex items-center justify-between text-[10px] font-semibold text-white/70 hover:text-white"
+            >
+              <span>高级来源</span>
+              <span>{isExternalSelected && providerSelection.provider ? providerSelection.provider.label : '默认视频接口'}</span>
+            </button>
+            {d?.advancedProviderOpen && (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] text-white/50 block mb-1">平台</label>
+                  <select
+                    value={isExternalSelected ? providerSelection.providerId : 'zhenzhen'}
+                    onChange={(e) => {
+                      const nextId = e.target.value;
+                      if (nextId === 'zhenzhen') {
+                        update({ providerSource: 'zhenzhen', providerId: '', providerModel: '' });
+                        return;
+                      }
+                      const provider = videoAdvancedProviders.find((item) => item.id === nextId);
+                      if (!provider) return;
+                      const nextModels = advancedProviderModelOptions(provider, 'video');
+                      update({
+                        providerSource: provider.protocol,
+                        providerId: provider.id,
+                        providerModel: nextModels[0] || '',
+                      });
+                    }}
+                    style={{ background: '#18181b', color: '#ffffff' }}
+                    className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                  >
+                    <option value="zhenzhen" style={{ background: '#18181b', color: '#ffffff' }}>贞贞工坊（默认）</option>
+                    {videoAdvancedProviders.map((provider) => (
+                      <option key={provider.id} value={provider.id} style={{ background: '#18181b', color: '#ffffff' }}>
+                        {provider.label || provider.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {isExternalSelected && providerSelection.provider && (
+                  <div>
+                    <label className="text-[10px] text-white/50 block mb-1">外部模型</label>
+                    <select
+                      value={externalProviderModel}
+                      onChange={(e) => update({ providerModel: e.target.value })}
+                      style={{ background: '#18181b', color: '#ffffff' }}
+                      className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                    >
+                      {externalModelOptions.map((m) => (
+                        <option key={m} value={m} style={{ background: '#18181b', color: '#ffffff' }}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {savedExternalMissing && (
+                  <div className="text-[10px] text-amber-200 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
+                    当前画布记录的扩展平台未启用或不存在，已临时回到默认来源。
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 主模型 */}
+        {!isExternalSelected && (
         <div>
           <label className="text-[10px] text-white/50 block mb-1">模型类型</label>
           <select
@@ -445,14 +669,21 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
             ))}
           </select>
         </div>
+        )}
 
         {/* 子模型(主项目 veo_model / gk_model) */}
-        {modelDef.apiModelOptions.length > 1 && (
+        {!isExternalSelected && modelDef.apiModelOptions.length > 1 && (
           <div>
             <label className="text-[10px] text-white/50 block mb-1">具体模型</label>
             <select
               value={apiModel}
-              onChange={(e) => update({ model: e.target.value })}
+              onChange={(e) => {
+                const nextModel = e.target.value;
+                update({
+                  model: nextModel,
+                  ...(nextModel === 'grok-imagine-video-1.5' ? { gkfMode: 'image_to_video' } : {}),
+                });
+              }}
               className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
             >
               {modelDef.apiModelOptions.map((o) => (
@@ -502,23 +733,120 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
 
         {isFal && falReg?.paramKind === 'grok-fal' && (
           <>
-            <div className="grid grid-cols-2 gap-1.5">
-              <div>
-                <label className="text-[10px] text-white/50 block mb-1">比例 (FAL)</label>
-                <select value={gkfRatio} onChange={(e) => update({ gkfRatio: e.target.value })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
-                  {GROK_FAL_RATIOS.map((r) => <option key={r} value={r} className="bg-zinc-900">{r}</option>)}
-                </select>
+            {isGrokFalV15 ? (
+              <div className="rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[10px] leading-relaxed text-white/60">
+                Grok Video 1.5 仅支持图生视频，必须有 1 张参考图；图像传入模式默认 Base64，不发送比例参数。
               </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
+                <div>
+                  <label className="text-[10px] text-white/50 block mb-1">模式 (FAL)</label>
+                  <select
+                    value={gkfMode}
+                    onChange={(e) => {
+                      const next = e.target.value as 'image_to_video' | 'reference_to_video';
+                      update({
+                        gkfMode: next,
+                        ...(next === 'reference_to_video' && gkfRatio === 'auto' ? { gkfRatio: '16:9' } : {}),
+                      });
+                    }}
+                    className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+                  >
+                    {GROK_FAL_MODES.map((m) => <option key={m.value} value={m.value} className="bg-zinc-900">{m.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] text-white/50 block mb-1">比例 (FAL)</label>
+                  <select value={gkfRatio} onChange={(e) => update({ gkfRatio: e.target.value })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
+                    {GROK_FAL_RATIOS.map((r) => <option key={r} value={r} className="bg-zinc-900">{r}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-1.5">
               <div>
                 <label className="text-[10px] text-white/50 block mb-1">时长(s)</label>
                 <input type="number" value={gkfDuration} min={1} max={30} onChange={(e) => update({ gkfDuration: Number(e.target.value) || 6 })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30" />
               </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">分辨率</label>
+                <select value={gkfResolution} onChange={(e) => update({ gkfResolution: e.target.value })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
+                  {GROK_FAL_RESOLUTIONS.map((r) => <option key={r} value={r} className="bg-zinc-900">{r}</option>)}
+                </select>
+              </div>
+            </div>
+            {!isGrokFalV15 && gkfMode === 'reference_to_video' && (
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">公开参考 URL(可选)</label>
+                <textarea
+                  value={gkfReferenceUrls}
+                  onChange={(e) => update({ gkfReferenceUrls: e.target.value })}
+                  placeholder="每行或逗号分隔，最多补足到 7 张"
+                  className="w-full h-12 resize-none rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+                />
+              </div>
+            )}
+            <div className="text-[10px] text-white/45 leading-relaxed">
+              {isGrokFalV15
+                ? '只取第 1 张参考图，提交到 v1.5 image-to-video；Base64 为默认传入方式。'
+                : gkfMode === 'reference_to_video'
+                ? '参考生视频最多 7 张，优先使用上游/本地图，再补充 URL。'
+                : '图生视频只取第 1 张参考图；无图时保留文生视频 fallback。'}
+            </div>
+          </>
+        )}
+
+        {isFal && falReg?.paramKind === 'sora-fal' && (
+          <>
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">FAL Mode</label>
+                <select value={soraMode} onChange={(e) => update({ soraMode: e.target.value })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
+                  {SORA2_FAL_MODES.map((m) => <option key={m.value} value={m.value} className="bg-zinc-900">{m.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">比例</label>
+                <select value={soraRatio} onChange={(e) => update({ soraRatio: e.target.value })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
+                  {SORA2_FAL_RATIOS.map((r) => <option key={r} value={r} className="bg-zinc-900">{r}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">时长</label>
+                <select value={String(soraDuration)} onChange={(e) => update({ soraDuration: Number(e.target.value) || 4 })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
+                  {SORA2_FAL_DURATIONS.map((d) => <option key={d} value={d} className="bg-zinc-900">{d}s</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">分辨率</label>
+                <select value={soraResolution} onChange={(e) => update({ soraResolution: e.target.value })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
+                  {SORA2_FAL_RESOLUTIONS.map((r) => <option key={r} value={r} className="bg-zinc-900">{r}</option>)}
+                </select>
+              </div>
             </div>
             <div>
-              <label className="text-[10px] text-white/50 block mb-1">分辨率</label>
-              <select value={gkfResolution} onChange={(e) => update({ gkfResolution: e.target.value })} className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30">
-                {GROK_FAL_RESOLUTIONS.map((r) => <option key={r} value={r} className="bg-zinc-900">{r}</option>)}
-              </select>
+              <label className="text-[10px] text-white/50 block mb-1">Character IDs</label>
+              <input
+                value={soraCharacterIds}
+                onChange={(e) => update({ soraCharacterIds: e.target.value })}
+                placeholder="id1, id2"
+                className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30 placeholder:text-white/25"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <label className="flex items-center gap-1 text-[10px] text-white/60 cursor-pointer">
+                <input type="checkbox" checked={soraDeleteVideo} onChange={(e) => update({ soraDeleteVideo: e.target.checked })} className="accent-rose-400" />
+                Delete Video
+              </label>
+              <label className="flex items-center gap-1 text-[10px] text-white/60 cursor-pointer">
+                <input type="checkbox" checked={soraBlockIp} onChange={(e) => update({ soraBlockIp: e.target.checked })} className="accent-rose-400" />
+                Block IP
+              </label>
+            </div>
+            <div className="rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] leading-relaxed text-white/45">
+              默认用 Base64 传入第 1 张参考图；Auto 无图时走文生视频。
             </div>
           </>
         )}
@@ -624,7 +952,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
             isDark={isDark}
             isPixel={isPixel}
             groups={previewGroups}
-            title={`上游素材 · 参考图 ${Math.min(refsCount, modelDef.maxRefImages)}/${modelDef.maxRefImages}`}
+            title={`上游素材 · 参考图 ${Math.min(refsCount, maxMentionRefs)}/${maxMentionRefs}`}
           />
         )}
 

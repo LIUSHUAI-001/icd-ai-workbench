@@ -4,9 +4,9 @@
  */
 
 export interface GenerateImageRequest {
-  model: string;          // 节点 id (gpt-image-2 / nano-banana-2 / nano-banana-pro)
+  model: string;          // 节点 id (gpt-image-2 / nano-banana-2 / nano-banana-pro / grok-image)
   apiModel?: string;       // 上游真实模型名(优先使用)
-  paramKind?: 'gpt-size' | 'banana-ratio' | 'mj';
+  paramKind?: 'gpt-size' | 'banana-ratio' | 'grok-image' | 'mj';
   prompt: string;
   n?: number;
   // 主参数(双协议通用):
@@ -36,6 +36,91 @@ export async function generateImage(req: GenerateImageRequest): Promise<Generate
     throw new Error(data?.error || `HTTP ${r.status}`);
   }
   return data.data;
+}
+
+export interface GenerateExternalImageRequest {
+  providerId: string;
+  providerModel?: string;
+  model?: string;
+  prompt: string;
+  size?: string;
+  width?: number;
+  height?: number;
+  n?: number;
+  images?: string[];
+  providerParams?: Record<string, any>;
+}
+
+export interface GenerateExternalImageResult {
+  imageUrls: string[];
+  remoteImageUrls?: string[];
+  taskId?: string;
+  raw?: any;
+  provider?: any;
+}
+
+export async function generateExternalImage(req: GenerateExternalImageRequest): Promise<GenerateExternalImageResult> {
+  const r = await fetch('/api/proxy/external/image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) {
+    throw new Error(data?.error || `HTTP ${r.status}`);
+  }
+  const payload = data.data || {};
+  return {
+    imageUrls: Array.isArray(payload.imageUrls) ? payload.imageUrls : [],
+    remoteImageUrls: Array.isArray(payload.remoteImageUrls) ? payload.remoteImageUrls : undefined,
+    taskId: payload.taskId,
+    raw: payload.raw,
+    provider: payload.provider,
+  };
+}
+
+export interface GenerateExternalVideoRequest {
+  providerId: string;
+  providerModel?: string;
+  model?: string;
+  prompt: string;
+  aspect_ratio?: string;
+  ratio?: string;
+  duration?: number | string;
+  resolution?: string;
+  seed?: number;
+  images?: string[];
+  videos?: string[];
+  audios?: string[];
+  providerParams?: Record<string, any>;
+}
+
+export interface GenerateExternalVideoResult {
+  videoUrls: string[];
+  remoteVideoUrls?: string[];
+  taskId?: string;
+  raw?: any;
+  provider?: any;
+}
+
+export async function generateExternalVideo(req: GenerateExternalVideoRequest): Promise<GenerateExternalVideoResult> {
+  const r = await fetch('/api/proxy/external/video', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) {
+    throw new Error(data?.error || `HTTP ${r.status}`);
+  }
+  const payload = data.data || {};
+  return {
+    videoUrls: Array.isArray(payload.videoUrls) ? payload.videoUrls : [],
+    remoteVideoUrls: Array.isArray(payload.remoteVideoUrls) ? payload.remoteVideoUrls : undefined,
+    taskId: payload.taskId,
+    raw: payload.raw,
+    provider: payload.provider,
+  };
 }
 
 // ========================================================================
@@ -337,6 +422,31 @@ export async function generateLlm(req: GenerateLlmRequest): Promise<GenerateLlmR
   return data.data;
 }
 
+export interface GenerateExternalLlmRequest extends Omit<GenerateLlmRequest, 'stream'> {
+  providerId: string;
+  providerModel?: string;
+  providerParams?: Record<string, any>;
+}
+
+export async function generateExternalLlm(req: GenerateExternalLlmRequest): Promise<GenerateLlmResult> {
+  const r = await fetch('/api/proxy/external/llm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) {
+    throw new Error(data?.error || `HTTP ${r.status}`);
+  }
+  const payload = data.data || {};
+  return {
+    content: payload.text || payload.content || '',
+    imageUrls: Array.isArray(payload.imageUrls) ? payload.imageUrls : undefined,
+    raw: payload.raw,
+    model: req.model,
+  };
+}
+
 /**
  * 流式 LLM 调用,后端透传上游 SSE。
  * @param req 请求(自动注入 stream:true)
@@ -422,12 +532,12 @@ export async function uploadFile(file: File): Promise<{ url: string; filename: s
 }
 
 // ========================================================================
-// Video FAL 渠道(独立提交 + 轮询,对齐 gpt-image-2-web runVeo3Fal / runGrokFal)
+// Video FAL 渠道(独立提交 + 轮询,对齐 gpt-image-2-web runVeo3Fal / runGrokFal / runSora2Fal)
 //   submitVideoFal 返 { sync, videoUrl? } 或 { sync:false, requestId, responseUrl, endpoint }
 //   queryVideoFal  返 { status: 'pending'|'completed'|'failed', videoUrl?, error? }
 // ========================================================================
 export interface VideoFalSubmitRequest {
-  /** 'veo3.1-fal' | 'grok-video-fal' */
+  /** 'veo3.1-fal' | 'grok-video-fal' | 'grok-imagine-video-1.5' | 'sora-2' */
   apiModel: string;
   prompt: string;
   /** 参考图(base64 dataURI 或本地 /files/* URL) */
@@ -442,12 +552,30 @@ export interface VideoFalSubmitRequest {
   generate_audio?: boolean;
   /** veo-fal: 1-6 (默认 4) */
   safety_tolerance?: number;
-  /** 参考图上传方式: 'image_url'(上传取URL) | 'base64' */
+  /** 参考图上传方式: 'image_url'(上传取URL) | 'base64'；Grok 1.5 默认 base64 */
   image_mode?: 'image_url' | 'base64';
   /** grok-fal: 时长秒数 1-30 */
   gkDuration?: number;
   /** grok-fal: 比例 */
   gkRatio?: string;
+  /** grok-fal: 图生视频取首图; 参考生视频取最多 7 张参考图 */
+  gkMode?: 'image_to_video' | 'reference_to_video';
+  /** grok-fal reference_to_video: 额外公网参考图 URL */
+  gkReferenceUrls?: string[];
+  /** sora-fal: auto | text_to_video | image_to_video */
+  soraMode?: 'auto' | 'text_to_video' | 'image_to_video';
+  /** sora-fal: '16:9' | '9:16' | 'auto' */
+  soraRatio?: string;
+  /** sora-fal: 时长秒数 4/8/12/16/20 */
+  soraDuration?: number;
+  /** sora-fal: '720p' | 'auto' */
+  soraResolution?: string;
+  /** sora-fal: 是否删除上游视频缓存 */
+  soraDeleteVideo?: boolean;
+  /** sora-fal: detect_and_block_ip */
+  soraBlockIp?: boolean;
+  /** sora-fal: 最多 2 个 character id，逗号分隔 */
+  soraCharacterIds?: string;
 }
 
 export interface VideoFalSubmitResult {
