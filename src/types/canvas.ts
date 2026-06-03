@@ -18,6 +18,8 @@ export type NodeType =
   | 'rh-tools'
   | 'rh-toolbox'
   | 'rh-toolbox-maker'
+  | 'comfyui-store'
+  | 'comfyui-app-maker'
   // Special (5)
   | 'multi-angle-3d'
   | 'panorama-720'
@@ -61,6 +63,7 @@ export type NodeType =
 export type NodeCategory =
   | 'core'
   | 'rh'
+  | 'comfyui'
   | 'special'
   | 'utility'
   | 'auxiliary'

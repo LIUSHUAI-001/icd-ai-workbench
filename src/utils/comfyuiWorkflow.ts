@@ -4,14 +4,24 @@ export type ComfyFieldSource =
   | 'image1'
   | 'image2'
   | 'image3'
+  | 'video1'
+  | 'audio1'
   | 'width'
   | 'height'
+  | 'batch_size'
   | 'seed'
   | 'steps'
   | 'cfg'
   | 'sampler_name'
   | 'scheduler'
   | 'denoise'
+  | 'model_name'
+  | 'ckpt_name'
+  | 'clip_name'
+  | 'vae_name'
+  | 'lora_name'
+  | 'strength_model'
+  | 'strength_clip'
   | 'fixed';
 
 export interface ComfyFieldMapping {
@@ -30,6 +40,8 @@ export interface ComfyDetectedField extends ComfyFieldMapping {
 export interface ComfyWorkflowAnalysis {
   fields: ComfyDetectedField[];
   imageInputCount: number;
+  videoInputCount: number;
+  audioInputCount: number;
   outputCount: number;
   warnings: string[];
 }
@@ -40,14 +52,24 @@ export const COMFY_FIELD_SOURCE_OPTIONS: Array<{ value: ComfyFieldSource; label:
   { value: 'image1', label: '上游图片 1' },
   { value: 'image2', label: '上游图片 2' },
   { value: 'image3', label: '上游图片 3' },
+  { value: 'video1', label: '上游视频 1' },
+  { value: 'audio1', label: '上游音频 1' },
   { value: 'width', label: '宽度' },
   { value: 'height', label: '高度' },
+  { value: 'batch_size', label: '批量数' },
   { value: 'seed', label: 'Seed' },
   { value: 'steps', label: 'Steps' },
   { value: 'cfg', label: 'CFG' },
   { value: 'sampler_name', label: 'Sampler' },
   { value: 'scheduler', label: 'Scheduler' },
   { value: 'denoise', label: 'Denoise' },
+  { value: 'model_name', label: '模型名' },
+  { value: 'ckpt_name', label: 'Checkpoint' },
+  { value: 'clip_name', label: 'CLIP' },
+  { value: 'vae_name', label: 'VAE' },
+  { value: 'lora_name', label: 'LoRA' },
+  { value: 'strength_model', label: 'LoRA 模型强度' },
+  { value: 'strength_clip', label: 'LoRA CLIP 强度' },
   { value: 'fixed', label: '固定值' },
 ];
 
@@ -95,18 +117,44 @@ function isNegativePromptNode(node: any, promptTextAlreadySeen: boolean): boolea
   return promptTextAlreadySeen;
 }
 
+function linkedNodeId(value: unknown): string {
+  if (!Array.isArray(value)) return '';
+  const first = value[0];
+  if (typeof first === 'string' || typeof first === 'number') return String(first).trim();
+  return '';
+}
+
+function buildClipTextRoleMap(entries: Array<[string, any]>): Map<string, 'prompt' | 'negative'> {
+  const roles = new Map<string, 'prompt' | 'negative'>();
+  for (const [, node] of entries) {
+    const inputs = node?.inputs || {};
+    const positive = linkedNodeId(inputs.positive);
+    const negative = linkedNodeId(inputs.negative);
+    if (positive) roles.set(positive, 'prompt');
+    if (negative) roles.set(negative, 'negative');
+  }
+  return roles;
+}
+
+function hasField(inputs: Record<string, any>, fieldName: string): boolean {
+  return Object.prototype.hasOwnProperty.call(inputs, fieldName);
+}
+
 export function analyzeComfyWorkflow(workflow: unknown): ComfyWorkflowAnalysis {
   const fields: ComfyDetectedField[] = [];
   const seen = new Set<string>();
   let promptTextSeen = false;
   let imageInputCount = 0;
+  let videoInputCount = 0;
+  let audioInputCount = 0;
   let outputCount = 0;
   const warnings: string[] = [];
   const entries = entriesOfWorkflow(workflow);
+  const clipTextRoles = buildClipTextRoleMap(entries);
 
   if (!entries.length) {
     warnings.push('未识别到 API Workflow 节点；请确认导入的是 ComfyUI API 格式，而不是普通前端 workflow。');
-    return { fields, imageInputCount, outputCount, warnings };
+    return { fields, imageInputCount, videoInputCount, audioInputCount, outputCount, warnings };
   }
 
   for (const [nodeId, node] of entries) {
@@ -115,32 +163,48 @@ export function analyzeComfyWorkflow(workflow: unknown): ComfyWorkflowAnalysis {
     const inputs = node.inputs || {};
     const inputKeys = Object.keys(inputs);
 
-    if (lowClass.includes('cliptextencode') && Object.prototype.hasOwnProperty.call(inputs, 'text')) {
-      const source: ComfyFieldSource = isNegativePromptNode(node, promptTextSeen) ? 'negative' : 'prompt';
+    if (lowClass.includes('cliptextencode') && hasField(inputs, 'text')) {
+      const role = clipTextRoles.get(nodeId);
+      const source: ComfyFieldSource = role || (isNegativePromptNode(node, promptTextSeen) ? 'negative' : 'prompt');
       pushField(fields, seen, nodeId, node, 'text', source);
       if (source === 'prompt') promptTextSeen = true;
     }
 
-    if ((lowClass.includes('loadimage') || lowClass.includes('imageinput')) && Object.prototype.hasOwnProperty.call(inputs, 'image')) {
+    if ((lowClass.includes('loadimage') || lowClass.includes('imageinput')) && hasField(inputs, 'image')) {
       imageInputCount += 1;
       pushField(fields, seen, nodeId, node, 'image', (`image${Math.min(imageInputCount, 3)}` as ComfyFieldSource));
     }
 
+    if ((lowClass.includes('loadvideo') || lowClass.includes('videoinput') || lowClass.includes('vhs')) && hasField(inputs, 'video')) {
+      videoInputCount += 1;
+      pushField(fields, seen, nodeId, node, 'video', 'video1');
+    }
+
+    if ((lowClass.includes('loadaudio') || lowClass.includes('audioinput')) && hasField(inputs, 'audio')) {
+      audioInputCount += 1;
+      pushField(fields, seen, nodeId, node, 'audio', 'audio1');
+    }
+
     if (lowClass.includes('emptylatent') || lowClass.includes('latentimage')) {
-      if (Object.prototype.hasOwnProperty.call(inputs, 'width')) pushField(fields, seen, nodeId, node, 'width', 'width');
-      if (Object.prototype.hasOwnProperty.call(inputs, 'height')) pushField(fields, seen, nodeId, node, 'height', 'height');
+      if (hasField(inputs, 'width')) pushField(fields, seen, nodeId, node, 'width', 'width');
+      if (hasField(inputs, 'height')) pushField(fields, seen, nodeId, node, 'height', 'height');
+      if (hasField(inputs, 'batch_size')) pushField(fields, seen, nodeId, node, 'batch_size', 'batch_size');
     }
 
     if (lowClass.includes('ksampler') || lowClass.includes('sampler')) {
       for (const key of ['seed', 'noise_seed']) {
-        if (Object.prototype.hasOwnProperty.call(inputs, key)) pushField(fields, seen, nodeId, node, key, 'seed');
+        if (hasField(inputs, key)) pushField(fields, seen, nodeId, node, key, 'seed');
       }
       for (const key of ['steps', 'cfg', 'sampler_name', 'scheduler', 'denoise'] as const) {
-        if (Object.prototype.hasOwnProperty.call(inputs, key)) pushField(fields, seen, nodeId, node, key, key);
+        if (hasField(inputs, key)) pushField(fields, seen, nodeId, node, key, key);
       }
     }
 
-    if (lowClass.includes('saveimage') || lowClass.includes('previewimage')) outputCount += 1;
+    for (const key of ['model_name', 'ckpt_name', 'clip_name', 'vae_name', 'lora_name', 'strength_model', 'strength_clip'] as const) {
+      if (hasField(inputs, key)) pushField(fields, seen, nodeId, node, key, key);
+    }
+
+    if (lowClass.includes('saveimage') || lowClass.includes('previewimage') || lowClass.includes('savevideo') || lowClass.includes('saveaudio')) outputCount += 1;
 
     if (!lowClass && inputKeys.length > 0) {
       warnings.push(`#${nodeId} 缺少 class_type，可能不是标准 API Workflow 节点。`);
@@ -154,7 +218,7 @@ export function analyzeComfyWorkflow(workflow: unknown): ComfyWorkflowAnalysis {
     warnings.push('检测到图像输入节点，但没有生成图片映射。');
   }
 
-  return { fields, imageInputCount, outputCount, warnings };
+  return { fields, imageInputCount, videoInputCount, audioInputCount, outputCount, warnings };
 }
 
 export function compactComfyFields(fields: Array<ComfyFieldMapping | ComfyDetectedField> | undefined): ComfyFieldMapping[] {
@@ -167,9 +231,11 @@ export function compactComfyFields(fields: Array<ComfyFieldMapping | ComfyDetect
     const key = `${nodeId}::${fieldName}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const source = String(field.source || fieldName || '').trim();
+    const hasValue = Object.prototype.hasOwnProperty.call(field, 'value');
+    const rawSource = String(field.source || '').trim();
+    const source = rawSource || (hasValue ? 'fixed' : fieldName);
     const next: ComfyFieldMapping = { nodeId, fieldName, source };
-    if (Object.prototype.hasOwnProperty.call(field, 'value')) next.value = field.value;
+    if (source === 'fixed' && hasValue) next.value = field.value;
     out.push(next);
   }
   return out;

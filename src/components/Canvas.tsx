@@ -39,7 +39,15 @@ import {
   rectOf,
   type Rect as PlacementRect,
 } from '../utils/nodePlacement';
-import { createOutputDataFromItems, createUploadDataFromItems, fileNameFromUrl, getMediaItemsFromData, type MediaItem, type MediaKind } from '../utils/mediaCollection';
+import {
+  createOutputDataFromItems,
+  createUploadDataFromItems,
+  createUploadReplacementData,
+  fileNameFromUrl,
+  getMediaItemsFromData,
+  type MediaItem,
+  type MediaKind,
+} from '../utils/mediaCollection';
 import { markCanvasNodesDeleted } from '../utils/deletedNodeRegistry';
 import {
   bucketSendableMaterials,
@@ -69,6 +77,7 @@ import {
 } from '../utils/nodeSerialIds';
 import { resolveConnectionByNodeSerialId } from '../utils/connectByNodeSerialId';
 import { formatShortcutList, matchesAnyShortcut } from '../utils/keyboardShortcuts';
+import { applyNodeAlignment, type NodeAlignAction } from '../utils/nodeAlign';
 import {
   collectMaterialSetBucketsFromData,
   isMaterialSetKind,
@@ -100,6 +109,8 @@ import RunningHubNode from './nodes/RunningHubNode';
 import RhConfigNode from './nodes/RhConfigNode';
 import RHToolsNode from './nodes/RHToolsNode';
 import RHToolboxNode from './nodes/RHToolboxNode';
+import ComfyUIStoreNode from './nodes/ComfyUIStoreNode';
+import ComfyUIAppMakerNode from './nodes/ComfyUIAppMakerNode';
 import ResizeNode from './nodes/ResizeNode';
 import UpscaleNode from './nodes/UpscaleNode';
 import GridCropNode from './nodes/GridCropNode';
@@ -170,6 +181,8 @@ const SPECIFIC_NODES: Record<string, any> = {
   'rh-tools': RHToolsNode,
   'rh-toolbox': RHToolboxNode,
   ...(import.meta.env?.DEV ? { 'rh-toolbox-maker': RHToolboxMakerDevNode } : {}),
+  'comfyui-store': ComfyUIStoreNode,
+  'comfyui-app-maker': ComfyUIAppMakerNode,
   // Special (5)
   'multi-angle-3d': PresetImageNode,
   'panorama-720': PresetImageNode,
@@ -450,6 +463,32 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     outputText: '',
     error: '',
   },
+  'comfyui-store': {
+    comfyuiStoreProviderId: '',
+    comfyuiStoreCategoryId: 'all',
+    comfyuiStoreActiveAppId: '',
+    comfyuiStoreSearchQuery: '',
+    comfyuiStoreParamValues: {},
+    materialOrder: [],
+    excludedMaterialIds: [],
+    status: 'idle',
+    taskId: '',
+    imageUrl: '',
+    imageUrls: [],
+    videoUrls: [],
+    audioUrls: [],
+    outputText: '',
+    error: '',
+  },
+  'comfyui-app-maker': {
+    comfyMakerTitle: 'Anima 文生图',
+    comfyMakerAppId: 'anima-text-to-image-v1',
+    comfyMakerCategoryId: 'image',
+    comfyMakerDescription: '从 ComfyUI API Workflow 自动生成的本地应用',
+    comfyMakerWorkflowRaw: '',
+    text: '',
+    outputText: '',
+  },
   ...(import.meta.env?.DEV ? {
     'rh-toolbox-maker': {
       rhToolboxMakerTitle: '智能抠图',
@@ -545,7 +584,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'multi-angle-3d', 'panorama-720', 'penguin-portrait',
   'video', 'seedance', 'audio', 'llm', 'runninghub', 'runninghub-wallet',
   // v1.2.10.1: rh-tools 与 RunningHub 同质，同样可被批量运行调起
-  'rh-tools', 'rh-toolbox',
+  'rh-tools', 'rh-toolbox', 'comfyui-store',
   'resize', 'upscale', 'grid-crop', 'grid-editor', 'remove-bg', 'combine', 'image-compare', 'drawing-board',
   'frame-extractor', 'frame-pair',
   'upload',
@@ -993,6 +1032,19 @@ function canvasMediaFileKey(file: File): string {
 
 function hasFileTransfer(dataTransfer: DataTransfer | null | undefined): boolean {
   return Array.from(dataTransfer?.types || []).includes('Files');
+}
+
+function findUploadNodeIdFromTarget(target: EventTarget | Element | null | undefined): string {
+  if (typeof Element === 'undefined') return '';
+  if (!(target instanceof Element)) return '';
+  const el = target.closest('[data-upload-node-id]') as HTMLElement | null;
+  return String(el?.dataset?.uploadNodeId || '').trim();
+}
+
+function chooseUploadReplacementKind(existingKind: any, buckets: Record<MediaKind, File[]>, firstKind: MediaKind | null): MediaKind | null {
+  const current = (['image', 'video', 'audio'] as MediaKind[]).includes(existingKind) ? existingKind as MediaKind : null;
+  if (current && buckets[current].length > 0) return current;
+  return firstKind;
 }
 
 function isTextEditingTarget(target: EventTarget | null): boolean {
@@ -1588,6 +1640,74 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       return true;
     },
     [screenToFlowPosition, assignActiveNodeSerials]
+  );
+
+  const replaceUploadNodeFromFiles = useCallback(
+    async (nodeId: string, rawFiles: File[]) => {
+      const target = nodesRef.current.find((node) => node.id === nodeId && node.type === 'upload');
+      if (!target) return false;
+
+      const seenFiles = new Set<string>();
+      const buckets: Record<MediaKind, File[]> = { image: [], video: [], audio: [] };
+      let firstKind: MediaKind | null = null;
+      let skipped = 0;
+      rawFiles.forEach((file) => {
+        const kind = inferCanvasMediaKind(file);
+        if (!kind) {
+          skipped += 1;
+          return;
+        }
+        const key = canvasMediaFileKey(file);
+        if (seenFiles.has(key)) return;
+        seenFiles.add(key);
+        if (!firstKind) firstKind = kind;
+        buckets[kind].push(file);
+      });
+
+      const kind = chooseUploadReplacementKind((target.data as any)?.uploadType, buckets, firstKind);
+      if (!kind) return false;
+      const accepted = buckets[kind];
+      if (accepted.length === 0) return false;
+      const supportedCount = buckets.image.length + buckets.video.length + buckets.audio.length;
+      const skippedDifferentKind = Math.max(0, supportedCount - accepted.length);
+
+      const items: MediaItem[] = [];
+      const failures: string[] = [];
+      for (let i = 0; i < accepted.length; i += 1) {
+        const file = accepted[i];
+        try {
+          items.push(await uploadCanvasMediaFile(file, kind, i));
+        } catch (err: any) {
+          failures.push(`${file.name || kind}: ${err?.message || '上传失败'}`);
+        }
+      }
+
+      if (items.length === 0) {
+        if (failures.length > 0) alert(`素材覆盖失败:\n${failures.slice(0, 5).join('\n')}`);
+        return true;
+      }
+
+      const replacement = createUploadReplacementData(kind, items);
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.id !== nodeId) return { ...node, selected: false };
+          return {
+            ...node,
+            selected: true,
+            data: {
+              ...(node.data || {}),
+              ...replacement,
+            },
+          };
+        })
+      );
+      const notices: string[] = [];
+      if (skippedDifferentKind > 0 || skipped > 0) notices.push(`跳过 ${skippedDifferentKind + skipped} 个非${kind === 'image' ? '图像' : kind === 'video' ? '视频' : '音频'}素材`);
+      if (failures.length > 0) notices.push(...failures.slice(0, 4));
+      if (notices.length > 0) alert(`已覆盖上传素材节点，但有部分素材未使用:\n${notices.join('\n')}`);
+      return true;
+    },
+    []
   );
 
   const getMaterialSetMergeCandidate = useCallback((ids: string[]): { kind: MaterialSetKind; items: MaterialSetItem[] } | null => {
@@ -2501,6 +2621,27 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   const handleCancelRun = useCallback(() => {
     cancelRunRef.current = true;
     useRunBusStore.getState().cancelAll();
+  }, []);
+
+  const handleAlignSelection = useCallback((action: NodeAlignAction, ids?: string[]) => {
+    const targetIds = (ids && ids.length > 0)
+      ? ids
+      : nodesRef.current.filter((node) => node.selected).map((node) => node.id);
+    if (targetIds.length === 0) {
+      logBus.warn('请先选择要对齐的节点', '对齐');
+      return;
+    }
+    const result = applyNodeAlignment(nodesRef.current, targetIds, action, {
+      grid: SNAP_GRID,
+      gridGap: 48,
+    });
+    if (!result.changed) {
+      logBus.info('选区已经足够整齐，未移动节点', '对齐');
+      return;
+    }
+    setGuides({ vertical: [], horizontal: [] });
+    setNodes(result.nodes);
+    logBus.success(`已整理 ${result.movedIds.length} 个节点`, '对齐');
   }, []);
 
   // ===== 智能对齐辅助线 =====
@@ -4266,6 +4407,12 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       if (document.querySelector('.img-edit-overlay')) return;
       const files = collectCanvasMediaFiles(e.clipboardData);
       if (files.length === 0) return;
+      const pointerTarget = lastCanvasPointerRef.current
+        ? document.elementFromPoint(lastCanvasPointerRef.current.x, lastCanvasPointerRef.current.y)
+        : null;
+      const uploadTargetNodeId =
+        findUploadNodeIdFromTarget(e.target) ||
+        findUploadNodeIdFromTarget(pointerTarget);
       if (internalPasteTimerRef.current) {
         window.clearTimeout(internalPasteTimerRef.current);
         internalPasteTimerRef.current = null;
@@ -4273,17 +4420,22 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       const signature = files
         .map(canvasMediaFileKey)
         .join('||');
+      const actionSignature = `${uploadTargetNodeId || 'new-upload-node'}::${signature}`;
       const now = Date.now();
       const last = lastExternalMediaPasteRef.current;
       e.preventDefault();
       e.stopPropagation();
-      if (last?.signature === signature && now - last.at < EXTERNAL_MEDIA_PASTE_DEDUPE_MS) return;
-      lastExternalMediaPasteRef.current = { signature, at: now };
+      if (last?.signature === actionSignature && now - last.at < EXTERNAL_MEDIA_PASTE_DEDUPE_MS) return;
+      lastExternalMediaPasteRef.current = { signature: actionSignature, at: now };
+      if (uploadTargetNodeId) {
+        void replaceUploadNodeFromFiles(uploadTargetNodeId, files);
+        return;
+      }
       void createUploadNodesFromFiles(files);
     };
     window.addEventListener('paste', onPaste, true);
     return () => window.removeEventListener('paste', onPaste, true);
-  }, [activeId, createUploadNodesFromFiles]);
+  }, [activeId, createUploadNodesFromFiles, replaceUploadNodeFromFiles]);
 
   const focusNearestNodeToViewport = useCallback(() => {
     if (!loaded || loadedCanvasId !== activeId) return;
@@ -4533,6 +4685,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         batchDone={batchDone}
         snapEnabled={snapEnabled}
         onToggleSnap={() => setSnapEnabled((v) => !v)}
+        onAlignSelection={handleAlignSelection}
       />
       <TerminalPanel />
       {connectionPanModeActive && (
@@ -4914,6 +5067,30 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
               ? `${sendableCount}素材`
               : `${sendNodeCount}节点`;
         const menuItemCls = 't8-context-menu__item';
+        const alignMiniBtnCls = 't8-context-menu__item justify-center text-[11px] !px-2 !py-1.5';
+        const alignButton = (
+          action: NodeAlignAction,
+          label: string,
+          Icon: ComponentType<{ size?: number }>,
+          minCount = 2,
+        ) => {
+          const disabled = ids.length < minCount;
+          return (
+            <button
+              key={action}
+              className={alignMiniBtnCls}
+              disabled={disabled}
+              title={disabled ? `至少选择 ${minCount} 个节点` : label}
+              onClick={() => {
+                closeContextMenu();
+                handleAlignSelection(action, ids);
+              }}
+            >
+              <Icon size={12} />
+              <span>{label}</span>
+            </button>
+          );
+        };
         return (
           <>
             {/* 遮罩层 */}
@@ -4942,6 +5119,26 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
                 <span className="text-[10px] font-normal opacity-60">
                   可执行 {exeCount}
                 </span>
+              </div>
+              <div className="px-2 py-2">
+                <div className="mb-1 flex items-center gap-1 text-[10px] font-bold opacity-65">
+                  <LucideIcons.LayoutGrid size={11} />
+                  <span>对齐 / 整理</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {alignButton('align-left', '左', LucideIcons.AlignStartVertical)}
+                  {alignButton('align-center-x', '水平中', LucideIcons.AlignCenterVertical)}
+                  {alignButton('align-right', '右', LucideIcons.AlignEndVertical)}
+                  {alignButton('align-top', '上', LucideIcons.AlignStartHorizontal)}
+                  {alignButton('align-center-y', '垂直中', LucideIcons.AlignCenterHorizontal)}
+                  {alignButton('align-bottom', '下', LucideIcons.AlignEndHorizontal)}
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-1">
+                  {alignButton('distribute-x', '水平等距', LucideIcons.AlignHorizontalSpaceBetween, 3)}
+                  {alignButton('distribute-y', '垂直等距', LucideIcons.AlignVerticalSpaceBetween, 3)}
+                  {alignButton('snap-grid', '吸附网格', LucideIcons.Magnet, 1)}
+                  {alignButton('arrange-grid', '整理网格', LucideIcons.Grid3x3, 2)}
+                </div>
               </div>
               <button
                 className={menuItemCls}

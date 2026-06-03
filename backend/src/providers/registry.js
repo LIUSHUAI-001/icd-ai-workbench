@@ -320,11 +320,11 @@ function normalizeComfyFields(value) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
     const nodeId = cleanText(raw.nodeId || raw.node || '', 80);
     const fieldName = cleanText(raw.fieldName || raw.input || raw.name || '', 80);
-    const source = cleanText(raw.source || fieldName, 80);
+    const fixedValue = cloneJsonValue(raw.value, 64 * 1024);
+    const source = cleanText(raw.source || (fixedValue !== undefined ? 'fixed' : fieldName), 80);
     if (!nodeId || !fieldName) continue;
     const field = { nodeId, fieldName, source };
-    const fixedValue = cloneJsonValue(raw.value, 64 * 1024);
-    if (fixedValue !== undefined) field.value = fixedValue;
+    if (source === 'fixed' && fixedValue !== undefined) field.value = fixedValue;
     out.push(field);
   }
   return out.slice(0, 200);

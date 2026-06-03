@@ -1,7 +1,7 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "1.9.4",
-  "lastUpdated": "2026-06-03-generation-poll-cloud-upload-release",
+  "version": "1.9.5",
+  "lastUpdated": "2026-06-03-comfyui-field-mapping-hotfix",
   "packaging": {
     "description": "Electron NSIS 桌面端打包链路(v1.2.1 起标准化, 严禁未明确指令主动打包)。完整产物拓扑: app.asar(electron/{main,loader,preload}.cjs + node_modules) + app.asar.unpacked(node_modules/sharp + @img) + resources/backend-enc/*.t8c(extraResources, asar 外) + resources/frontend(extraResources, asar 外)。前端版本号由 vite define 注入 __APP_VERSION__、Sidebar 左下角自动同步。",
     "scripts": {
@@ -16,9 +16,9 @@
       "T8PC_FRONTEND_DIST": "打包模式 = path.join(process.resourcesPath, 'frontend'); 开发模式 = <project>/dist",
       "T8PC_RES": "打包模式 = process.resourcesPath; 开发模式 = <project>"
     },
-    "version": "1.9.4",
-    "semverVersion": "1.9.4",
-    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.9.4：扩展 API 平台继续作为高级可选入口，ModelScope 图像生成新增 LoRA 管理与节点内多选，默认 LoRA 列表从 Infinite-Canvas 同步；ModelScope LLM 继续走 /v1/chat/completions、Bearer Key 规范化和长任务超时；本地 ComfyUI 接入新增 API Workflow 自动识别、可视化字段映射和 LoadImage 上游图片自动上传，降低本地工作流配置门槛；去AI水印桥接同步上游 remove-ai-watermarks 0.8.7，隐形水印保护开关改为 opt-in，强度留空由上游按来源自适应；新增 RH工具箱只读运行节点和开发态 RH工具箱制作器，制作器仅在 Vite dev 环境出现，生产/Electron 包必须由后置检查拦截；新增第九套官方主题「足球小将风格」，使用原创绿茵球场、蓝白 10 号球衣、比分牌、小地图和足球传球连线动效，并完成 Captain Tsubasa / Japan 3:2 Brazil 标题牌居中与新球衣 logo 资产替换；素材右键新增云端上传目标入口，首版支持腾讯云 COS 与阿里云 OSS 真实上传，百度网盘和夸克网盘保留配置占位；除 LLM 外，图像、视频、SD2.0/Seedance、音频/Suno 及扩展图像/视频平台、批量运行、循环器等待统一不低于 3600 秒。默认主流程仍保持贞贞工坊 / RunningHub / LLM 独立 Key 不变。",
+    "version": "1.9.5",
+    "semverVersion": "1.9.5",
+    "versionNote": "v1.3.0 起统一采用 semver 三段阶段号 x.y.z；当前源码为 v1.9.5：扩展 API 平台继续作为高级可选入口，ModelScope 图像生成新增 LoRA 管理与节点内多选，默认 LoRA 列表从 Infinite-Canvas 同步；ModelScope LLM 继续走 /v1/chat/completions、Bearer Key 规范化和长任务超时；本地 ComfyUI 接入新增 API Workflow 自动识别、可视化字段映射、LoadImage 上游图片自动上传、ComfyUI 分类、ComfyUI超市与ComfyUI应用制作工具，并热修 fields 映射里非 fixed 来源残留旧 value 覆盖运行时 Prompt / 上游图片 / 宽高的问题；去AI水印桥接同步上游 remove-ai-watermarks 0.8.7，隐形水印保护开关改为 opt-in，强度留空由上游按来源自适应；新增 RH工具箱只读运行节点和开发态 RH工具箱制作器，制作器仅在 Vite dev 环境出现，生产/Electron 包必须由后置检查拦截；新增第九套官方主题「足球小将风格」，使用原创绿茵球场、蓝白 10 号球衣、比分牌、小地图和足球传球连线动效，并完成 Captain Tsubasa / Japan 3:2 Brazil 标题牌居中与新球衣 logo 资产替换；素材右键新增云端上传目标入口，首版支持腾讯云 COS 与阿里云 OSS 真实上传，百度网盘和夸克网盘保留配置占位；除 LLM 外，图像、视频、SD2.0/Seedance、音频/Suno 及扩展图像/视频平台、批量运行、循环器等待统一不低于 3600 秒。默认主流程仍保持贞贞工坊 / RunningHub / LLM 独立 Key 不变。",
     "installer": "本次为源码发布，未重新打包 Electron；上一实测安装包为 dist_electron/T8-PenguinCanvas-Setup-1.9.3.exe。如需离线用户包，必须把 tools/remove-ai-watermarks-runtime sidecar runtime 同步到 remove-ai-watermarks 0.8.7+ 后再执行 npm run dist。",
     "checklist": [
       "运行 npm run encrypt 前确认已 npm install bytenode 且使用 Electron 内置 Node",
@@ -295,7 +295,7 @@
       "每次同步上游后必须重新跑 status/capability、代表性 process smoke、node --test tests/*.test.ts、npm run build 和 Electron 打包后置检查。"
     ]
   },
-  "totalNodes": 43,
+  "totalNodes": 46,
   "phases": {
     "phase0": {
       "label": "基础设施",
@@ -1964,6 +1964,34 @@
         "扩展 API 平台的图像/视频入口统一给 3600s 兜底：ModelScope 图像异步 deadline 从 120s 抬到 3600s，本地 ComfyUI /history 轮询按间隔补足 3600s，火山图像与视频轮询抬到 3600s，即梦 CLI pollSeconds 默认与归一化均为 3600s。",
         "批量运行与循环器等待节点完成的安全超时从 5 分钟改为 60 分钟，避免节点自身还在轮询时被上层执行链提前判定失败；LLM 节点自身超时策略未纳入本次改动。"
       ]
+    },
+    "phase133": {
+      "label": "ComfyUI 超市与应用制作工具节点 (v1.9.4)",
+      "status": "complete",
+      "items": [
+        "roadmap.md 新增「ComfyUI 超市与应用制作工具路线」，明确该能力是扩展 API 平台下方的画布级入口：高级来源继续保留，ComfyUI超市负责一键运行，ComfyUI应用制作工具负责把 API Workflow 制作为标准应用。",
+        "新增可见分类 comfyui / ComfyUI，包含 comfyui-store「ComfyUI超市」和 comfyui-app-maker「ComfyUI应用制作工具」两个节点；制作工具不是开发态隐藏节点，普通用户也可导入 workflow 制作自己的本地应用。",
+        "新增 src/utils/comfyuiApps.ts、src/data/comfyuiAppManifest.ts 与 src/services/comfyuiApps.ts，定义 t8-comfyui-app-manifest 协议、分类/应用/参数/输出规范、本地存储、导入导出、应用运行和 provider 动态注入。",
+        "ComfyUI应用制作工具支持上传或粘贴 API Workflow JSON，自动识别正向/负向 Prompt、图片/视频/音频输入、宽高、batch、seed、steps、cfg、sampler、scheduler、denoise、model/clip/vae/lora 等字段，可保存到 ComfyUI超市、复制 JSON 或导出应用包。",
+        "ComfyUI超市支持分类、搜索、导入应用 JSON、选择已启用的 ComfyUI provider、读取上游 text/image/video/audio 素材、编辑用户参数、运行后输出 image/video/audio/text，并复用 OutputNode、资源库、节点发送和 Loop 可识别协议。",
+        "后端 comfyui adapter 增强真实运行 patch：providerParams.seed 可生效；旧 heuristic fallback 只在没有明确映射时兜底，避免 Anima 类工作流把 sampler negative 连接的 CLIPTextEncode 冲成正向 Prompt。",
+        "图像节点选择 ComfyUI 扩展来源时不再显示 GPT 比例/尺寸参数块，而是显示工作流字段面板，并按 workflow width/height/batch/seed/model 等映射生成 ComfyUI 参数，修复“原始 ComfyUI 工作流参数显示成 GPT 参数”的问题。",
+        "实测 C:\\（动漫抽卡神器）Anima+V1.0正式版自动提示词文生图V4 (2).json：自动识别 14 个字段，真实提交本机 ComfyUI 26 秒返回图片；复测确认 #91 正向 Prompt、#87 负向 Prompt、512x512 与 seed 均正确注入。",
+        "验证通过 node --test tests/comfyuiProvider.test.ts、node --test tests/advancedProviders.test.ts tests/advancedProviderFrontend.test.ts、npm run build；后续发布前仍建议跑全量 node --test tests/*.test.ts。"
+      ]
+    },
+    "phase134": {
+      "label": "ComfyUI 字段映射旧值覆盖热修 (v1.9.5)",
+      "status": "complete",
+      "items": [
+        "修复本地 ComfyUI 图像生成时，fields 映射里残留 value 会覆盖 source=prompt / image1 / width / height 等运行时输入的问题；现在只有 source=fixed 才允许 value 写入 workflow，其它来源一律从当前节点 Prompt、上游素材和 providerParams 读取。",
+        "src/utils/comfyuiWorkflow.ts 的 compactComfyFields 会清理非 fixed 来源的旧 value；旧手写 fields 若只有 value 没有 source，则继续按 fixed 兼容，避免破坏历史高级配置。",
+        "backend/src/providers/registry.js 归一化 ComfyUI workflow fields 时同步清理非 fixed value；backend/src/providers/comfyui.js 执行 patch 时也做后端兜底，旧设置即使已经保存了脏字段也能正确运行。",
+        "API 设置页手动编辑 fields JSON 和可视化来源下拉都会通过 compactComfyFields 保存，避免用户再次把 prompt/image/width/height 映射变成固定旧值。",
+        "新增 tests/comfyuiProvider.test.ts 回归用例，覆盖 prompt、上游图片上传、宽高和 fixed 固定值并存时的优先级；tests/advancedProviders.test.ts 覆盖后端归一化行为。",
+        "公开版本同步到 1.9.5：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 同步；skill.md 仅本地更新，继续禁止推送 GitHub；本次只推源码，不打包 Electron。",
+        "验证通过 node --test tests/comfyuiProvider.test.ts、node --test tests/advancedProviders.test.ts、node --test tests/advancedProviderFrontend.test.ts tests/apiSettingsTheme.test.ts tests/comfyuiProvider.test.ts tests/advancedProviders.test.ts、全量 node --test tests/*.test.ts 与 npm run build。"
+      ]
     }
   },
   "categories": {
@@ -2053,6 +2081,22 @@
           "label": "RH 配置",
           "description": "RunningHub 工作流参数注入(v1.1.x 起 hidden:true 仅从 Sidebar 隐藏,nodeTypes 注册保留以兼容老画布)",
           "hidden": true
+        }
+      ]
+    },
+    "comfyui": {
+      "label": "ComfyUI",
+      "count": 2,
+      "nodes": [
+        {
+          "type": "comfyui-store",
+          "label": "ComfyUI超市",
+          "description": "本地 ComfyUI 应用库：导入制作好的 API Workflow 应用，按分类/搜索选择，连接上游 text/image/video/audio 素材后一键运行；输出归一为 image/video/audio/text，可继续接 OutputNode、资源库、节点发送和 Loop。"
+        },
+        {
+          "type": "comfyui-app-maker",
+          "label": "ComfyUI应用制作工具",
+          "description": "上传或粘贴 ComfyUI API Workflow JSON，自动识别需要暴露的参数与上游输入，允许手动调整名称、分类、说明和字段，保存到 ComfyUI超市或复制/导出标准 t8-comfyui-app-manifest 应用 JSON。"
         }
       ]
     },
@@ -2828,6 +2872,7 @@
     "runninghub-wallet",
     "rh-tools",
     "rh-toolbox",
+    "comfyui-store",
     "resize",
     "upscale",
     "grid-crop",
@@ -2860,7 +2905,8 @@
       "storyboard-grid",
       "video-output",
       "browser",
-      "rh-config"
+      "rh-config",
+      "comfyui-app-maker"
     ]
   },
   "developerOnlyNodeTypes": {

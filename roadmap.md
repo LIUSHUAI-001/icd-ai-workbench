@@ -64,6 +64,58 @@
 - 设置页加入“从 ComfyUI 历史任务导入当前 prompt/workflow”的快捷入口。
 - 后续可新增独立“本地 ComfyUI”节点，但只有保存至少一个工作流后才在侧栏显示。
 
+## ComfyUI 超市与应用制作工具路线（开发中）
+
+> 目标：新增独立「ComfyUI」分类，包含「ComfyUI超市」与「ComfyUI应用制作工具」两个节点。让用户把本地 ComfyUI API Workflow JSON 变成可保存、可导入、可一键运行的画布应用；同时保留当前扩展 API 平台里的 ComfyUI 高级来源，避免破坏旧画布。
+
+### 1. 产品定位
+
+- `ComfyUI超市` 是用户日常运行入口：选择应用、接入上游素材、填写少量参数、运行并输出图像 / 视频 / 音频 / 文本。
+- `ComfyUI应用制作工具` 是普通用户也能使用的本地工作流封装工具：上传或粘贴 ComfyUI API Workflow JSON，自动识别参数，测试后保存到 ComfyUI超市。
+- ComfyUI 应用和 RH工具箱一样走 manifest 驱动，但和 RH工具箱不同：ComfyUI 工作流通常来自用户本机，因此制作工具可以进入用户包，不作为维护者私有工具隐藏。
+- 新功能不替代图像节点里的 ComfyUI 高级来源；旧设置继续可用，新增节点只是把复杂 workflow 管理从 API 设置页搬到更直观的画布节点里。
+
+### 2. Manifest 协议
+
+- 应用定义使用 `t8-comfyui-app-manifest`，包含 `categories[]` 与 `apps[]`。
+- 每个应用必须有稳定 `id`、`title`、`categoryId`、`workflowJson`、`fields`、`userParams`、`outputs`、`runtime`、`ui`。
+- `fields` 负责 patch ComfyUI workflow：`nodeId / fieldName / source / value`。`source` 可为 `prompt`、`negative`、`image1`、`video1`、`audio1`、`width`、`height`、`seed`、`steps`、`cfg`、`sampler_name`、`scheduler`、`denoise`、`batch_size`、`model_name`、`clip_name`、`vae_name` 或自定义参数 key。
+- `userParams` 只暴露新手能理解的字段，默认把 Prompt、负向 Prompt、尺寸、批量、采样器参数、模型名、VAE/CLIP 名列出来；复杂节点字段默认固定在 workflow 原值里。
+- 应用保存分两层：内置默认 manifest 放在源码数据文件；用户导入 / 制作的应用保存在浏览器本地库，换画布不丢，节点数据只保存 `appId + 参数值 + 素材排序/排除`。
+
+### 3. 自动识别范围
+
+- Prompt：识别 `CLIPTextEncode.text`，第一条为正向，第二条或标题包含 negative/负向/反向的为负向。
+- 图像输入：识别 `LoadImage.image`、`ImageInput` 等常见图像输入，映射为 `image1/image2/image3...`。
+- 视频/音频输入：识别常见 `LoadVideo`、`VHS`、`LoadAudio`、`AudioInput` 字段，映射为 `video1/audio1`。
+- 尺寸：识别 `EmptyLatentImage.width/height/batch_size`。
+- 采样：识别 `KSampler.seed/noise_seed/steps/cfg/sampler_name/scheduler/denoise`。
+- 模型与资源：识别 `CheckpointLoader/UNETLoader/AnimaBoosterLoader.model_name`、`CLIPLoader.clip_name`、`VAELoader.vae_name`、`LoraLoader.lora_name/strength_model/strength_clip`。
+- 输出：识别 `SaveImage/PreviewImage`、视频合成 / 保存节点、音频保存节点和文本输出节点，后端回收结果继续归一成 T8 的 `/files/output/*`。
+
+### 4. 第一版交互
+
+- 制作工具：上传 JSON → 自动识别 → 填应用名/分类 → 勾选用户要暴露的参数 → 保存到超市 / 导出 JSON。
+- 制作工具必须给新手友好提示：区分“API Workflow JSON”和普通 ComfyUI 前端 workflow；识别失败时说明如何在 ComfyUI 开启 dev mode 导出 API workflow。
+- 超市节点：左侧是应用搜索和分类；右侧是当前应用参数、上游素材预览、运行按钮与结果预览。
+- 超市节点必须支持单个上游素材右下角 X 排除，保留当前画布已经有的素材排序、排除和恢复体验。
+- 图像节点选择 ComfyUI 高级来源时，不再显示 GPT/FAL/MJ 的比例、尺寸、质量等参数；改为显示该 workflow 自动识别出的 ComfyUI 参数面板。
+
+### 5. 技术落地
+
+- 复用 `src/utils/comfyuiWorkflow.ts` 作为唯一 analyzer；后续扩展只加检测规则，不给单个 workflow 写硬编码。
+- 新增 `src/utils/comfyuiApps.ts` 作为 manifest 归一、默认参数构建、存储和导入导出的唯一来源。
+- `ComfyUI超市` 运行时通过现有 `/api/proxy/external/image` 和 ComfyUI provider adapter 提交；provider 可由设置页选择，workflow 来自应用 manifest。
+- 后端 `backend/src/providers/comfyui.js` 保持显式 fields 优先、自动推断兜底；新增字段只扩展 `sourceValue()`，不破坏旧工作流。
+- 第一版重点跑通文生图 / 图生图工作流；视频、音频和复杂 mask/controlnet 先按协议预留，后续逐步增强 UI。
+
+### 6. 验收样本
+
+- 本轮必须用 `C:\（动漫抽卡神器）Anima+V1.0正式版自动提示词文生图V4 (2).json` 做分析样本。
+- 导入后应自动识别 10+ 个字段：正向 Prompt、负向 Prompt、width、height、batch_size、seed、steps、cfg、sampler_name、scheduler、denoise、model_name、clip_name、vae_name。
+- 在图像节点已选择原 ComfyUI 高级来源时，应看到 ComfyUI 参数，而不是 GPT 默认参数。
+- 能否真实出图取决于本机 ComfyUI 是否在线、是否安装 Anima 自定义节点与对应模型；如果本机缺模型/节点，前端必须给出可理解错误，不能显示成“GPT 参数没了但不知道怎么用”。
+
 ## RH 工具箱路线（开发中）
 
 > 目标：新增只读精选节点「RH工具箱」。它和「RH超市」共享 RunningHub 提交能力，但职责不同：RH超市让用户自己维护应用；RH工具箱只展示维护者预置的工具，并通过统一调用协议给画布其他功能复用，例如图像抠图/编辑/放大、视频编辑/放大、文本扩写、音频克隆等。

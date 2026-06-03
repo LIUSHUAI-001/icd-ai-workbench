@@ -57,6 +57,7 @@ import {
   filterExcludedMaterials,
   normalizeExcludedMaterialIds,
 } from '../../utils/materialExclusion';
+import { COMFY_APP_SOURCE_LABELS } from '../../utils/comfyuiApps';
 
 /**
  * ImageNode - 图像生成(ZhenzhenMagic)
@@ -113,6 +114,34 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const comfyRequiredImageCount = isComfyExternal
     ? (comfyWorkflow?.fields || []).filter((field: any) => /^image\d+$/i.test(String(field?.source || ''))).length
     : 0;
+  const comfyParamFields = useMemo(() => {
+    if (!isComfyExternal || !comfyWorkflow) return [];
+    const allowed = new Set([
+      'width',
+      'height',
+      'batch_size',
+      'seed',
+      'steps',
+      'cfg',
+      'sampler_name',
+      'scheduler',
+      'denoise',
+      'model_name',
+      'ckpt_name',
+      'clip_name',
+      'vae_name',
+      'lora_name',
+      'strength_model',
+      'strength_clip',
+    ]);
+    const seen = new Set<string>();
+    return (comfyWorkflow.fields || []).filter((field: any) => {
+      const source = String(field?.source || field?.fieldName || '').trim();
+      if (!allowed.has(source) || seen.has(source)) return false;
+      seen.add(source);
+      return true;
+    });
+  }, [isComfyExternal, comfyWorkflow]);
   const modelscopeLoras = useMemo(
     () => modelscopeLorasForModel(providerSelection.provider, externalProviderModel),
     [providerSelection.provider, externalProviderModel],
@@ -128,6 +157,20 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   );
   const patchProviderParams = (patch: Record<string, any>) => {
     update({ providerParams: { ...providerParams, ...patch } });
+  };
+  const comfyFieldDefault = (field: any) => {
+    if (!comfyWorkflow?.workflowJson || !field?.nodeId || !field?.fieldName) return '';
+    const value = (comfyWorkflow.workflowJson as any)?.[field.nodeId]?.inputs?.[field.fieldName];
+    if (Array.isArray(value) || (value && typeof value === 'object')) return '';
+    return value ?? '';
+  };
+  const comfyValueForSource = (source: string) => {
+    const field = comfyParamFields.find((item: any) => String(item?.source || item?.fieldName || '') === source);
+    return providerParams[source] ?? (field ? comfyFieldDefault(field) : '');
+  };
+  const comfyNumberForSource = (source: string, fallback = 0) => {
+    const n = Number(comfyValueForSource(source));
+    return Number.isFinite(n) ? n : fallback;
   };
   const clearModelscopeLoraParams = () => ({
     providerParams: {
@@ -356,7 +399,12 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
       if (isExternalSelected && providerSelection.provider) {
         const providerModel = externalProviderModel;
         if (!providerModel) throw new Error('扩展平台未配置可用图像模型');
-        const size = externalImageSizeFor(aspectRatio, sizeLevel);
+        let size = externalImageSizeFor(aspectRatio, sizeLevel);
+        if (isComfyExternal && comfyWorkflow) {
+          const width = comfyNumberForSource('width', 1024);
+          const height = comfyNumberForSource('height', 1024);
+          if (width > 0 && height > 0) size = `${Math.round(width)}x${Math.round(height)}`;
+        }
         const externalProviderParams = { ...(d?.providerParams || {}) };
         let loraLog = '';
         if (isModelScopeExternal && modelscopeLoraEnabled) {
@@ -863,8 +911,11 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                   </div>
                 )}
                 {isComfyExternal && (
-                  <div className="rounded border border-white/10 bg-white/[0.03] p-2 space-y-1">
-                    <div className="text-[10px] font-semibold text-white/70">ComfyUI 工作流</div>
+                  <div className="rounded border border-cyan-300/25 bg-cyan-400/[0.06] p-2 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="text-[10px] font-semibold text-white/80">ComfyUI 工作流参数</div>
+                      <span className="text-[10px] text-cyan-200/80">{comfyParamFields.length} 项</span>
+                    </div>
                     <div className="text-[10px] leading-relaxed text-white/45">
                       {comfyRequiredImageCount > 0
                         ? `此工作流需要 ${comfyRequiredImageCount} 张上游/本地参考图；当前已准备 ${orderedImages.length} 张。`
@@ -873,6 +924,38 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                     {comfyRequiredImageCount > orderedImages.length && (
                       <div className="text-[10px] text-amber-200">
                         请连接上传素材或在参考图区域添加图片，否则 ComfyUI 的 LoadImage 字段会缺失。
+                      </div>
+                    )}
+                    {comfyParamFields.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        {comfyParamFields.map((field: any) => {
+                          const source = String(field?.source || field?.fieldName || '').trim();
+                          const label = COMFY_APP_SOURCE_LABELS[source] || source;
+                          const value = providerParams[source] ?? comfyFieldDefault(field);
+                          const isNumber = ['width', 'height', 'batch_size', 'seed', 'steps', 'cfg', 'denoise', 'strength_model', 'strength_clip'].includes(source);
+                          return (
+                            <label key={`${field.nodeId}-${field.fieldName}-${source}`} className="space-y-1">
+                              <span className="block text-[10px] text-white/55">{label}</span>
+                              <input
+                                type={isNumber ? 'number' : 'text'}
+                                value={String(value ?? '')}
+                                step={source === 'cfg' || source === 'denoise' || source.startsWith('strength_') ? 0.1 : 1}
+                                min={source === 'width' || source === 'height' ? 64 : source === 'batch_size' ? 1 : undefined}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  patchProviderParams({ [source]: isNumber && raw !== '' ? Number(raw) : raw });
+                                }}
+                                placeholder={String(comfyFieldDefault(field) ?? '')}
+                                style={{ background: '#18181b', color: '#ffffff' }}
+                                className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-cyan-300/60"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-amber-200">
+                        当前工作流没有保存字段映射，请到 API 设置中点“自动映射”，或使用 ComfyUI应用制作工具重新导入 workflow。
                       </div>
                     )}
                   </div>
@@ -935,7 +1018,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
         )}
 
         {/* 比例 + 尺寸 并排(非 FAL 且非 MJ 模型);Grok Image 只需要比例 */}
-        {(!isFal && !isMj || isExternalSelected) && (
+        {(!isFal && !isMj && !isComfyExternal) && (
           <div className={`grid gap-2 ${isGrokImage || !modelDef.sizes.length ? 'grid-cols-1' : 'grid-cols-2'}`}>
             <div>
               <label className="text-[10px] text-white/50 block mb-1">比例</label>

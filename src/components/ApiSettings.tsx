@@ -1110,7 +1110,8 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
       try {
         const parsed = JSON.parse(raw || '[]');
         if (!Array.isArray(parsed)) throw new Error('fields must be array');
-        updateComfyWorkflow({ fields: parsed });
+        const fields = compactComfyFields(parsed as ComfyFieldMapping[]);
+        updateComfyWorkflow({ fields });
         setAdvancedTestStatus((prev) => ({ ...prev, [provider.id]: { ok: true, message: '参数映射已解析' } }));
       } catch {
         setAdvancedTestStatus((prev) => ({ ...prev, [provider.id]: { ok: false, message: '参数映射 JSON 需要是数组' } }));
@@ -1133,7 +1134,9 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
       }));
     };
     const updateComfyField = (index: number, patch: Partial<ComfyFieldMapping>) => {
-      const nextFields = comfyMappedFields.map((field, i) => (i === index ? { ...field, ...patch } : field));
+      const nextFields = compactComfyFields(
+        comfyMappedFields.map((field, i) => (i === index ? { ...field, ...patch } : field)),
+      );
       updateComfyWorkflow({ fields: nextFields });
       setComfyDraft({ fields: JSON.stringify(nextFields, null, 2) });
     };

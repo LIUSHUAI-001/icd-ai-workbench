@@ -72,6 +72,12 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   'rh-toolbox': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
   ...DEV_NODE_PORTS,
 
+  // ========== ComfyUI ==========
+  // ComfyUI超市：本地 workflow 应用运行器，可按 manifest 消费/输出四类素材。
+  'comfyui-store': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
+  // ComfyUI应用制作工具：把 API Workflow JSON 转成应用 manifest，输出 JSON 文本。
+  'comfyui-app-maker': { inputs: [], outputs: ['text'] },
+
   // ========== Special ==========
   'multi-angle-3d': { inputs: ['text', 'image'], outputs: ['image'] },
   'panorama-720': { inputs: ['text'], outputs: ['image'] },
