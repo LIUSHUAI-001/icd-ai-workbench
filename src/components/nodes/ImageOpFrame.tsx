@@ -3,6 +3,8 @@ import { Handle, Position, useReactFlow } from '@xyflow/react';
 import { AlertCircle, Loader2, Sparkles } from 'lucide-react';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
+import { useHasAutoOutput } from './useHasAutoOutput';
+import SmartImage from '../SmartImage';
 
 /**
  * ImageOpNode - 图像变换节点的通用外壳
@@ -43,6 +45,8 @@ export function ImageOpFrame(props: ImageOpNodeProps) {
   const status: 'idle' | 'running' | 'success' | 'error' = d?.status || 'idle';
   const outImg: string | undefined = d?.imageUrl;
   const outUrls: string[] = d?.urls || [];
+  // 下游已连 OutputNode：隐藏节点内预览，避免占双份垂直空间 + 避免重复展示
+  const hasAutoOutput = useHasAutoOutput(id);
 
   const collectUpstreamImages = (): string[] => {
     const edges = getEdges();
@@ -160,15 +164,15 @@ export function ImageOpFrame(props: ImageOpNodeProps) {
         )}
       </div>
 
-      {outImg && (
+      {outImg && !hasAutoOutput && (
         <div className="border-t border-white/10 p-2">
-          <img src={outImg} alt="结果" className="w-full rounded object-contain" />
+          <SmartImage src={outImg} alt="结果" className="w-full rounded object-contain" thumbSize={720} />
         </div>
       )}
-      {outUrls.length > 0 && (
+      {outUrls.length > 0 && !hasAutoOutput && (
         <div className="border-t border-white/10 p-2 grid grid-cols-3 gap-1">
           {outUrls.map((u, i) => (
-            <img key={i} src={u} alt={`#${i}`} className="w-full rounded object-cover" />
+            <SmartImage key={i} src={u} alt={`#${i}`} className="w-full rounded object-cover" thumbSize={240} />
           ))}
         </div>
       )}
