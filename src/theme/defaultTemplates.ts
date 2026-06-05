@@ -1039,6 +1039,8 @@ export const BUILT_IN_THEME_TEMPLATES: ThemeTemplate[] = [
       preset: 'ki-burst',
       source: 'url',
       url: dragonBallThemeMusicUrl,
+      hiddenTitle: '神龙模式',
+      hiddenVolume: 0.2,
       volume: 0.18,
       bpm: 156,
       copyrightNote: '七龙珠第一部开场曲默认音乐文件；公开分发前请确认音乐授权边界。',

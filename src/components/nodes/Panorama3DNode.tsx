@@ -1,19 +1,24 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, useReactFlow, type NodeProps } from '@xyflow/react';
 import {
   AlertCircle,
   Box,
+  Camera,
   CheckCircle2,
   Copy,
+  Crosshair,
   Download,
   Globe2,
   History,
   Loader2,
+  MapPin,
   PackagePlus,
   Pause,
   Play,
+  Plus,
   RotateCcw,
   Sparkles,
+  Trash2,
   Upload,
   ZoomIn,
   ZoomOut,
@@ -27,23 +32,37 @@ import { taskCompletionSound } from '../../stores/taskCompletionSound';
 import { trackAchievementEvent } from '../../stores/achievements';
 import {
   PANORAMA_FIXED_PROMPT,
+  PANORAMA_CAMERA_PRESETS,
   PANORAMA_PROMPT_TEMPLATES,
   PANORAMA_RATIO_OPTIONS,
   PANORAMA_SIZE_LEVELS,
   buildPanoramaImageRequest,
   buildPanoramaPromptFinal,
   clampPanoramaNumber,
+  deletePanoramaCameraView,
+  deletePanoramaHotspot,
   estimatePanoramaImageQuality,
   isLikelyPanoramaImage,
+  markPanoramaDefaultCameraView,
   panoramaRenderSize,
   prependPanoramaHistory,
+  projectPanoramaHotspot,
   resolvePanoramaRatio,
+  sanitizePanoramaCameraViews,
+  sanitizePanoramaHotspots,
+  sanitizePanoramaViewAngles,
+  screenPointToPanoramaAngles,
   safePanoramaGenerationMode,
   safePanoramaPanelMode,
   safePanoramaSizeLevel,
+  updatePanoramaHotspot,
+  upsertPanoramaCameraView,
+  upsertPanoramaHotspot,
   validatePanoramaGeneration,
+  type PanoramaCameraView,
   type PanoramaGenerationHistoryItem,
   type PanoramaGenerationMode,
+  type PanoramaHotspot,
   type PanoramaPanelMode,
   type PanoramaImageQuality,
   type PanoramaRatioId,
@@ -145,6 +164,7 @@ async function ensurePanoramaResourceCategory() {
 
 const Panorama3DNode = (p: NodeProps) => {
   const update = useUpdateNodeData(p.id);
+  const rf = useReactFlow();
   const upstream = useUpstreamMaterials(p.id);
   const hasAutoOutput = useHasAutoOutput(p.id);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -169,7 +189,16 @@ const Panorama3DNode = (p: NodeProps) => {
   const outputUrl = typeof d.imageUrl === 'string' ? d.imageUrl : '';
   const sizeLevel: PanoramaSizeLevel = safePanoramaSizeLevel(d.panoramaSizeLevel);
   const userPrompt = typeof d.panoramaPrompt === 'string' ? d.panoramaPrompt : '';
-  const promptFinal = buildPanoramaPromptFinal(userPrompt);
+  const viewerPosition = typeof d.panoramaViewerPosition === 'string' ? d.panoramaViewerPosition : '';
+  const viewCenter = typeof d.panoramaViewCenter === 'string' ? d.panoramaViewCenter : '';
+  const buildPromptFinalFor = useCallback(
+    (prompt: string, nextContext: { viewerPosition?: string; viewCenter?: string } = {}) => buildPanoramaPromptFinal(prompt, {
+      viewerPosition: nextContext.viewerPosition ?? viewerPosition,
+      viewCenter: nextContext.viewCenter ?? viewCenter,
+    }),
+    [viewCenter, viewerPosition],
+  );
+  const promptFinal = buildPromptFinalFor(userPrompt);
   const localReferenceUrl = typeof d.panoramaReferenceUrl === 'string' ? d.panoramaReferenceUrl : '';
   const imageReferenceUrl = connectedSource?.url || localReferenceUrl;
   const generatedHistory: PanoramaGenerationHistoryItem[] = Array.isArray(d.panoramaGeneratedHistory)
@@ -181,6 +210,26 @@ const Panorama3DNode = (p: NodeProps) => {
   const yaw = clampPanoramaNumber(d.panoramaYaw, -99999, 99999, 0);
   const pitch = clampPitch(d.panoramaPitch);
   const fov = clampFov(d.panoramaFov);
+  const cameraViews: PanoramaCameraView[] = useMemo(
+    () => sanitizePanoramaCameraViews(d.panoramaCameraViews),
+    [d.panoramaCameraViews],
+  );
+  const hotspots: PanoramaHotspot[] = useMemo(
+    () => sanitizePanoramaHotspots(d.panoramaHotspots),
+    [d.panoramaHotspots],
+  );
+  const activeCameraViewId = typeof d.panoramaActiveCameraViewId === 'string' ? d.panoramaActiveCameraViewId : '';
+  const panoramaTargets = useMemo(
+    () => rf.getNodes()
+      .filter((node) => node.type === 'panorama-3d')
+      .map((node) => ({
+        id: node.id,
+        label: node.id === p.id
+          ? '当前全景'
+          : String((node.data as any)?.title || (node.data as any)?.label || `3D全景 #${String((node.data as any)?.nodeSerialId || node.id).slice(0, 5)}`),
+      })),
+    [activeCameraViewId, hotspots.length, p.id, rf],
+  );
   const autoRotate = Boolean(d.panoramaAutoRotate);
   const isGenerating = d.status === 'generating';
   const ratio = useMemo(() => resolvePanoramaRatio(ratioId, customW, customH), [customH, customW, ratioId]);
@@ -196,6 +245,10 @@ const Panorama3DNode = (p: NodeProps) => {
   const [copyState, setCopyState] = useState('');
   const [resourceState, setResourceState] = useState('');
   const [quality, setQuality] = useState<PanoramaImageQuality | null>(null);
+  const [cameraName, setCameraName] = useState('入口视角');
+  const [hotspotLabel, setHotspotLabel] = useState('前往');
+  const [hotspotTargetId, setHotspotTargetId] = useState(p.id);
+  const [hotspotPickMode, setHotspotPickMode] = useState(false);
 
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current;
@@ -385,10 +438,150 @@ const Panorama3DNode = (p: NodeProps) => {
 
   const setView = (patch: Record<string, any>) => update(patch);
 
+  const applyView = useCallback((patch: Partial<{ yaw: number; pitch: number; fov: number }>, extra: Record<string, any> = {}) => {
+    const next = sanitizePanoramaViewAngles({
+      ...viewRef.current,
+      ...patch,
+    });
+    viewRef.current = next;
+    drawFrame();
+    update({
+      panoramaYaw: next.yaw,
+      panoramaPitch: next.pitch,
+      panoramaFov: next.fov,
+      ...extra,
+    });
+    return next;
+  }, [drawFrame, update]);
+
+  const saveCameraView = useCallback(() => {
+    const view = sanitizePanoramaViewAngles(viewRef.current);
+    const next = upsertPanoramaCameraView(cameraViews, {
+      name: cameraName,
+      yaw: view.yaw,
+      pitch: view.pitch,
+      fov: view.fov,
+    });
+    const saved = next[0];
+    update({
+      panoramaCameraViews: next,
+      panoramaActiveCameraViewId: saved?.id || '',
+      panoramaYaw: saved?.yaw ?? view.yaw,
+      panoramaPitch: saved?.pitch ?? view.pitch,
+      panoramaFov: saved?.fov ?? view.fov,
+    });
+  }, [cameraName, cameraViews, update]);
+
+  const applyCameraView = useCallback((item: PanoramaCameraView) => {
+    applyView(item, { panoramaActiveCameraViewId: item.id });
+  }, [applyView]);
+
+  const setDefaultCameraView = useCallback((item: PanoramaCameraView) => {
+    const next = markPanoramaDefaultCameraView(cameraViews, item.id);
+    applyView(item, {
+      panoramaCameraViews: next,
+      panoramaActiveCameraViewId: item.id,
+    });
+  }, [applyView, cameraViews]);
+
+  const removeCameraView = useCallback((item: PanoramaCameraView) => {
+    const next = deletePanoramaCameraView(cameraViews, item.id);
+    update({
+      panoramaCameraViews: next,
+      panoramaActiveCameraViewId: activeCameraViewId === item.id ? '' : activeCameraViewId,
+    });
+  }, [activeCameraViewId, cameraViews, update]);
+
+  const addHotspotAt = useCallback((view: Partial<{ yaw: number; pitch: number; fov: number }>) => {
+    const angles = sanitizePanoramaViewAngles(view);
+    const target = hotspotTargetId || p.id;
+    const targetAngles = target === p.id ? angles : sanitizePanoramaViewAngles(viewRef.current);
+    const next = upsertPanoramaHotspot(hotspots, {
+      label: hotspotLabel,
+      yaw: angles.yaw,
+      pitch: angles.pitch,
+      fov: angles.fov,
+      targetNodeId: target,
+      targetYaw: targetAngles.yaw,
+      targetPitch: targetAngles.pitch,
+      targetFov: targetAngles.fov,
+    });
+    update({ panoramaHotspots: next });
+  }, [hotspotLabel, hotspotTargetId, hotspots, p.id, update]);
+
+  const removeHotspot = useCallback((item: PanoramaHotspot) => {
+    update({ panoramaHotspots: deletePanoramaHotspot(hotspots, item.id) });
+  }, [hotspots, update]);
+
+  const patchHotspot = useCallback((item: PanoramaHotspot, patch: Partial<PanoramaHotspot>) => {
+    update({ panoramaHotspots: updatePanoramaHotspot(hotspots, item.id, patch) });
+  }, [hotspots, update]);
+
+  const jumpToHotspot = useCallback((item: PanoramaHotspot) => {
+    const targetNodeId = item.targetNodeId || p.id;
+    const targetView = {
+      yaw: item.targetYaw ?? item.yaw,
+      pitch: item.targetPitch ?? item.pitch,
+      fov: item.targetFov ?? item.fov ?? fov,
+    };
+    if (!targetNodeId || targetNodeId === p.id) {
+      applyView(targetView);
+      return;
+    }
+    const targetNode = rf.getNodes().find((node) => node.id === targetNodeId);
+    rf.setNodes((nodes) => nodes.map((node) => {
+      if (node.id !== targetNodeId) return { ...node, selected: false };
+      return {
+        ...node,
+        selected: true,
+        data: {
+          ...(node.data as any),
+          panoramaYaw: targetView.yaw,
+          panoramaPitch: targetView.pitch,
+          panoramaFov: targetView.fov,
+          panoramaActiveCameraViewId: '',
+        },
+      };
+    }));
+    if (targetNode) {
+      const width = Number((targetNode as any).measured?.width || (targetNode as any).width || 760);
+      const height = Number((targetNode as any).measured?.height || (targetNode as any).height || 720);
+      window.setTimeout(() => {
+        rf.setCenter(targetNode.position.x + width / 2, targetNode.position.y + height / 2, { zoom: 0.85, duration: 420 });
+      }, 40);
+    }
+  }, [applyView, fov, p.id, rf]);
+
+  const visibleHotspots = useMemo(
+    () => hotspots
+      .map((item) => ({
+        item,
+        pos: projectPanoramaHotspot({
+          hotspot: item,
+          view: { yaw, pitch, fov },
+          aspect: ratio.w / Math.max(1, ratio.h),
+        }),
+      }))
+      .filter((entry) => entry.pos.visible),
+    [fov, hotspots, pitch, ratio.h, ratio.w, yaw],
+  );
+
   const onPointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     if (textureStatus !== 'ready') return;
     event.preventDefault();
     event.stopPropagation();
+    if (hotspotPickMode) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const view = screenPointToPanoramaAngles({
+        xRatio: rect.width > 0 ? (event.clientX - rect.left) / rect.width : 0.5,
+        yRatio: rect.height > 0 ? (event.clientY - rect.top) / rect.height : 0.5,
+        view: viewRef.current,
+        aspect: ratio.w / Math.max(1, ratio.h),
+      });
+      addHotspotAt(view);
+      setHotspotPickMode(false);
+      return;
+    }
     event.currentTarget.setPointerCapture?.(event.pointerId);
     dragRef.current = {
       pointerId: event.pointerId,
@@ -407,10 +600,12 @@ const Panorama3DNode = (p: NodeProps) => {
     event.stopPropagation();
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
-    update({
-      panoramaYaw: drag.yaw - dx * 0.18,
-      panoramaPitch: clampPitch(drag.pitch + dy * 0.18),
+    viewRef.current = sanitizePanoramaViewAngles({
+      yaw: drag.yaw - dx * 0.18,
+      pitch: clampPitch(drag.pitch + dy * 0.18),
+      fov: viewRef.current.fov,
     });
+    drawFrame();
   };
 
   const endDrag = (event: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -419,6 +614,13 @@ const Panorama3DNode = (p: NodeProps) => {
     event.currentTarget.releasePointerCapture?.(event.pointerId);
     dragRef.current = null;
     setIsDragging(false);
+    const view = sanitizePanoramaViewAngles(viewRef.current);
+    update({
+      panoramaYaw: view.yaw,
+      panoramaPitch: view.pitch,
+      panoramaFov: view.fov,
+      panoramaActiveCameraViewId: '',
+    });
   };
 
   const onWheel = (event: React.WheelEvent<HTMLDivElement>) => {
@@ -426,10 +628,10 @@ const Panorama3DNode = (p: NodeProps) => {
     event.preventDefault();
     event.stopPropagation();
     const factor = event.deltaY < 0 ? 0.92 : 1 / 0.92;
-    update({ panoramaFov: clampFov(fov * factor) });
+    applyView({ fov: clampFov(fov * factor) }, { panoramaActiveCameraViewId: '' });
   };
 
-  const resetView = () => update({ panoramaYaw: 0, panoramaPitch: 0, panoramaFov: 75 });
+  const resetView = () => applyView({ yaw: 0, pitch: 0, fov: 75 }, { panoramaActiveCameraViewId: '' });
 
   const exportFrame = useCallback(async () => {
     if (textureStatus !== 'ready' || !canvasRef.current) {
@@ -459,6 +661,9 @@ const Panorama3DNode = (p: NodeProps) => {
           ratio: ratioId,
           customW,
           customH,
+          cameraViewId: activeCameraViewId,
+          cameraViews: cameraViews.length,
+          hotspots: hotspots.length,
           width: canvasRef.current.width,
           height: canvasRef.current.height,
         },
@@ -468,7 +673,7 @@ const Panorama3DNode = (p: NodeProps) => {
       update({ status: 'error', panoramaError: msg });
       setError(msg);
     }
-  }, [customH, customW, drawFrame, ratioId, sourceUrl, textureStatus, update]);
+  }, [activeCameraViewId, cameraViews.length, customH, customW, drawFrame, hotspots.length, ratioId, sourceUrl, textureStatus, update]);
 
   const applyGeneratedPanorama = useCallback((url: string, params: {
     mode: PanoramaGenerationMode;
@@ -517,12 +722,19 @@ const Panorama3DNode = (p: NodeProps) => {
       update({
         status: 'error',
         panoramaError: validation.error,
-        panoramaPromptFinal: buildPanoramaPromptFinal(prompt),
+        panoramaPromptFinal: buildPromptFinalFor(prompt),
       });
       setError(validation.error);
       return;
     }
-    const request = buildPanoramaImageRequest({ mode, prompt, sizeLevel, referenceUrl });
+    const request = buildPanoramaImageRequest({
+      mode,
+      prompt,
+      sizeLevel,
+      referenceUrl,
+      viewerPosition,
+      viewCenter,
+    });
     const finalPrompt = request.prompt;
     update({
       status: 'generating',
@@ -582,7 +794,7 @@ const Panorama3DNode = (p: NodeProps) => {
       setError(msg);
       logBus.error(msg, `panorama:${p.id.slice(0, 6)}`);
     }
-  }, [applyGeneratedPanorama, imageReferenceUrl, p.id, panelMode, sizeLevel, update, userPrompt]);
+  }, [applyGeneratedPanorama, buildPromptFinalFor, imageReferenceUrl, p.id, panelMode, sizeLevel, update, userPrompt, viewCenter, viewerPosition]);
 
   const runNode = useCallback(async () => {
     if (panelMode === 'preview') {
@@ -637,7 +849,15 @@ const Panorama3DNode = (p: NodeProps) => {
         kind: 'panorama',
         categoryId: category.id,
         title,
-        tags: ['3D全景', 'panorama', 'VR', sizeLevel, generationModeLabel(generationMode)],
+        tags: [
+          '3D全景',
+          'panorama',
+          'VR',
+          sizeLevel,
+          generationModeLabel(generationMode),
+          cameraViews.length ? `${cameraViews.length}机位` : '',
+          hotspots.length ? `${hotspots.length}热点` : '',
+        ].filter(Boolean),
         sourceNodeId: p.id,
         favorite: false,
       });
@@ -652,14 +872,14 @@ const Panorama3DNode = (p: NodeProps) => {
     } catch (e: any) {
       setResourceState(e?.message || '保存资源失败');
     }
-  }, [d.prompt, generationMode, p.id, sizeLevel, sourceUrl, userPrompt]);
+  }, [cameraViews.length, d.prompt, generationMode, hotspots.length, p.id, sizeLevel, sourceUrl, userPrompt]);
 
   const useHistoryItem = useCallback((item: PanoramaGenerationHistoryItem) => {
     update({
       panoramaSourceUrl: item.url,
       panoramaGeneratedUrl: item.url,
       panoramaPrompt: item.prompt || '',
-      panoramaPromptFinal: item.promptFinal || buildPanoramaPromptFinal(item.prompt || ''),
+      panoramaPromptFinal: item.promptFinal || buildPromptFinalFor(item.prompt || ''),
       panoramaGenerationMode: item.mode,
       panoramaPanelMode: item.mode,
       panoramaSizeLevel: item.sizeLevel,
@@ -669,7 +889,7 @@ const Panorama3DNode = (p: NodeProps) => {
       status: 'success',
       panoramaError: '',
     });
-  }, [update]);
+  }, [buildPromptFinalFor, update]);
 
   useRunTrigger(p.id, runNode, 'image');
 
@@ -737,6 +957,34 @@ const Panorama3DNode = (p: NodeProps) => {
               onPointerCancel={endDrag}
               onPointerLeave={endDrag}
             />
+            {visibleHotspots.map(({ item, pos }) => (
+              <button
+                key={item.id}
+                type="button"
+                className="absolute z-20 flex h-8 min-w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-1 rounded-full border border-sky-200 bg-sky-500/90 px-2 text-[10px] font-bold text-slate-950 shadow-lg shadow-sky-950/35"
+                style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+                title={`${item.label} · ${Math.round(item.yaw)}°/${Math.round(item.pitch)}°`}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  jumpToHotspot(item);
+                }}
+              >
+                <MapPin size={13} />
+                <span className="max-w-20 truncate">{item.label}</span>
+              </button>
+            ))}
+            {hotspotPickMode && (
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-sky-950/25 text-xs font-bold text-sky-100">
+                <div className="rounded-full border border-sky-200/60 bg-slate-950/80 px-3 py-1.5 shadow-lg">
+                  点击画面放置导览热点
+                </div>
+              </div>
+            )}
             {!hasSource && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-950 text-center text-xs text-slate-300">
                 <Box size={24} className="text-sky-300" />
@@ -806,12 +1054,45 @@ const Panorama3DNode = (p: NodeProps) => {
                 {PANORAMA_FIXED_PROMPT}
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-bold text-[var(--t8-text-muted)]">观看者站位</span>
+                  <input
+                    value={viewerPosition}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      update({
+                        panoramaViewerPosition: next,
+                        panoramaPromptFinal: buildPromptFinalFor(userPrompt, { viewerPosition: next }),
+                      });
+                    }}
+                    placeholder="站在大厅中央 / 门口向内看"
+                    className="w-full rounded-md border border-[var(--t8-border)] bg-[var(--t8-bg-panel)] px-2 py-1.5 text-xs text-[var(--t8-text-main)] outline-none"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-bold text-[var(--t8-text-muted)]">初始视线中心</span>
+                  <input
+                    value={viewCenter}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      update({
+                        panoramaViewCenter: next,
+                        panoramaPromptFinal: buildPromptFinalFor(userPrompt, { viewCenter: next }),
+                      });
+                    }}
+                    placeholder="正对入口 / 主展品 / 窗外城市"
+                    className="w-full rounded-md border border-[var(--t8-border)] bg-[var(--t8-bg-panel)] px-2 py-1.5 text-xs text-[var(--t8-text-main)] outline-none"
+                  />
+                </label>
+              </div>
+
               <PromptTextarea
                 title="3D 全景提示词"
                 value={userPrompt}
                 onValueChange={(value) => update({
                   panoramaPrompt: value,
-                  panoramaPromptFinal: buildPanoramaPromptFinal(value),
+                  panoramaPromptFinal: buildPromptFinalFor(value),
                 })}
                 rows={3}
                 placeholder={panelMode === 'image' ? '可选补充：场景风格、天气、镜头中心...' : '场景提示词'}
@@ -827,7 +1108,7 @@ const Panorama3DNode = (p: NodeProps) => {
                     className="t8-btn h-7 px-2 text-[10px]"
                     onClick={() => {
                       const next = userPrompt.trim() ? `${userPrompt.trim()}，${tpl}` : tpl;
-                      update({ panoramaPrompt: next, panoramaPromptFinal: buildPanoramaPromptFinal(next) });
+                      update({ panoramaPrompt: next, panoramaPromptFinal: buildPromptFinalFor(next) });
                     }}
                   >
                     {tpl}
@@ -955,10 +1236,10 @@ const Panorama3DNode = (p: NodeProps) => {
           )}
 
           <div className="grid grid-cols-5 gap-2">
-            <button type="button" className="t8-btn py-2 text-xs" onClick={() => update({ panoramaFov: clampFov(fov * 0.92) })} title="放大">
+            <button type="button" className="t8-btn py-2 text-xs" onClick={() => applyView({ fov: clampFov(fov * 0.92) }, { panoramaActiveCameraViewId: '' })} title="放大">
               <ZoomIn size={14} />
             </button>
-            <button type="button" className="t8-btn py-2 text-xs" onClick={() => update({ panoramaFov: clampFov(fov / 0.92) })} title="缩小">
+            <button type="button" className="t8-btn py-2 text-xs" onClick={() => applyView({ fov: clampFov(fov / 0.92) }, { panoramaActiveCameraViewId: '' })} title="缩小">
               <ZoomOut size={14} />
             </button>
             <button type="button" className="t8-btn py-2 text-xs" onClick={resetView} title="重置视角">
@@ -971,6 +1252,145 @@ const Panorama3DNode = (p: NodeProps) => {
               {isGenerating && d.progress === '导出中' ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
             </button>
           </div>
+
+          <details className="rounded-lg border border-[var(--t8-border)] bg-[var(--t8-bg-panel-muted)] p-2">
+            <summary className="flex cursor-pointer items-center justify-between gap-2 text-xs font-bold text-[var(--t8-text-main)]">
+              <span className="flex items-center gap-1.5">
+                <Camera size={14} />
+                摄像机 / 导览
+              </span>
+              <span className="text-[10px] text-[var(--t8-text-muted)]">{cameraViews.length} 机位 · {hotspots.length} 热点</span>
+            </summary>
+            <div className="mt-2 space-y-2">
+              <div className="grid grid-cols-6 gap-1.5">
+                {PANORAMA_CAMERA_PRESETS.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="t8-btn h-7 px-1 text-[10px]"
+                    onClick={() => applyView(item, { panoramaActiveCameraViewId: '' })}
+                    title={`${item.label} ${item.yaw}°/${item.pitch}°`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-[1fr_auto] gap-1.5">
+                <input
+                  value={cameraName}
+                  onChange={(event) => setCameraName(event.target.value)}
+                  placeholder="机位名，例如入口视角"
+                  className="rounded-md border border-[var(--t8-border)] bg-[var(--t8-bg-panel)] px-2 py-1.5 text-xs text-[var(--t8-text-main)] outline-none"
+                />
+                <button type="button" className="t8-btn t8-btn-primary px-2 text-[11px]" onClick={saveCameraView}>
+                  <Plus size={13} />
+                  保存机位
+                </button>
+              </div>
+
+              {cameraViews.length > 0 && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {cameraViews.map((item) => (
+                    <div key={item.id} className={`rounded-md border px-2 py-1.5 text-[10px] ${activeCameraViewId === item.id ? 'border-sky-300 bg-sky-400/15' : 'border-[var(--t8-border)] bg-[var(--t8-bg-panel)]'}`}>
+                      <div className="flex items-center justify-between gap-1">
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 truncate text-left font-bold text-[var(--t8-text-main)]"
+                          onClick={() => applyCameraView(item)}
+                          title={`${item.name} · Yaw ${Math.round(item.yaw)}° Pitch ${Math.round(item.pitch)}° FOV ${Math.round(item.fov)}°`}
+                        >
+                          {item.isDefault ? '默认 · ' : ''}{item.name}
+                        </button>
+                        <button type="button" className="t8-mini-icon-button" onClick={() => setDefaultCameraView(item)} title="设为默认">
+                          <Crosshair size={12} />
+                        </button>
+                        <button type="button" className="t8-mini-icon-button" onClick={() => removeCameraView(item)} title="删除机位">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                      <div className="mt-1 text-[9px] text-[var(--t8-text-muted)]">
+                        Y {Math.round(item.yaw)}° · P {Math.round(item.pitch)}° · FOV {Math.round(item.fov)}°
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="rounded-md border border-[var(--t8-border)] bg-[var(--t8-bg-panel)] p-2">
+                <div className="mb-1.5 flex items-center gap-1 text-[10px] font-bold text-[var(--t8-text-muted)]">
+                  <MapPin size={12} />
+                  全景热点
+                </div>
+                <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-1.5">
+                  <input
+                    value={hotspotLabel}
+                    onChange={(event) => setHotspotLabel(event.target.value)}
+                    placeholder="热点名"
+                    className="rounded-md border border-[var(--t8-border)] bg-[var(--t8-bg-panel-muted)] px-2 py-1.5 text-xs text-[var(--t8-text-main)] outline-none"
+                  />
+                  <select
+                    value={hotspotTargetId}
+                    onChange={(event) => setHotspotTargetId(event.target.value)}
+                    className="rounded-md border border-[var(--t8-border)] bg-[var(--t8-bg-panel-muted)] px-2 py-1.5 text-xs text-[var(--t8-text-main)] outline-none"
+                  >
+                    {panoramaTargets.map((item) => (
+                      <option key={item.id} value={item.id}>{item.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className={`t8-btn px-2 text-[10px] ${hotspotPickMode ? 't8-btn-primary' : ''}`}
+                    onClick={() => setHotspotPickMode((value) => !value)}
+                    title="点击画面放置热点"
+                  >
+                    <Crosshair size={12} />
+                    取点
+                  </button>
+                  <button
+                    type="button"
+                    className="t8-btn px-2 text-[10px]"
+                    onClick={() => addHotspotAt(viewRef.current)}
+                    title="把当前画面中心保存为热点"
+                  >
+                    <Plus size={12} />
+                    中心
+                  </button>
+                </div>
+                <div className="mt-1.5 text-[9px] leading-relaxed text-[var(--t8-text-muted)]">
+                  取点会把画面中的点击位置保存成热点；目标可选当前全景或其他 3D 全景节点。
+                </div>
+                {hotspots.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {hotspots.map((item) => (
+                      <div key={item.id} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1 rounded-md bg-[var(--t8-bg-panel-muted)] px-1.5 py-1">
+                        <input
+                          value={item.label}
+                          onChange={(event) => patchHotspot(item, { label: event.target.value })}
+                          className="min-w-0 rounded border border-[var(--t8-border)] bg-[var(--t8-bg-panel)] px-1.5 py-1 text-[10px] text-[var(--t8-text-main)] outline-none"
+                        />
+                        <select
+                          value={item.targetNodeId || p.id}
+                          onChange={(event) => patchHotspot(item, { targetNodeId: event.target.value })}
+                          className="min-w-0 rounded border border-[var(--t8-border)] bg-[var(--t8-bg-panel)] px-1.5 py-1 text-[10px] text-[var(--t8-text-main)] outline-none"
+                        >
+                          {panoramaTargets.map((target) => (
+                            <option key={target.id} value={target.id}>{target.label}</option>
+                          ))}
+                        </select>
+                        <button type="button" className="t8-mini-icon-button" onClick={() => jumpToHotspot(item)} title="跳转热点">
+                          <MapPin size={12} />
+                        </button>
+                        <button type="button" className="t8-mini-icon-button" onClick={() => removeHotspot(item)} title="删除热点">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </details>
 
           <div className="grid grid-cols-3 gap-2 text-[10px] text-[var(--t8-text-muted)]">
             <div className="rounded-md bg-[var(--t8-bg-panel-muted)] px-2 py-1">Yaw {Math.round(yaw)}°</div>

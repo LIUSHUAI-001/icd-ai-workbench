@@ -111,6 +111,7 @@ const MUSIC_PRESET_OPTIONS: Array<{ value: ThemeMusicPreset; label: string }> = 
   { value: 'buzzer-beater', label: '压哨热血' },
   { value: 'golden-goal', label: '黄金进球' },
   { value: 'ki-burst', label: '气功波雷达' },
+  { value: 'shenron-aura', label: '神龙青焰' },
 ];
 
 const MAX_THEME_AUDIO_SIZE = 20 * 1024 * 1024;
@@ -321,6 +322,8 @@ function fallbackMusic(legacyStyle: LegacyThemeStyle, visuals?: ThemeVisuals): T
       preset: 'ki-burst',
       source: 'url',
       url: dragonBallThemeMusicUrl,
+      hiddenTitle: '神龙模式',
+      hiddenVolume: 0.2,
       volume: 0.18,
       bpm: 156,
       copyrightNote: '七龙珠第一部开场曲默认音乐文件；公开分发前请确认音乐授权边界。',

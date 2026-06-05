@@ -9,6 +9,7 @@ import AppUpdaterButton from './components/AppUpdaterButton';
 import MaterialContextMenu from './components/MaterialContextMenu';
 import ErrorBoundary from './components/ErrorBoundary';
 import AchievementButton from './components/AchievementButton';
+import AchievementCeremonyLayer from './components/AchievementCeremonyLayer';
 import AchievementDrawer from './components/AchievementDrawer';
 import AchievementToast from './components/AchievementToast';
 import AchievementTracker from './components/AchievementTracker';
@@ -22,6 +23,7 @@ import { materialSetItemsToData, type MaterialSetKind, type MaterialSetItem } fr
 import { workflowManifestToFragment } from './utils/workflowResource';
 import { matchesAnyShortcut } from './utils/keyboardShortcuts';
 import { portraitResourceToNodeData } from './utils/portraitResource';
+import { LocalModalSlot, LocalTopbarSlot } from 'virtual:t8-local-extensions';
 
 const Canvas = lazy(() => import('./components/Canvas'));
 const ApiSettingsModal = lazy(() => import('./components/ApiSettings'));
@@ -1262,6 +1264,7 @@ function App() {
             <Palette size={14} />
             <span className="text-[11px] truncate">{currentTemplate.name}</span>
           </button>
+          <LocalTopbarSlot isPixel={isPixel} isDark={isDark} />
           <AchievementButton isPixel={isPixel} isDark={isDark} />
           <button
             onClick={() => setResourceOpen(true)}
@@ -1318,6 +1321,7 @@ function App() {
       {/* API 设置弹窗 */}
       <Suspense fallback={null}>
         {settingsOpen && <ApiSettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />}
+        <LocalModalSlot />
         {themeManagerOpen && (
           <ThemeTemplateManager open={themeManagerOpen} onClose={() => setThemeManagerOpen(false)} />
         )}
@@ -1331,6 +1335,7 @@ function App() {
       </Suspense>
       <MaterialContextMenu />
       <AchievementDrawer />
+      <AchievementCeremonyLayer />
       <AchievementToast />
     </div>
     </RHToolsProvider>

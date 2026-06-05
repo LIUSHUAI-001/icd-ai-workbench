@@ -74,6 +74,15 @@ test('ApiSettings ComfyUI panel supports workflow JSON upload and auto-mapping e
   assert.match(apiSettingsSource, /排除采样器参数/);
 });
 
+test('ApiSettings Volcengine panel separates Ark API Key from AK/SK credentials', () => {
+  assert.match(apiSettingsSource, /方舟 Ark API Key（生成用，不是 AK\/SK）/);
+  assert.match(apiSettingsSource, /请输入方舟 Ark API Key，不要填 Access Key ID \/ Secret/);
+  assert.match(apiSettingsSource, /3\. 火山 AK\/SK（可选，素材签名）/);
+  assert.match(apiSettingsSource, /Access Key ID（AK，素材签名）/);
+  assert.match(apiSettingsSource, /Secret Access Key（SK，素材签名）/);
+  assert.match(apiSettingsSource, /目前它只作为素材签名类能力的预留凭证/);
+});
+
 test('Dragon Ball theme defaults to bundled mp3 music and packaging validates the asset', () => {
   const postBuild = readFileSync(new URL('../electron/_post_build.cjs', import.meta.url), 'utf8');
   const musicAsset = new URL('../src/assets/theme-music/dragonball-makafushigi-adventure.mp3', import.meta.url);

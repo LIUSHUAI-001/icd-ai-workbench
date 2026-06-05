@@ -54,6 +54,44 @@ export interface PanoramaGenerationHistoryItem {
   createdAt: string;
 }
 
+export interface PanoramaCameraView {
+  id: string;
+  name: string;
+  yaw: number;
+  pitch: number;
+  fov: number;
+  isDefault?: boolean;
+  snapshotUrl?: string;
+  createdAt: string;
+}
+
+export interface PanoramaHotspot {
+  id: string;
+  label: string;
+  yaw: number;
+  pitch: number;
+  fov?: number;
+  targetNodeId?: string;
+  targetYaw?: number;
+  targetPitch?: number;
+  targetFov?: number;
+  createdAt: string;
+}
+
+export interface PanoramaPromptContext {
+  viewerPosition?: unknown;
+  viewCenter?: unknown;
+}
+
+export interface PanoramaViewAngles {
+  yaw: number;
+  pitch: number;
+  fov: number;
+}
+
+export const PANORAMA_CAMERA_VIEW_LIMIT = 8;
+export const PANORAMA_HOTSPOT_LIMIT = 16;
+
 export type PanoramaQualityLevel = 'excellent' | 'good' | 'warning' | 'unknown';
 
 export interface PanoramaImageQuality {
@@ -71,6 +109,14 @@ export const PANORAMA_FIXED_PROMPT =
 
 export const PANORAMA_SIZE_LEVELS: PanoramaSizeLevel[] = ['1K', '2K'];
 export const PANORAMA_PROMPT_TEMPLATES = ['室内展厅', '科幻基地', '古风庭院', '自然峡谷', '游戏关卡', '产品展台'];
+export const PANORAMA_CAMERA_PRESETS: Array<{ id: string; label: string; yaw: number; pitch: number; fov: number }> = [
+  { id: 'front', label: '正前', yaw: 0, pitch: 0, fov: 75 },
+  { id: 'left', label: '左侧', yaw: -90, pitch: 0, fov: 75 },
+  { id: 'right', label: '右侧', yaw: 90, pitch: 0, fov: 75 },
+  { id: 'back', label: '背面', yaw: 180, pitch: 0, fov: 75 },
+  { id: 'zenith', label: '天顶', yaw: 0, pitch: 78, fov: 80 },
+  { id: 'nadir', label: '地面', yaw: 0, pitch: -72, fov: 80 },
+];
 
 export function safePanoramaPanelMode(value: unknown): PanoramaPanelMode {
   return value === 'preview' || value === 'image' ? value : 'text';
@@ -84,9 +130,25 @@ export function safePanoramaSizeLevel(value: unknown): PanoramaSizeLevel {
   return value === '2K' ? '2K' : '1K';
 }
 
-export function buildPanoramaPromptFinal(userPrompt: unknown) {
+function cleanPanoramaText(value: unknown, max = 80) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+export function buildPanoramaCameraContextPrompt(context: PanoramaPromptContext = {}) {
+  const parts: string[] = [];
+  const viewerPosition = cleanPanoramaText(context.viewerPosition);
+  const viewCenter = cleanPanoramaText(context.viewCenter);
+  if (viewerPosition) parts.push(`观看者站位：${viewerPosition}。`);
+  if (viewCenter) parts.push(`初始视线中心：${viewCenter}。`);
+  if (parts.length === 0) return '';
+  return `摄像机位置要求：${parts.join('')}`;
+}
+
+export function buildPanoramaPromptFinal(userPrompt: unknown, context: PanoramaPromptContext = {}) {
   const extra = typeof userPrompt === 'string' ? userPrompt.trim() : '';
-  return extra ? `${PANORAMA_FIXED_PROMPT}\n${extra}` : PANORAMA_FIXED_PROMPT;
+  const camera = buildPanoramaCameraContextPrompt(context);
+  return [PANORAMA_FIXED_PROMPT, camera, extra].filter(Boolean).join('\n');
 }
 
 export function validatePanoramaGeneration(params: {
@@ -110,6 +172,8 @@ export function buildPanoramaImageRequest(params: {
   prompt?: unknown;
   sizeLevel?: unknown;
   referenceUrl?: unknown;
+  viewerPosition?: unknown;
+  viewCenter?: unknown;
 }) {
   const prompt = typeof params.prompt === 'string' ? params.prompt.trim() : '';
   const referenceUrl = typeof params.referenceUrl === 'string' ? params.referenceUrl.trim() : '';
@@ -118,7 +182,10 @@ export function buildPanoramaImageRequest(params: {
     model: 'gpt-image-2',
     apiModel: 'gpt-image-2',
     paramKind: 'gpt-size' as const,
-    prompt: buildPanoramaPromptFinal(prompt),
+    prompt: buildPanoramaPromptFinal(prompt, {
+      viewerPosition: params.viewerPosition,
+      viewCenter: params.viewCenter,
+    }),
     aspectRatio: '21:9',
     aspect_ratio: '21:9',
     sizeLevel,
@@ -126,6 +193,196 @@ export function buildPanoramaImageRequest(params: {
     images: params.mode === 'image' && referenceUrl ? [referenceUrl] : [],
     n: 1,
   };
+}
+
+function makePanoramaId(prefix: string) {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function cleanPanoramaName(value: unknown, fallback: string) {
+  const text = cleanPanoramaText(value, 18);
+  return text || fallback;
+}
+
+export function normalizePanoramaYaw(value: unknown) {
+  const n = clampPanoramaNumber(value, -99999, 99999, 0);
+  const wrapped = ((n + 180) % 360 + 360) % 360 - 180;
+  return Object.is(wrapped, -0) ? 0 : Math.round(wrapped * 100) / 100;
+}
+
+export function sanitizePanoramaViewAngles(value: Partial<PanoramaViewAngles> = {}): PanoramaViewAngles {
+  return {
+    yaw: normalizePanoramaYaw(value.yaw),
+    pitch: clampPanoramaNumber(value.pitch, -85, 85, 0),
+    fov: clampPanoramaNumber(value.fov, 35, 100, 75),
+  };
+}
+
+export function sanitizePanoramaCameraViews(value: unknown, maxItems = PANORAMA_CAMERA_VIEW_LIMIT): PanoramaCameraView[] {
+  const list = Array.isArray(value) ? value : [];
+  return list
+    .filter((item): item is Record<string, any> => !!item && typeof item === 'object')
+    .map((item, index) => {
+      const angles = sanitizePanoramaViewAngles(item);
+      return {
+        id: cleanPanoramaText(item.id, 48) || `view_${index + 1}`,
+        name: cleanPanoramaName(item.name, `机位 ${index + 1}`),
+        ...angles,
+        isDefault: Boolean(item.isDefault),
+        snapshotUrl: cleanPanoramaText(item.snapshotUrl, 500),
+        createdAt: cleanPanoramaText(item.createdAt, 40) || new Date(0).toISOString(),
+      };
+    })
+    .slice(0, Math.max(1, maxItems))
+    .map((item, index, arr) => ({
+      ...item,
+      isDefault: item.isDefault && arr.findIndex((entry) => entry.isDefault) === index,
+    }));
+}
+
+export function upsertPanoramaCameraView(
+  current: unknown,
+  view: Partial<PanoramaCameraView> & Partial<PanoramaViewAngles>,
+  maxItems = PANORAMA_CAMERA_VIEW_LIMIT,
+): PanoramaCameraView[] {
+  const list = sanitizePanoramaCameraViews(current, maxItems);
+  const id = cleanPanoramaText(view.id, 48) || makePanoramaId('view');
+  const angles = sanitizePanoramaViewAngles(view);
+  const item: PanoramaCameraView = {
+    id,
+    name: cleanPanoramaName(view.name, `机位 ${Math.min(list.length + 1, maxItems)}`),
+    ...angles,
+    isDefault: Boolean(view.isDefault),
+    snapshotUrl: cleanPanoramaText(view.snapshotUrl, 500),
+    createdAt: cleanPanoramaText(view.createdAt, 40) || new Date().toISOString(),
+  };
+  const next = [item, ...list.filter((entry) => entry.id !== id)].slice(0, Math.max(1, maxItems));
+  return item.isDefault ? markPanoramaDefaultCameraView(next, item.id) : next;
+}
+
+export function markPanoramaDefaultCameraView(current: unknown, id: string): PanoramaCameraView[] {
+  const target = cleanPanoramaText(id, 48);
+  return sanitizePanoramaCameraViews(current).map((item) => ({
+    ...item,
+    isDefault: Boolean(target && item.id === target),
+  }));
+}
+
+export function deletePanoramaCameraView(current: unknown, id: string): PanoramaCameraView[] {
+  const target = cleanPanoramaText(id, 48);
+  return sanitizePanoramaCameraViews(current).filter((item) => item.id !== target);
+}
+
+export function sanitizePanoramaHotspots(value: unknown, maxItems = PANORAMA_HOTSPOT_LIMIT): PanoramaHotspot[] {
+  const list = Array.isArray(value) ? value : [];
+  return list
+    .filter((item): item is Record<string, any> => !!item && typeof item === 'object')
+    .map((item, index) => {
+      const angles = sanitizePanoramaViewAngles(item);
+      const targetAngles = sanitizePanoramaViewAngles({
+        yaw: item.targetYaw ?? angles.yaw,
+        pitch: item.targetPitch ?? angles.pitch,
+        fov: item.targetFov ?? angles.fov,
+      });
+      return {
+        id: cleanPanoramaText(item.id, 48) || `hotspot_${index + 1}`,
+        label: cleanPanoramaName(item.label, `热点 ${index + 1}`),
+        yaw: angles.yaw,
+        pitch: angles.pitch,
+        fov: angles.fov,
+        targetNodeId: cleanPanoramaText(item.targetNodeId, 80),
+        targetYaw: targetAngles.yaw,
+        targetPitch: targetAngles.pitch,
+        targetFov: targetAngles.fov,
+        createdAt: cleanPanoramaText(item.createdAt, 40) || new Date(0).toISOString(),
+      };
+    })
+    .slice(0, Math.max(1, maxItems));
+}
+
+export function upsertPanoramaHotspot(
+  current: unknown,
+  hotspot: Partial<PanoramaHotspot> & Partial<PanoramaViewAngles>,
+  maxItems = PANORAMA_HOTSPOT_LIMIT,
+): PanoramaHotspot[] {
+  const list = sanitizePanoramaHotspots(current, maxItems);
+  const id = cleanPanoramaText(hotspot.id, 48) || makePanoramaId('hotspot');
+  const angles = sanitizePanoramaViewAngles(hotspot);
+  const targetAngles = sanitizePanoramaViewAngles({
+    yaw: hotspot.targetYaw ?? hotspot.yaw,
+    pitch: hotspot.targetPitch ?? hotspot.pitch,
+    fov: hotspot.targetFov ?? hotspot.fov,
+  });
+  const item: PanoramaHotspot = {
+    id,
+    label: cleanPanoramaName(hotspot.label, `热点 ${Math.min(list.length + 1, maxItems)}`),
+    yaw: angles.yaw,
+    pitch: angles.pitch,
+    fov: angles.fov,
+    targetNodeId: cleanPanoramaText(hotspot.targetNodeId, 80),
+    targetYaw: targetAngles.yaw,
+    targetPitch: targetAngles.pitch,
+    targetFov: targetAngles.fov,
+    createdAt: cleanPanoramaText(hotspot.createdAt, 40) || new Date().toISOString(),
+  };
+  return [item, ...list.filter((entry) => entry.id !== id)].slice(0, Math.max(1, maxItems));
+}
+
+export function deletePanoramaHotspot(current: unknown, id: string): PanoramaHotspot[] {
+  const target = cleanPanoramaText(id, 48);
+  return sanitizePanoramaHotspots(current).filter((item) => item.id !== target);
+}
+
+export function updatePanoramaHotspot(current: unknown, id: string, patch: Partial<PanoramaHotspot>): PanoramaHotspot[] {
+  const target = cleanPanoramaText(id, 48);
+  return sanitizePanoramaHotspots(current).map((item) => (
+    item.id === target
+      ? sanitizePanoramaHotspots([{ ...item, ...patch }], 1)[0]
+      : item
+  ));
+}
+
+function angleDelta(target: number, current: number) {
+  return normalizePanoramaYaw(target - current);
+}
+
+export function projectPanoramaHotspot(params: {
+  hotspot: Pick<PanoramaHotspot, 'yaw' | 'pitch'>;
+  view: PanoramaViewAngles;
+  aspect?: number;
+}) {
+  const aspect = Math.max(0.25, Number(params.aspect) || 16 / 9);
+  const view = sanitizePanoramaViewAngles(params.view);
+  const dx = angleDelta(params.hotspot.yaw, view.yaw);
+  const dy = clampPanoramaNumber(params.hotspot.pitch, -85, 85, 0) - view.pitch;
+  const horizontalFov = Math.max(35, Math.min(170, view.fov * aspect));
+  const verticalFov = view.fov;
+  if (Math.abs(dx) > horizontalFov / 2 || Math.abs(dy) > verticalFov / 2) {
+    return { visible: false as const, x: 50, y: 50 };
+  }
+  return {
+    visible: true as const,
+    x: 50 + (dx / horizontalFov) * 100,
+    y: 50 - (dy / verticalFov) * 100,
+  };
+}
+
+export function screenPointToPanoramaAngles(params: {
+  xRatio: number;
+  yRatio: number;
+  view: PanoramaViewAngles;
+  aspect?: number;
+}) {
+  const aspect = Math.max(0.25, Number(params.aspect) || 16 / 9);
+  const view = sanitizePanoramaViewAngles(params.view);
+  const horizontalFov = Math.max(35, Math.min(170, view.fov * aspect));
+  const x = clampPanoramaNumber(params.xRatio, 0, 1, 0.5) - 0.5;
+  const y = clampPanoramaNumber(params.yRatio, 0, 1, 0.5) - 0.5;
+  return sanitizePanoramaViewAngles({
+    yaw: view.yaw + x * horizontalFov,
+    pitch: view.pitch - y * view.fov,
+    fov: view.fov,
+  });
 }
 
 export function prependPanoramaHistory(

@@ -450,7 +450,12 @@ const GridEditorNode = ({ id, data, selected }: NodeProps) => {
         </div>
       </div>
 
-      <div className="nodrag space-y-2.5 p-3" onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="nodrag nowheel space-y-2.5 p-3"
+        onMouseDown={(e) => e.stopPropagation()}
+        onWheelCapture={(e) => e.stopPropagation()}
+        onWheel={(e) => e.stopPropagation()}
+      >
         <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={onFileChange} />
 
         <div className="grid grid-cols-6 gap-1.5">
@@ -650,8 +655,10 @@ const GridEditorNode = ({ id, data, selected }: NodeProps) => {
           }}
         >
           <div
-            className="w-full overflow-auto rounded-md border"
+            className="nowheel w-full overflow-auto overscroll-contain rounded-md border"
             data-grid-editor-stage
+            onWheelCapture={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
             style={{
               borderColor: 'var(--t8-border, rgba(255,255,255,.14))',
               maxHeight: 520,

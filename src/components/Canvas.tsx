@@ -96,6 +96,7 @@ import TerminalPanel from './TerminalPanel';
 import NodeActionBar from './NodeActionBar';
 import MaterialDragOverlay from './MaterialDragOverlay';
 import ThemeMusicToggle from './ThemeMusicToggle';
+import DragonBallRadar from './DragonBallRadar';
 import SendMaterialsModal from './SendMaterialsModal';
 import { useCanvasHistory } from '../hooks/useCanvasHistory';
 import type { CanvasTemplate } from '../config/canvasTemplates';
@@ -618,10 +619,15 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     panoramaSizeLevel: '1K',
     panoramaPrompt: '',
     panoramaPromptFinal: '',
+    panoramaViewerPosition: '',
+    panoramaViewCenter: '',
     panoramaSourceUrl: '',
     panoramaGeneratedUrl: '',
     panoramaReferenceUrl: '',
     panoramaGeneratedHistory: [],
+    panoramaCameraViews: [],
+    panoramaActiveCameraViewId: '',
+    panoramaHotspots: [],
     imageUrl: '',
     imageUrls: [],
     urls: [],
@@ -1431,6 +1437,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     y: number;
     ids: string[];
   } | null>(null);
+  const [selectionContextSubmenu, setSelectionContextSubmenu] = useState<'align' | null>(null);
+  const selectionContextSubmenuCloseTimerRef = useRef<number | null>(null);
   const [sendModal, setSendModal] = useState<{
     materials: SendableMaterial[];
     nodeFragment?: SendNodeFragment;
@@ -3044,7 +3052,33 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   }, []);
 
   // ===== 右键菜单 =====
-  const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const clearSelectionContextSubmenuCloseTimer = useCallback(() => {
+    if (selectionContextSubmenuCloseTimerRef.current) {
+      window.clearTimeout(selectionContextSubmenuCloseTimerRef.current);
+      selectionContextSubmenuCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const openSelectionContextSubmenu = useCallback((submenu: 'align') => {
+    clearSelectionContextSubmenuCloseTimer();
+    setSelectionContextSubmenu(submenu);
+  }, [clearSelectionContextSubmenuCloseTimer]);
+
+  const scheduleSelectionContextSubmenuClose = useCallback(() => {
+    clearSelectionContextSubmenuCloseTimer();
+    selectionContextSubmenuCloseTimerRef.current = window.setTimeout(() => {
+      selectionContextSubmenuCloseTimerRef.current = null;
+      setSelectionContextSubmenu(null);
+    }, 120);
+  }, [clearSelectionContextSubmenuCloseTimer]);
+
+  useEffect(() => () => clearSelectionContextSubmenuCloseTimer(), [clearSelectionContextSubmenuCloseTimer]);
+
+  const closeContextMenu = useCallback(() => {
+    clearSelectionContextSubmenuCloseTimer();
+    setSelectionContextSubmenu(null);
+    setContextMenu(null);
+  }, [clearSelectionContextSubmenuCloseTimer]);
   const closePaneMenu = useCallback(() => setPaneMenu(null), []);
 
   const openNodeContextMenuAt = useCallback(
@@ -3059,6 +3093,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         ids = [nodeId];
       }
       setPaneMenu(null);
+      setSelectionContextSubmenu(null);
       setContextMenu({ x: clientX, y: clientY, ids });
     },
     []
@@ -3070,6 +3105,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       e.preventDefault();
       const ids = sels.map((n) => n.id);
       if (ids.length === 0) return;
+      setSelectionContextSubmenu(null);
       setContextMenu({ x: e.clientX, y: e.clientY, ids });
     },
     []
@@ -3107,6 +3143,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   const onPaneContextMenu = useCallback(
     (e: React.MouseEvent | MouseEvent) => {
       e.preventDefault();
+      setSelectionContextSubmenu(null);
       setContextMenu(null);
       const x = (e as MouseEvent).clientX;
       const y = (e as MouseEvent).clientY;
@@ -3131,6 +3168,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     const x = (e as any)?.clientX ?? 0;
     const y = (e as any)?.clientY ?? 0;
     if (!x && !y) return;
+    setSelectionContextSubmenu(null);
     setContextMenu({ x, y, ids });
   }, []);
 
@@ -4779,7 +4817,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   const isPixel = style === 'pixel';
   const isDecorativeEdgeVisual = isSlamdunk || isSoccer || isDragonBall;
   const heavyEdgeMotion = isDecorativeEdgeVisual && edges.length >= EDGE_MOTION_HEAVY_EDGE_COUNT;
-  const edgeMotionReduced = isDecorativeEdgeVisual && (heavyEdgeMotion || viewportMoving || nodeDragging);
+  const edgeMotionReduced = isDecorativeEdgeVisual && (viewportMoving || nodeDragging);
+  const edgeMotionMode = isDecorativeEdgeVisual ? (edgeMotionReduced ? 'reduced' : 'scoped') : undefined;
   const heavyCanvasSurface = nodes.length >= 96 || edges.length >= EDGE_MOTION_HEAVY_EDGE_COUNT;
   const guideColor = themeTokens.edgeSelected;
   const edgeStroke = themeTokens.edge;
@@ -4814,13 +4853,13 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       root.removeAttribute('data-t8-edge-load');
       return;
     }
-    root.setAttribute('data-t8-edge-motion', edgeMotionReduced ? 'reduced' : 'full');
+    root.setAttribute('data-t8-edge-motion', edgeMotionMode || 'scoped');
     root.setAttribute('data-t8-edge-load', heavyEdgeMotion ? 'heavy' : 'normal');
     return () => {
       root.removeAttribute('data-t8-edge-motion');
       root.removeAttribute('data-t8-edge-load');
     };
-  }, [edgeMotionReduced, heavyEdgeMotion, isDecorativeEdgeVisual]);
+  }, [edgeMotionMode, heavyEdgeMotion, isDecorativeEdgeVisual]);
 
   if (!activeId) {
     return (
@@ -4841,7 +4880,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     <div
       className={`t8-canvas-shell flex-1 relative${connectionPanModeActive ? ' connection-pan-mode-active' : ''}${edgeMotionReduced ? ' t8-edge-motion-reduced' : ''}${viewportMoving ? ' t8-viewport-moving' : ''}${nodeDragging ? ' t8-node-dragging' : ''}`}
       data-theme-visual={visualStyle}
-      data-edge-motion={edgeMotionReduced ? 'reduced' : isDecorativeEdgeVisual ? 'full' : undefined}
+      data-edge-motion={edgeMotionMode}
       data-edge-load={heavyEdgeMotion ? 'heavy' : undefined}
       style={{ background: bgColor }}
       onContextMenuCapture={onCanvasContextMenuCapture}
@@ -4869,7 +4908,13 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         snapEnabled={snapEnabled}
         onToggleSnap={() => setSnapEnabled((v) => !v)}
         onAlignSelection={handleAlignSelection}
-      />
+      >
+        <DragonBallRadar
+          visualStyle={visualStyle}
+          viewportMoving={viewportMoving}
+          nodeDragging={nodeDragging}
+        />
+      </CanvasToolbar>
       <TerminalPanel />
       {connectionPanModeActive && (
         <div className="t8-connection-pan-hud" data-canvas-floating-ui="connection-pan-hud">
@@ -5260,6 +5305,15 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
               : `${sendNodeCount}节点`;
         const menuItemCls = 't8-context-menu__item';
         const alignMiniBtnCls = 't8-context-menu__item justify-center text-[11px] !px-2 !py-1.5';
+        const menuWidth = 200;
+        const alignSubmenuWidth = 238;
+        const menuLeft = Math.max(8, Math.min(contextMenu.x, window.innerWidth - menuWidth - 20));
+        const menuTop = Math.max(8, Math.min(contextMenu.y, window.innerHeight - 220));
+        const alignSubmenuOpensLeft = menuLeft + menuWidth + alignSubmenuWidth > window.innerWidth - 8;
+        const alignSubmenuLeft = alignSubmenuOpensLeft
+          ? Math.max(8, menuLeft - alignSubmenuWidth + 2)
+          : Math.max(8, Math.min(window.innerWidth - alignSubmenuWidth - 8, menuLeft + menuWidth - 2));
+        const alignSubmenuTop = Math.max(8, Math.min(menuTop + 36, window.innerHeight - 230));
         const alignButton = (
           action: NodeAlignAction,
           label: string,
@@ -5299,9 +5353,9 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
               data-canvas-floating-ui="node-menu"
               className="fixed z-40 overflow-hidden t8-context-menu t8-context-menu--selection"
               style={{
-                left: Math.min(contextMenu.x, window.innerWidth - 220),
-                top: Math.min(contextMenu.y, window.innerHeight - 220),
-                width: 200,
+                left: menuLeft,
+                top: menuTop,
+                width: menuWidth,
               }}
             >
               <div
@@ -5312,25 +5366,23 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
                   可执行 {exeCount}
                 </span>
               </div>
-              <div className="px-2 py-2">
-                <div className="mb-1 flex items-center gap-1 text-[10px] font-bold opacity-65">
-                  <LucideIcons.LayoutGrid size={11} />
-                  <span>对齐 / 整理</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1">
-                  {alignButton('align-left', '左', LucideIcons.AlignStartVertical)}
-                  {alignButton('align-center-x', '水平中', LucideIcons.AlignCenterVertical)}
-                  {alignButton('align-right', '右', LucideIcons.AlignEndVertical)}
-                  {alignButton('align-top', '上', LucideIcons.AlignStartHorizontal)}
-                  {alignButton('align-center-y', '垂直中', LucideIcons.AlignCenterHorizontal)}
-                  {alignButton('align-bottom', '下', LucideIcons.AlignEndHorizontal)}
-                </div>
-                <div className="mt-1 grid grid-cols-2 gap-1">
-                  {alignButton('distribute-x', '水平等距', LucideIcons.AlignHorizontalSpaceBetween, 3)}
-                  {alignButton('distribute-y', '垂直等距', LucideIcons.AlignVerticalSpaceBetween, 3)}
-                  {alignButton('snap-grid', '吸附网格', LucideIcons.Magnet, 1)}
-                  {alignButton('arrange-grid', '整理网格', LucideIcons.Grid3x3, 2)}
-                </div>
+              <div
+                onMouseEnter={() => openSelectionContextSubmenu('align')}
+                onMouseLeave={scheduleSelectionContextSubmenuClose}
+              >
+                <button
+                  type="button"
+                  className={menuItemCls}
+                  aria-haspopup="menu"
+                  aria-expanded={selectionContextSubmenu === 'align'}
+                  aria-label="打开对齐和整理方式"
+                  onFocus={() => openSelectionContextSubmenu('align')}
+                  onClick={() => openSelectionContextSubmenu('align')}
+                >
+                  <LucideIcons.LayoutGrid size={13} />
+                  <span className="flex-1">对齐 / 整理</span>
+                  <LucideIcons.ChevronRight size={13} className={alignSubmenuOpensLeft ? 'rotate-180' : ''} />
+                </button>
               </div>
               <button
                 className={menuItemCls}
@@ -5470,6 +5522,47 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
                 <span>删除 ({shortcutText('canvas.delete')})</span>
               </button>
             </div>
+            {selectionContextSubmenu === 'align' && (
+              <div
+                data-canvas-floating-ui="selection-align-submenu"
+                className="fixed z-50 transition-opacity duration-100"
+                style={{
+                  left: alignSubmenuLeft,
+                  top: alignSubmenuTop,
+                  width: alignSubmenuWidth,
+                }}
+                role="menu"
+                aria-label="对齐和整理方式"
+                onMouseEnter={() => openSelectionContextSubmenu('align')}
+                onMouseLeave={scheduleSelectionContextSubmenuClose}
+              >
+                <div className="t8-context-menu p-2">
+                  <div className="mb-1 flex items-center gap-1 px-1 text-[10px] font-bold opacity-65">
+                    <LucideIcons.LayoutGrid size={11} />
+                    <span>对齐方式</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1">
+                    {alignButton('align-left', '左', LucideIcons.AlignStartVertical)}
+                    {alignButton('align-center-x', '水平中', LucideIcons.AlignCenterVertical)}
+                    {alignButton('align-right', '右', LucideIcons.AlignEndVertical)}
+                    {alignButton('align-top', '上', LucideIcons.AlignStartHorizontal)}
+                    {alignButton('align-center-y', '垂直中', LucideIcons.AlignCenterHorizontal)}
+                    {alignButton('align-bottom', '下', LucideIcons.AlignEndHorizontal)}
+                  </div>
+                  <div className="my-2 h-px border-t" style={{ borderColor: 'var(--t8-border, rgba(148, 163, 184, 0.28))' }} />
+                  <div className="mb-1 flex items-center gap-1 px-1 text-[10px] font-bold opacity-65">
+                    <LucideIcons.Grid3x3 size={11} />
+                    <span>整理方式</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {alignButton('distribute-x', '水平等距', LucideIcons.AlignHorizontalSpaceBetween, 3)}
+                    {alignButton('distribute-y', '垂直等距', LucideIcons.AlignVerticalSpaceBetween, 3)}
+                    {alignButton('snap-grid', '吸附网格', LucideIcons.Magnet, 1)}
+                    {alignButton('arrange-grid', '整理网格', LucideIcons.Grid3x3, 2)}
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         );
       })()}
