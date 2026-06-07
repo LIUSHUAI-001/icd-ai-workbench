@@ -1,7 +1,47 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.1.2",
-  "lastUpdated": "2026-06-08-update-md-workflow-usability",
+  "version": "2.1.3",
+  "lastUpdated": "2026-06-08-jimeng-cli-seedream47-source",
+  "sourceReleaseV213": {
+    "version": "2.1.3",
+    "status": "source-only",
+    "date": "2026-06-08",
+    "description": "v2.1.3 源码发布：按新版 dreamina CLI help 权威确认即梦 CLI 图像 seedream-4.7 与完整 Seedance 2.0 视频模型变体，补齐默认模型列表、旧设置迁移、后端 model_version 参数和设置页提示。本次只推 GitHub 源码，不打包 Electron，不创建或更新 GitHub Release 自动更新资产。",
+    "highlights": [
+      "已按用户提供的 curl 安装方式更新本机 dreamina CLI 到 C:\\Users\\Administrator\\bin\\dreamina.exe；新版安装包未提供单独 tools.json，安装后的 SKILL.md 明确要求以 dreamina -h / 子命令 -h 为权威来源。",
+      "dreamina text2image -h 与 image2image -h 已确认支持 model_version=4.7；即梦 CLI 图像模型新增 seedream-4.7，后端提交时会写入 --model_version=4.7。",
+      "即梦 CLI 默认图像模型补充 seedream-4.7 / seedream-4.6 / seedream-4.5 / seedream-5.0，并保留旧 jimeng-image-2k / jimeng-image-4k 兼容值。",
+      "dreamina text2video -h 与 multimodal2video -h 已确认 Seedance 2.0 支持 seedance2.0fast_vip / seedance2.0_vip / seedance2.0fast / seedance2.0；默认列表和旧空列表设置迁移已补齐。",
+      "按 CLI 帮助同步 Seedance 2.0 分辨率边界：只有 seedance2.0_vip 允许 1080p，其余 Seedance 2.0 变体提交时固定 720p，避免 CLI 参数报错。",
+      "API Key 设置页即梦 CLI 模型提示同步展示 seedream-4.7 与完整 Seedance 2.0 变体，降低用户手填模型名的成本。"
+    ],
+    "sourceSync": [
+      "package.json / package-lock.json",
+      "vite.config.ts / vite.config.js",
+      "electron/main.cjs APP_VERSION",
+      "backend/src/config.js APP_VERSION",
+      "features.json",
+      "README.md",
+      "release-notes/v2.1.3.md"
+    ],
+    "releaseBoundary": [
+      "本次只推 GitHub 源码，不运行 npm run dist:release，不打包 Electron，不发布 GitHub Release 或 latest.yml。",
+      "公开提交继续禁止 skill.md、roadmap.md、local-private/** 和任何私有计费/支付/充值/分组令牌实现进入 GitHub。"
+    ],
+    "verification": [
+      "C:\\Users\\Administrator\\bin\\dreamina.exe -h",
+      "C:\\Users\\Administrator\\bin\\dreamina.exe text2image -h",
+      "C:\\Users\\Administrator\\bin\\dreamina.exe image2image -h",
+      "C:\\Users\\Administrator\\bin\\dreamina.exe text2video -h",
+      "C:\\Users\\Administrator\\bin\\dreamina.exe multimodal2video -h",
+      "node --test tests\\advancedProviders.test.ts tests\\advancedProviderFrontend.test.ts tests\\jimengCliProvider.test.ts tests\\updateMdRegressions.test.ts",
+      "node --test tests\\*.test.ts",
+      "npm run type-check",
+      "npm run build",
+      "npm run public:check",
+      "git diff --check"
+    ]
+  },
   "sourceReleaseV212": {
     "version": "2.1.2",
     "status": "source-only",
@@ -626,11 +666,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.1.2",
-    "semverVersion": "2.1.2",
+    "version": "2.1.3",
+    "semverVersion": "2.1.3",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前源码版本为 v2.1.2：集中修复 LLM 结果删除、@ 素材提及、文本分割提示词模板、大画布框选、组框级联删除、提示词模板分类保存、Figma 本机发送、左下角放置栏和素材外拖文件夹体验。本次只推 GitHub 源码，不打包 Electron，不发布 GitHub Release 自动更新资产；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.1.2 为 source-only 版本，不生成 T8-PenguinCanvas-Setup-2.1.2.exe、.blockmap 或 latest.yml；如需 Electron 自动更新包，后续必须重新走 clean public worktree + npm run dist:release + npm run release:verify。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前源码版本为 v2.1.3：补齐即梦 CLI seedream-4.7 图像模型和完整 Seedance 2.0 视频模型变体，后端按新版 dreamina help 传递 model_version。本次只推 GitHub 源码，不打包 Electron，不发布 GitHub Release 自动更新资产；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.1.3 为 source-only 版本，不生成 T8-PenguinCanvas-Setup-2.1.3.exe、.blockmap 或 latest.yml；如需 Electron 自动更新包，后续必须重新走 clean public worktree + npm run dist:release + npm run release:verify。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
@@ -652,7 +692,7 @@
       "prePushScan": "每次推送前运行 npm run public:check，并检查 staged 文件不包含 roadmap.md、skill.md、私有扩展目录、私有 UI、私有路由、支付路径、密钥字段或中文充值实现；本地开发和打包若需要私有能力，只能通过 ignored local-private/extensions 扩展加载。"
     },
     "localPrivateExtensions": {
-      "status": "implemented-v2.1.2-source",
+      "status": "implemented-v2.1.3-source",
       "purpose": "把本机私有计费/支付能力从已跟踪公开文件中拆出，避免每次 Git 推送都需要手动拆 hunk。",
       "publicHooks": [
         "backend/src/extensions/localExtensions.js 只负责发现并注册本地私有后端扩展，不包含具体业务逻辑。",
@@ -3182,6 +3222,17 @@
         "Nano Banana 2 的 UI 选项继续显示 nano-banana-2 (Flash)，但真实上游模型改为 gemini-3.1-flash-image-preview；旧画布保存值在 ImageNode 与 proxy 后端两侧兜底归一。",
         "新增 imageModelMapping、localExtensionHooks 等回归测试，并同步 advanced provider、API 设置、Electron 打包检查与 FAL key 边界测试。",
         "公开版本同步到 2.1.1：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.1.1.md 同步；本次只推 GitHub 源码，不打包 Electron，不发布 GitHub Release 自动更新资产。"
+      ]
+    },
+    "phase157": {
+      "label": "即梦 CLI Seedream 4.7 与 Seedance 2.0 模型补齐 (v2.1.3)",
+      "status": "implemented",
+      "items": [
+        "按用户提供的安装命令更新本机 dreamina CLI，并用 dreamina -h / text2image -h / image2image -h / text2video -h / multimodal2video -h 作为权威模型支持来源。",
+        "即梦 CLI 图像模型新增 seedream-4.7，并在后端 jimengCli 适配器中把 seedream-4.7 / 4.7 转换为 --model_version=4.7；seedream-4.6、seedream-4.5、seedream-5.0 同步进入默认列表。",
+        "即梦 CLI 视频模型默认列表补齐 seedance2.0fast_vip、seedance2.0_vip、seedance2.0fast、seedance2.0；旧设置中空的 jimeng-cli 模型列表会在后端归一化时自动补回内置默认值；非 seedance2.0_vip 的 Seedance 2.0 变体会固定 720p。",
+        "API Key 设置页模型提示同步展示 seedream-4.7 与完整 Seedance 2.0 变体；新增 advanced provider 与 jimeng CLI 回归测试。",
+        "公开版本同步到 2.1.3：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.1.3.md 同步；本次只推 GitHub 源码，不打包 Electron，不发布 GitHub Release 自动更新资产。"
       ]
     }
   },

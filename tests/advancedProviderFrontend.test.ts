@@ -140,6 +140,28 @@ test('advancedProviderModelOptions uses explicit lists before safe provider defa
       'doubao-seedance-2-0-260128',
     ],
   );
+  assert.deepEqual(
+    advancedProviderModelOptions({ id: 'jimeng-cli', protocol: 'jimeng-cli' } as any, 'video'),
+    [
+      'seedance2.0fast_vip',
+      'seedance2.0_vip',
+      'seedance2.0fast',
+      'seedance2.0',
+      'jimeng-video-720p',
+      'jimeng-video-1080p',
+    ],
+  );
+  assert.deepEqual(
+    advancedProviderModelOptions({ id: 'jimeng-cli', protocol: 'jimeng-cli' } as any, 'image'),
+    [
+      'seedream-4.7',
+      'seedream-4.6',
+      'seedream-4.5',
+      'seedream-5.0',
+      'jimeng-image-2k',
+      'jimeng-image-4k',
+    ],
+  );
 });
 
 test('externalImageSizeFor maps T8 ratio and size labels to stable WxH values', () => {

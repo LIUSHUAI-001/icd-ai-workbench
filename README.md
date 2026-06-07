@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.1.2
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.1.3
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.1.2-brightgreen) ![node](https://img.shields.io/badge/node-%E2%89%A518-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.1.3-brightgreen) ![node](https://img.shields.io/badge/node-%E2%89%A518-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -42,6 +42,7 @@ My favorite girl Go YounJung
 - 🧲 **放置栏 + 外拖文件夹**（v2.1.2）：发送、粘贴和自动输出的素材节点会进入左下角放置栏映射，折叠显示最近 5 个、展开显示最近 20 个；拖动放置栏卡片会移动原节点到落点而不是复制；生成好的图像 / 视频 / 音频素材也可直接拖到浏览器外的文件夹
 - 🧩 **LLM / 文本 / 画布交互修复**（v2.1.2）：LLM 多轮流式结果可单条删除且不会在下次生成时复活；文本节点支持上游图像 / 视频 / 音频 `@` 提及预览，文本分割输入框接入提示词模板与放大编辑；复杂大画布框选用屏幕拖拽矩形复核，降低漂移误选
 - 🧭 **New API 分组令牌高级模式**（v2.1.1）：公开版新增本地扩展插槽与节点级 `providerParams` 透传，私有分组令牌能力可在 API Key 设置页默认关闭、按需启用；FAL 模型继续固定使用通用贞贞 Key，避免新手被分组配置打扰
+- 🌱 **即梦 CLI 模型补齐**（v2.1.3）：按新版 `dreamina -h` / 子命令 help 验证，外部平台即梦 CLI 图像模型新增 `seedream-4.7`，生成时会传入 `--model_version=4.7`；视频模型补齐 `seedance2.0fast_vip / seedance2.0_vip / seedance2.0fast / seedance2.0`
 - 🍌 **Nano Banana 2 映射修复**（v2.1.1）：UI 仍保留「香蕉2 / nano-banana-2 (Flash)」入口，真实上游模型修正为 `gemini-3.1-flash-image-preview`，旧画布保存的旧模型值会自动兼容
 - 🧹 **生成节点上游素材单项排除**（v1.8.8）：图像 / 视频 / SD2.0 / 音频 / LLM / RunningHub / RH 工具节点的上游素材缩略图右下角可点 X，从当前节点排除单个传入素材但不切断连线，并可用“恢复N”一键恢复
 - 🗂️ **素材集节点 + 资源库整套复用**：可把同类型文本 / 图像 / 视频 / 音频合并为素材集，支持拖拽排序、反转 / 文件名 / 随机排序、导入素材集 / 导出素材集、保存到资源库、从资源库整套插入画布；未选中节点时按 `R` 可快速打开 / 关闭资源库

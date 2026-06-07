@@ -61,6 +61,24 @@ const DEFAULT_VOLCENGINE_CHAT_MODELS = [
   'doubao-seed-1-6-250615',
 ];
 
+const DEFAULT_JIMENG_IMAGE_MODELS = [
+  'seedream-4.7',
+  'seedream-4.6',
+  'seedream-4.5',
+  'seedream-5.0',
+  'jimeng-image-2k',
+  'jimeng-image-4k',
+];
+
+const DEFAULT_JIMENG_VIDEO_MODELS = [
+  'seedance2.0fast_vip',
+  'seedance2.0_vip',
+  'seedance2.0fast',
+  'seedance2.0',
+  'jimeng-video-720p',
+  'jimeng-video-1080p',
+];
+
 const SUPPORTED_PROTOCOLS = new Set([
   'openai-compatible',
   'modelscope',
@@ -142,8 +160,8 @@ const DEFAULT_ADVANCED_PROVIDERS = [
     protocol: 'jimeng-cli',
     baseUrl: '',
     enabled: false,
-    imageModels: ['jimeng-image-2k', 'jimeng-image-4k'],
-    videoModels: ['jimeng-video-720p', 'jimeng-video-1080p', 'seedance2.0fast_vip', 'seedance2.0_vip'],
+    imageModels: DEFAULT_JIMENG_IMAGE_MODELS,
+    videoModels: DEFAULT_JIMENG_VIDEO_MODELS,
     chatModels: [],
     defaults: {},
     jimengConfig: {
@@ -452,6 +470,8 @@ function normalizeProvider(raw, previous = null) {
     });
   }
   if (protocol === 'jimeng-cli') {
+    provider.imageModels = mergeModelLists(DEFAULT_JIMENG_IMAGE_MODELS, provider.imageModels);
+    provider.videoModels = mergeModelLists(DEFAULT_JIMENG_VIDEO_MODELS, provider.videoModels);
     provider.jimengConfig = normalizeJimengConfig(raw.jimengConfig || raw.jimeng_config);
   }
 
@@ -540,6 +560,8 @@ module.exports = {
   DEFAULT_VOLCENGINE_IMAGE_MODELS,
   DEFAULT_VOLCENGINE_VIDEO_MODELS,
   DEFAULT_VOLCENGINE_BASE_URL,
+  DEFAULT_JIMENG_IMAGE_MODELS,
+  DEFAULT_JIMENG_VIDEO_MODELS,
   SUPPORTED_PROTOCOLS,
   getEnabledAdvancedProviders,
   maskAdvancedProviders,

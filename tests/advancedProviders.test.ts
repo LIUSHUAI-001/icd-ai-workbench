@@ -89,16 +89,30 @@ test('normalizeAdvancedProviders merges built-in provider model defaults into ol
   const providers = normalizeAdvancedProviders([
     { id: 'modelscope', protocol: 'modelscope', imageModels: [], chatModels: [], enabled: true },
     { id: 'volcengine', protocol: 'volcengine', imageModels: [], videoModels: [], chatModels: [], enabled: true },
+    { id: 'jimeng-cli', protocol: 'jimeng-cli', imageModels: [], videoModels: [], enabled: true },
   ]);
 
   const modelscope = providers.find((provider: any) => provider.id === 'modelscope');
   const volcengine = providers.find((provider: any) => provider.id === 'volcengine');
+  const jimeng = providers.find((provider: any) => provider.id === 'jimeng-cli');
 
   assert.equal(modelscope?.imageModels[0], 'Tongyi-MAI/Z-Image-Turbo');
   assert.equal(modelscope?.chatModels[0], 'Qwen/Qwen3-235B-A22B');
   assert.equal(volcengine?.imageModels[0], 'doubao-seedream-4-0-250828');
   assert.equal(volcengine?.videoModels[1], 'doubao-seedance-2-0-fast-260128');
   assert.equal(volcengine?.chatModels[0], 'doubao-seed-1-6-250615');
+  assert.deepEqual(jimeng?.videoModels.slice(0, 4), [
+    'seedance2.0fast_vip',
+    'seedance2.0_vip',
+    'seedance2.0fast',
+    'seedance2.0',
+  ]);
+  assert.deepEqual(jimeng?.imageModels.slice(0, 4), [
+    'seedream-4.7',
+    'seedream-4.6',
+    'seedream-4.5',
+    'seedream-5.0',
+  ]);
 });
 
 test('normalizeAdvancedProviders filters invalid providers and clamps unsafe fields', () => {
