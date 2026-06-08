@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type FormEvent,
   type MutableRefObject,
   type Ref,
 } from 'react';
@@ -62,7 +63,7 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
 
 function getAtQuery(text: string, caret: number, mentions: MediaMention[] = []): { start: number; end: number; query: string } | null {
   const before = text.slice(0, caret);
-  const at = before.lastIndexOf('@');
+  const at = Math.max(before.lastIndexOf('@'), before.lastIndexOf('＠'));
   if (at < 0) return null;
   const segment = before.slice(at);
   if (/\s/.test(segment)) return null;
@@ -231,6 +232,11 @@ function readRichEditor(root: HTMLElement, fallbackMentions: MediaMention[]): { 
 
   root.childNodes.forEach(walk);
   return { text, mentions };
+}
+
+function isImeCompositionInput(event: Event | null | undefined) {
+  const native = event as (InputEvent & { isComposing?: boolean }) | null | undefined;
+  return !!native?.isComposing || /Composition/i.test(String(native?.inputType || ''));
 }
 
 const MentionPromptInput = ({
@@ -433,8 +439,8 @@ const MentionPromptInput = ({
     }
   }, [editorHtml, inlineMentions, isDark, isPixel]);
 
-  const openFromCaret = (text: string, caret: number) => {
-    const query = getAtQuery(text, caret, mentions);
+  const openFromCaret = (text: string, caret: number, mentionList: MediaMention[] = mentions) => {
+    const query = getAtQuery(text, caret, mentionList);
     if (!query) {
       setQueryState((s) => ({ ...s, open: false }));
       return;
@@ -442,15 +448,42 @@ const MentionPromptInput = ({
     setQueryState({ ...query, open: true, activeIndex: 0 });
   };
 
-  const handleEditorInput = () => {
+  const openFromEditor = () => {
+    const el = localRef.current;
+    if (!el || composingRef.current) return;
+    const caret = getCaretPlainOffset(el);
+    const { text, mentions: nextMentions } = readRichEditor(el, mentions);
+    openFromCaret(text, caret, nextMentions);
+  };
+
+  const handleEditorInput = (event?: FormEvent<HTMLDivElement>) => {
     const el = localRef.current;
     if (!el) return;
-    if (composingRef.current) return;
+    const nativeEvent = event?.nativeEvent;
+    if (isImeCompositionInput(nativeEvent)) {
+      composingRef.current = true;
+      return;
+    }
+    if (composingRef.current) {
+      // Some Chromium IME paths leave the component in a composing state after the
+      // final insertText input. When the native event is no longer composing, treat
+      // it as the committed text so the visible DOM does not drift from node data.
+      composingRef.current = false;
+    }
     const caret = getCaretPlainOffset(el);
     const { text: nextValue, mentions: nextMentions } = readRichEditor(el, mentions);
     onChange(nextValue, nextMentions);
     if (composingRef.current) return;
-    openFromCaret(nextValue, caret);
+    openFromCaret(nextValue, caret, nextMentions);
+  };
+
+  const flushEditorToData = () => {
+    const el = localRef.current;
+    if (!el) return null;
+    const caret = getCaretPlainOffset(el);
+    const { text, mentions: nextMentions } = readRichEditor(el, mentions);
+    onChange(text, nextMentions);
+    return { text, mentions: nextMentions, caret };
   };
 
   const selectMaterial = (material: Material) => {
@@ -608,6 +641,9 @@ const MentionPromptInput = ({
           tabIndex={0}
           data-placeholder={placeholder || ''}
           onInput={handleEditorInput}
+          onBeforeInput={(event) => {
+            if (isImeCompositionInput(event.nativeEvent)) composingRef.current = true;
+          }}
           onCompositionStart={() => {
             composingRef.current = true;
             setQueryState((s) => ({ ...s, open: false }));
@@ -617,28 +653,25 @@ const MentionPromptInput = ({
             window.setTimeout(() => {
               if (!el) return;
               composingRef.current = false;
-              const caret = getCaretPlainOffset(el);
-              const { text, mentions: nextMentions } = readRichEditor(el, mentions);
-              onChange(text, nextMentions);
-              pendingCaretRef.current = caret;
-              openFromCaret(text, caret);
+              const flushed = flushEditorToData();
+              if (!flushed) return;
+              pendingCaretRef.current = flushed.caret;
+              openFromCaret(flushed.text, flushed.caret, flushed.mentions);
             }, 0);
           }}
           onFocus={() => {
             setIsFocused(true);
           }}
           onClick={() => {
-            const el = localRef.current;
-            if (!el || composingRef.current) return;
-            openFromCaret(value, getCaretPlainOffset(el));
+            openFromEditor();
           }}
           onKeyUp={(e) => {
             const el = localRef.current;
             if (!el) return;
             if (composingRef.current || e.nativeEvent.isComposing) return;
             if (['Escape', 'Enter', 'Tab', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
-            const { text } = readRichEditor(el, mentions);
-            openFromCaret(text, getCaretPlainOffset(el));
+            const { text, mentions: nextMentions } = readRichEditor(el, mentions);
+            openFromCaret(text, getCaretPlainOffset(el), nextMentions);
           }}
           onKeyDown={(e) => {
             if (composingRef.current || e.nativeEvent.isComposing) return;
@@ -647,6 +680,9 @@ const MentionPromptInput = ({
               e.stopPropagation();
               openExpanded();
               return;
+            }
+            if (e.key === '@' || e.key === '＠') {
+              window.setTimeout(openFromEditor, 0);
             }
             if (!queryState.open) return;
             if (e.key === 'Escape') {
@@ -670,6 +706,8 @@ const MentionPromptInput = ({
             }
           }}
           onBlur={() => {
+            composingRef.current = false;
+            flushEditorToData();
             setIsFocused(false);
             window.setTimeout(() => setQueryState((s) => ({ ...s, open: false })), 120);
           }}
