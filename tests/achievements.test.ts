@@ -76,12 +76,18 @@ test('Saint Seiya sanctuary HUD avoids duplicate maps and runs battles automatic
   assert.match(css, /react-flow__minimap\s*\{[\s\S]*overflow:\s*hidden\s*!important/);
   assert.match(css, /react-flow__minimap svg\s*\{[\s\S]*margin-top:\s*0\s*!important/);
   assert.match(css, /\.t8-saint-sanctuary__minimap-ping-layer\s*\{[\s\S]*overflow:\s*hidden/);
+  assert.match(css, /\.t8-saint-sanctuary__minimap-ping-layer\s*\{[\s\S]*contain:\s*paint/);
+  assert.match(css, /\.t8-saint-sanctuary__minimap-ping-layer\s*\{[\s\S]*clip-path:\s*inset\(0 round 14px\)/);
   assert.match(css, /MEIKAI RADAR/);
   assert.match(css, /data-saint-mode="hades"\] \.react-flow__minimap::after/);
   assert.match(css, /\.t8-saint-hades-minimap__gate/);
   assert.match(css, /\.t8-saint-hades-minimap__river/);
   assert.match(css, /\.t8-saint-hades-minimap__scanner/);
   assert.match(css, /\.t8-saint-hades-minimap__temples i/);
+  assert.match(css, /\.t8-saint-hades-minimap__gate\s*\{[\s\S]*bottom:\s*9px/);
+  assert.match(css, /\.t8-saint-hades-minimap__gate\s*\{[\s\S]*left:\s*calc\(50%\s*-\s*32px\)/);
+  assert.match(css, /\.t8-saint-hades-minimap__orbit\s*\{[\s\S]*left:\s*calc\(50%\s*-\s*58px\)/);
+  assert.match(css, /\.t8-saint-hades-minimap__temples i\s*\{[\s\S]*translateY\(-49px\)/);
   assert.match(css, /@keyframes saint-hades-radar-sweep/);
   assert.match(css, /\.t8-saint-battle--dock\s*\{[\s\S]*right:\s*14px\s*!important/);
   assert.match(css, /\.t8-saint-battle--dock\s*\{[\s\S]*top:\s*98px\s*!important/);
@@ -103,6 +109,9 @@ test('Saint Seiya sanctuary HUD avoids duplicate maps and runs battles automatic
   assert.match(css, /data-theme-mode="dark"/);
   assert.match(component, /saint-seiya-minimap-ping/);
   assert.match(component, /is-hades/);
+  assert.match(component, /activeChest\.mapX \* 0\.64/);
+  assert.match(component, /activeChest\.mapY \* 0\.48/);
+  assert.match(component, /Math\.min\(72,\s*minimapPingTopRaw\)/);
   assert.match(component, /t8-saint-hades-minimap__gate/);
   assert.match(component, /t8-saint-hades-minimap__temples/);
   assert.match(component, /saint-seiya-battle-log/);

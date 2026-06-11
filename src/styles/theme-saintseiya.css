@@ -1126,6 +1126,7 @@ html[data-theme-visual="saint-seiya"] .react-flow__background-pattern circle {
 
 html[data-theme-visual="saint-seiya"] .react-flow__node:not(.react-flow__node-groupBox) {
   filter: none !important;
+  overflow: visible !important;
 }
 
 html[data-theme-visual="saint-seiya"] .react-flow__node:not(.react-flow__node-groupBox) > div,
@@ -1143,7 +1144,7 @@ html[data-theme-visual="saint-seiya"] .t8-panel {
     linear-gradient(180deg, color-mix(in srgb, var(--saint-panel-2) 94%, #fff 6%), var(--saint-panel)) !important;
   color: var(--saint-ink) !important;
   box-shadow: var(--t8-shadow-panel) !important;
-  overflow: visible;
+  overflow: visible !important;
 }
 
 html[data-theme-visual="saint-seiya"][data-saint-mode="hades"] .react-flow__node:not(.react-flow__node-groupBox) > div,
@@ -1289,6 +1290,7 @@ html[data-theme-visual="saint-seiya"] select option {
 html[data-theme-visual="saint-seiya"] .react-flow__handle {
   width: 16px !important;
   height: 16px !important;
+  z-index: 80 !important;
   border: 3px solid var(--saint-ink) !important;
   border-radius: 6px !important;
   background:
@@ -1296,6 +1298,15 @@ html[data-theme-visual="saint-seiya"] .react-flow__handle {
   box-shadow:
     0 0 0 5px rgba(255, 216, 103, 0.22),
     0 0 18px rgba(39, 214, 223, 0.30) !important;
+}
+
+/* Keep the larger Saint Seiya ports fully inside clipped cloth-box node frames. */
+html[data-theme-visual="saint-seiya"] .react-flow__handle-left {
+  left: 8px !important;
+}
+
+html[data-theme-visual="saint-seiya"] .react-flow__handle-right {
+  right: 8px !important;
 }
 
 html[data-theme-visual="saint-seiya"] .react-flow__handle.target {
@@ -2176,6 +2187,8 @@ html[data-theme-visual="saint-seiya"] .t8-saint-sanctuary__minimap-ping-layer {
   pointer-events: none;
   overflow: hidden;
   border-radius: 14px;
+  contain: paint;
+  clip-path: inset(0 round 14px);
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-sanctuary__minimap-ping-layer .t8-saint-sanctuary__ping {
@@ -2253,8 +2266,8 @@ html[data-theme-visual="saint-seiya"][data-saint-mode="hades"] .react-flow__mini
 
 html[data-theme-visual="saint-seiya"] .t8-saint-sanctuary__minimap-ping-layer.is-hades {
   background:
-    radial-gradient(circle at 50% 52%, transparent 0 35%, rgba(255, 230, 138, 0.14) 36% 37%, transparent 38% 100%),
-    radial-gradient(circle at 50% 52%, transparent 0 54%, rgba(103, 232, 249, 0.16) 55% 56%, transparent 57% 100%);
+    radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(255, 230, 138, 0.14) 31% 32%, transparent 33% 100%),
+    radial-gradient(circle at 50% 50%, transparent 0 46%, rgba(103, 232, 249, 0.16) 47% 48%, transparent 49% 100%);
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-sanctuary__minimap-ping-layer.is-hades .t8-saint-sanctuary__ping {
@@ -2269,7 +2282,7 @@ html[data-theme-visual="saint-seiya"] .t8-saint-sanctuary__minimap-ping-layer.is
     0 0 0 3px rgba(5, 12, 30, 0.82),
     0 0 0 5px rgba(255, 230, 138, 0.30),
     0 0 17px rgba(255, 230, 138, 0.56),
-    0 0 28px rgba(151, 72, 186, 0.34);
+    0 0 20px rgba(151, 72, 186, 0.28);
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-sanctuary__minimap-ping-layer.is-hades .t8-saint-sanctuary__ping.is-opening {
@@ -2288,10 +2301,10 @@ html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__temples {
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__gate {
-  left: 28px;
-  bottom: -16px;
-  width: 78px;
-  height: 58px;
+  left: calc(50% - 32px);
+  bottom: 9px;
+  width: 64px;
+  height: 46px;
   z-index: 3;
   border-radius: 50% 50% 6px 6px;
   background:
@@ -2303,12 +2316,12 @@ html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__gate {
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__river {
-  left: -18px;
-  top: 90px;
+  left: 10px;
+  top: 96px;
   z-index: 2;
-  width: 280px;
-  height: 34px;
-  transform: rotate(-15deg);
+  width: 210px;
+  height: 28px;
+  transform: rotate(-11deg);
   background:
     linear-gradient(90deg, transparent, rgba(67, 210, 235, 0.16) 12%, rgba(255, 230, 138, 0.38) 42%, rgba(151, 72, 186, 0.28) 70%, transparent),
     repeating-linear-gradient(90deg, transparent 0 14px, rgba(255, 247, 219, 0.36) 15px 18px, transparent 19px 34px);
@@ -2319,11 +2332,11 @@ html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__river {
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__orbit {
-  left: 47px;
-  top: 13px;
+  left: calc(50% - 58px);
+  top: calc(50% - 58px);
   z-index: 2;
-  width: 136px;
-  height: 136px;
+  width: 116px;
+  height: 116px;
   border: 1px solid rgba(255, 230, 138, 0.48);
   border-radius: 50%;
   box-shadow:
@@ -2347,11 +2360,11 @@ html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__orbit::after {
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__scanner {
-  left: 47px;
-  top: 13px;
+  left: calc(50% - 58px);
+  top: calc(50% - 58px);
   z-index: 3;
-  width: 136px;
-  height: 136px;
+  width: 116px;
+  height: 116px;
   border-radius: 50%;
   background:
     conic-gradient(from -35deg, rgba(255, 230, 138, 0.32) 0 18deg, transparent 20deg 360deg);
@@ -2361,8 +2374,8 @@ html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__scanner {
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__athena {
-  right: 23px;
-  top: 24px;
+  right: 22px;
+  top: 25px;
   z-index: 4;
   width: 24px;
   height: 38px;
@@ -2388,11 +2401,11 @@ html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__label {
 }
 
 html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__temples {
-  left: 47px;
-  top: 13px;
+  left: calc(50% - 58px);
+  top: calc(50% - 58px);
   z-index: 4;
-  width: 136px;
-  height: 136px;
+  width: 116px;
+  height: 116px;
   border-radius: 50%;
 }
 
@@ -2418,7 +2431,7 @@ html[data-theme-visual="saint-seiya"] .t8-saint-hades-minimap__temples i {
   box-shadow: 0 0 8px rgba(255, 230, 138, 0.18);
   transform:
     rotate(calc(var(--saint-temple-index) * 30deg))
-    translateY(-58px)
+    translateY(-49px)
     rotate(calc(var(--saint-temple-index) * -30deg));
 }
 

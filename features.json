@@ -1,7 +1,126 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.1.6",
-  "lastUpdated": "2026-06-11-electron-release-v216",
+  "version": "2.1.7",
+  "lastUpdated": "2026-06-11-electron-release-v217",
+  "electronReleaseV217": {
+    "version": "2.1.7",
+    "status": "electron-release",
+    "date": "2026-06-11",
+    "description": "v2.1.7 Electron 自动更新发布：收口 ComfyUI Workflow 识别、排除规则备份、百度/夸克 WebDAV 上传、ComfyUI 超市端口裁切、Grok Video 默认模型显示和圣斗士主题细节修复。",
+    "highlights": [
+      "ComfyUI API Workflow 字段识别增强，前端制作器、图像节点和后端 provider 共享 prompt/image/video/audio/ControlNet/UNet/CLIP Vision/FPS/guidance 等常见字段规则。",
+      "ComfyUI 自动映射排除规则支持 JSON 导入导出，设置页和 ComfyUI 应用制作工具节点都可复用同一份规则备份。",
+      "百度网盘与夸克网盘上传补齐 WebDAV 网关方案，支持配置检查、自动建目录、PUT 上传和更明确的错误提示。",
+      "ComfyUI 超市节点外层不再裁切 React Flow 入口/出口端口，强主题下左右连接点保持可见。",
+      "视频节点 Grok Video 默认模型显示为 grok-video-3（新版1.5），后台模型映射保持 grok-video-3 不变。",
+      "圣斗士主题继续修正冥界雷达、浅/深色可读性和小地图元素位置，避免主题 UI 遮挡创作画布。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.1.7.md"
+    ],
+    "packaging": {
+      "script": "npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.1.7.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.1.7.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.1.7 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、Electron 缓存目录和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器与 FAL 应用制作工具仍为本地开发工具，不进入公开源码和公开打包产物。",
+      "真实 Grok OAuth 私有调用继续通过本机 ignored local-private 扩展 / 加密链路处理，公开仓库只保留安全外壳。"
+    ],
+    "verification": [
+      "node -c backend\\src\\cloudUploads\\settings.js",
+      "node -c backend\\src\\cloudUploads\\uploader.js",
+      "node -c backend\\src\\providers\\comfyui.js",
+      "node --test tests\\cloudUploads.test.ts tests\\comfyuiProvider.test.ts tests\\comfyuiImageNode.test.ts tests\\comfyuiAppsManifest.test.ts tests\\comfyuiAppNodes.test.ts tests\\grokVideo15.test.ts tests\\modelUsageHelp.test.ts tests\\saintSeiyaBattle.test.ts tests\\achievements.test.ts",
+      "npm run type-check",
+      "npm run build",
+      "npm run public:check",
+      "npm run dist:release",
+      "npm run release:verify"
+    ]
+  },
+  "comfyuiExcludeRulesBackup": {
+    "status": "implemented",
+    "date": "2026-06-11",
+    "description": "ComfyUI 自动映射排除规则支持 JSON 导入导出，覆盖设置页面扩展 API 的 ComfyUI 设置和 ComfyUI 应用制作工具节点。",
+    "highlights": [
+      "排除采样器参数、排除模型加载、排除尺寸批量等规则可以一键导出为 t8-comfyui-field-exclude-rules JSON。",
+      "导入兼容新 JSON、旧数组、纯文本规则和常见字段名，用户换版本或换设备时不用重新手填。",
+      "导入后会立即重新计算自动映射字段，设置页与制作工具节点使用同一套解析规则。"
+    ],
+    "files": [
+      "src/utils/comfyuiWorkflow.ts",
+      "src/components/ApiSettings.tsx",
+      "src/components/nodes/ComfyUIAppMakerNode.tsx",
+      "tests/comfyuiProvider.test.ts",
+      "tests/comfyuiAppsManifest.test.ts"
+    ],
+    "verification": [
+      "node --test tests\\comfyuiProvider.test.ts tests\\comfyuiAppsManifest.test.ts",
+      "npm run type-check",
+      "npm run build"
+    ]
+  },
+  "comfyuiWorkflowRecognition": {
+    "status": "implemented",
+    "date": "2026-06-11",
+    "description": "本地 ComfyUI API Workflow 自动识别增强：从少数标准节点扩展到通用自定义节点字段，保证制作器、设置页和后端提交使用同一套映射规则。",
+    "highlights": [
+      "自动识别 prompt / positive_prompt / negative_prompt / caption / instruction 等文本字段，仍优先通过 sampler 连接修正正负 Prompt。",
+      "自动识别 image / mask / reference_image / control_image / image_path 等图片输入，并支持 image1 之后的更多编号；视频和音频输入同样支持 videoN / audioN。",
+      "补齐 ControlNet、UNet、CLIP Vision、Style Model、Upscale Model、帧率、帧数、FPS、guidance、shift、strength、weight 等常见自定义节点参数。",
+      "ComfyUI 应用制作器会把新识别到的非媒体参数暴露为可调用户参数；图像节点 ComfyUI 面板同步显示这些字段。",
+      "后端 ComfyUI provider 使用同等识别规则，即使保存的 workflow 没有 fields 映射，也能在提交前自动 patch 自定义字段。"
+    ],
+    "files": [
+      "src/utils/comfyuiWorkflow.ts",
+      "src/utils/comfyuiApps.ts",
+      "src/components/nodes/ImageNode.tsx",
+      "backend/src/providers/comfyui.js",
+      "tests/comfyuiProvider.test.ts",
+      "tests/comfyuiImageNode.test.ts",
+      "tests/comfyuiAppsManifest.test.ts"
+    ],
+    "verification": [
+      "node -c backend\\src\\providers\\comfyui.js",
+      "node --test tests\\comfyuiProvider.test.ts tests\\comfyuiImageNode.test.ts tests\\comfyuiAppsManifest.test.ts",
+      "npm run type-check"
+    ]
+  },
+  "netdiskWebdavUpload": {
+    "status": "implemented",
+    "date": "2026-06-11",
+    "description": "云端上传目标补齐百度网盘与夸克网盘真实上传：公开版走 WebDAV 网关方案，复用素材右键上传入口，不依赖不稳定 Cookie 抓包接口。",
+    "highlights": [
+      "百度网盘 / 夸克网盘设置页从预留字段改为 WebDAV 地址、用户名、密码/令牌、网盘目录和公共域名配置，并补充 Alist / CloudDrive2 / rclone 使用说明。",
+      "后端新增 WebDAV 自动建目录、PUT 文件上传、配置检查临时写入并删除测试文件，保证检查能验证真实写入权限。",
+      "云上传错误分类新增 WebDAV 认证、Endpoint、目录冲突、空间不足等可执行中文提示；右键菜单继续按启用目标显示。",
+      "云端上传摘要将 COS、OSS、百度 WebDAV、夸克 WebDAV 四类目标都计入 supportedUploadCount。"
+    ],
+    "files": [
+      "backend/src/cloudUploads/settings.js",
+      "backend/src/cloudUploads/uploader.js",
+      "src/components/ApiSettings.tsx",
+      "src/types/canvas.ts",
+      "tests/cloudUploads.test.ts"
+    ],
+    "verification": [
+      "node -c backend\\src\\cloudUploads\\settings.js",
+      "node -c backend\\src\\cloudUploads\\uploader.js",
+      "node --test tests\\cloudUploads.test.ts"
+    ]
+  },
   "electronReleaseV216": {
     "version": "2.1.6",
     "status": "electron-release",
@@ -1202,11 +1321,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.1.6",
-    "semverVersion": "2.1.6",
+    "version": "2.1.7",
+    "semverVersion": "2.1.7",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.1.6：打包 v2.1.5 源码能力，并补齐 Grok OAuth Agent 快捷生成、Fal 超市状态徽章、RH RED 上传模式持久化、圣斗士冥界雷达与 GPT Image 2 尺寸快捷模型等热修。本次按规范打包 Electron 并发布 GitHub Release 自动更新资产；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.1.6 生成 T8-PenguinCanvas-Setup-2.1.6.exe、T8-PenguinCanvas-Setup-2.1.6.exe.blockmap 与 latest.yml；发布必须走 clean public worktree + npm run dist:release + npm run release:verify。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.1.7：收口 ComfyUI Workflow 识别、排除规则备份、百度/夸克 WebDAV 上传、ComfyUI 超市端口裁切、Grok Video 默认模型显示和圣斗士主题细节修复。本次按规范打包 Electron 并发布 GitHub Release 自动更新资产；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.1.7 生成 T8-PenguinCanvas-Setup-2.1.7.exe、T8-PenguinCanvas-Setup-2.1.7.exe.blockmap 与 latest.yml；发布必须走 clean public worktree + npm run dist:release + npm run release:verify。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",

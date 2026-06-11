@@ -10,9 +10,11 @@ test('model usage help text includes current image, video, audio and LLM notes',
   assert.match(canvasSource, /gpt-image-2-2k模型是备用模型，非gpt-image-2模型分支，直接支持2k，目前0\.1积分,2026\.06\.10新增（default分组）/);
   assert.match(canvasSource, /gpt-image-2-4k模型是备用模型，非gpt-image-2模型分支，直接支持2k，目前0\.1积分,2026\.06\.10新增（default分组）/);
   assert.match(canvasSource, /veo-omni模型，需要使用default分组（veo-omnii模型是2026\.06\.06刚上架的）/);
+  assert.match(canvasSource, /grok-video模型，需要看下网站左侧分类教程，有多个分组可用，目前比较稳的是fal模型和默认分组/);
+  assert.match(canvasSource, /20260\.06\.11修复grok-video-3模型的defualt默认分组，直接升级成imagine 1\.5模型，0\.5积分10秒/);
   assert.match(canvasSource, /sora-2模型，支持sora-vip分组以及default默认分组的FAL模型/);
   assert.match(canvasSource, /suno v5\.5模型（Default分组）支持生成，翻唱，延长，一次生成两首歌/);
-  assert.match(canvasSource, /LLM模型有时候因为官方问题会出现速度慢，失败等现象/);
+  assert.match(canvasSource, /LLM模型有时候因为官方问题会出现速度慢，失败等现象，这时候换个模型即可或者换一下分组即可/);
 });
 
 test('model usage help no longer warns that Sora2 is unavailable', () => {

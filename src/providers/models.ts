@@ -419,8 +419,8 @@ export const VIDEO_MODELS: VideoModelDef[] = [
     provider: 'zhenzhen',
     description: 'xAI Grok Video (最多 7 张参考图)',
     apiModelOptions: [
+      { value: 'grok-video-3', label: 'grok-video-3（新版1.5）' },
       { value: 'grok-imagine-video-1.5', label: 'Grok Video 1.5 (FAL)' },
-      { value: 'grok-video-3', label: 'grok-video-3' },
       { value: 'grok-video-fal', label: 'grok-video-fal (FAL)' },
     ],
     // 主项目 gk_ratio(line 1410): 2:3 / 3:2 / 16:9 / 9:16 / 1:1

@@ -697,10 +697,22 @@ export default function SaintSeiyaSanctuary({ visualStyle, viewportMoving, nodeD
   const playerMpMax = latestBattleEvent?.playerMaxMp ?? battle?.report?.playerMaxMp ?? 1;
   const unlockCloth = clothUnlock ? SAINT_SEIYA_CLOTH_BY_ID[clothUnlock.clothId] : null;
   const unlockGoldUi = unlockCloth?.rank === 'gold' ? SAINT_GOLD_CLOTH_UI[unlockCloth.id] : null;
-  const minimapPingInset = hadesModeActive ? 14 : 8;
-  const minimapPingTopMax = hadesModeActive ? 82 : 92;
-  const minimapPingLeft = activeChest ? Math.max(minimapPingInset, Math.min(100 - minimapPingInset, activeChest.mapX)) : 50;
-  const minimapPingTop = activeChest ? Math.max(24, Math.min(minimapPingTopMax, 18 + activeChest.mapY * 0.74)) : 50;
+  const minimapPingLeftRaw = activeChest
+    ? hadesModeActive
+      ? 18 + activeChest.mapX * 0.64
+      : activeChest.mapX
+    : 50;
+  const minimapPingTopRaw = activeChest
+    ? hadesModeActive
+      ? 24 + activeChest.mapY * 0.48
+      : activeChest.mapY
+    : 50;
+  const minimapPingLeft = hadesModeActive
+    ? Math.max(18, Math.min(82, minimapPingLeftRaw))
+    : Math.max(8, Math.min(92, minimapPingLeftRaw));
+  const minimapPingTop = hadesModeActive
+    ? Math.max(24, Math.min(72, minimapPingTopRaw))
+    : Math.max(8, Math.min(92, minimapPingTopRaw));
 
   return (
     <>
