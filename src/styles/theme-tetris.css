@@ -424,8 +424,14 @@ html[data-theme-visual="tetris"] .react-flow__node.selected:not(.react-flow__nod
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--tt-yellow) 68%, transparent), var(--t8-shadow-strong) !important;
 }
 
+html[data-theme-visual="tetris"] .react-flow__node.dragging:not(.react-flow__node-groupBox) > div::before,
 html[data-theme-visual="tetris"] .react-flow__node.dragging:not(.react-flow__node-groupBox) > div::after,
-html[data-theme-visual="tetris"] .t8-canvas-shell.t8-node-dragging .react-flow__node.dragging:not(.react-flow__node-groupBox) > div::after {
+html[data-theme-visual="tetris"] .react-flow__node.dragging:not(.react-flow__node-groupBox) .t8-node::before,
+html[data-theme-visual="tetris"] .react-flow__node.dragging:not(.react-flow__node-groupBox) .t8-node::after,
+html[data-theme-visual="tetris"] .t8-canvas-shell.t8-node-dragging .react-flow__node:not(.react-flow__node-groupBox) > div::before,
+html[data-theme-visual="tetris"] .t8-canvas-shell.t8-node-dragging .react-flow__node:not(.react-flow__node-groupBox) > div::after,
+html[data-theme-visual="tetris"] .t8-canvas-shell.t8-node-dragging .react-flow__node:not(.react-flow__node-groupBox) .t8-node::before,
+html[data-theme-visual="tetris"] .t8-canvas-shell.t8-node-dragging .react-flow__node:not(.react-flow__node-groupBox) .t8-node::after {
   opacity: 0;
 }
 

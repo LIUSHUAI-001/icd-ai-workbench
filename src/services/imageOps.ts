@@ -29,9 +29,30 @@ export const opUpscale = (imageUrl: string, scale: number) =>
 
 export const opTrimBorder = (
   imageUrl: string,
-  options?: { mode?: 'black' | 'white' | 'transparent' | 'auto'; axis?: 'vertical' | 'horizontal' | 'all'; threshold?: number },
+  options?: {
+    mode?: 'black' | 'white' | 'transparent' | 'auto';
+    axis?: 'vertical' | 'horizontal' | 'all';
+    threshold?: number;
+    strategy?: 'auto' | 'manual';
+    manual?: { top?: number; right?: number; bottom?: number; left?: number };
+  },
 ) =>
-  postOp<{ imageUrl: string; crop: { x: number; y: number; w: number; h: number } }>('trim-border', {
+  postOp<{
+    imageUrl: string;
+    crop: {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      originalWidth: number;
+      originalHeight: number;
+      removed: { top: number; right: number; bottom: number; left: number };
+      strategy: 'auto' | 'manual';
+      mode: 'black' | 'white' | 'transparent' | 'auto';
+      axis: 'vertical' | 'horizontal' | 'all';
+      threshold: number;
+    };
+  }>('trim-border', {
     imageUrl,
     ...(options || {}),
   });

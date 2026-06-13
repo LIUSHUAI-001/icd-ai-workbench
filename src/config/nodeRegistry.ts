@@ -47,6 +47,9 @@ export const NODE_REGISTRY: NodeMeta[] = [
   { type: 'codex-cli-agent', label: 'Codex CLI Agent', category: 'codex', description: '面向创作者的 Codex CLI 工作台：流式对话、图像生成提示词、Skill 调用、产物库和版本树', icon: 'TerminalSquare', color: 'sky' },
   { type: 'codex-image-conjure', label: 'Codex 生图工作台', category: 'codex', description: '基于 Codex CLI imagegen 的专用生图工作台：提示词模板、片段、参考图和公共图库', icon: 'ImagePlus', color: 'sky' },
 
+  // ========== Inspiration 灵感之源 ==========
+  { type: 'artist-style-master', label: '艺术风格大师', category: 'inspiration', description: '移植 qiaomu 艺术家风格库：按画家、中文名、流派和标签检索，输出风格提示词或参考图', icon: 'Palette', color: 'amber' },
+
   // ========== ComfyUI 本地工作流节点 ==========
   { type: 'comfyui-store', label: 'ComfyUI超市', category: 'comfyui', description: 'ComfyUI 应用库：导入制作好的工作流应用，接上游素材后一键运行', icon: 'Boxes', color: 'cyan' },
   { type: 'comfyui-app-maker', label: 'ComfyUI应用制作工具', category: 'comfyui', description: '上传 ComfyUI API Workflow JSON，自动识别参数并保存为可复用应用', icon: 'FileJson', color: 'emerald' },
@@ -111,6 +114,7 @@ export const NODE_GROUPS: Record<string, { label: string; nodes: NodeMeta[] }> =
   fal: { label: 'FAL工具箱', nodes: NODE_REGISTRY.filter((n) => n.category === 'fal' && !n.hidden) },
   grok: { label: 'GROK OAuth', nodes: NODE_REGISTRY.filter((n) => n.category === 'grok' && !n.hidden) },
   codex: { label: 'CODEX CLI', nodes: NODE_REGISTRY.filter((n) => n.category === 'codex' && !n.hidden) },
+  inspiration: { label: '灵感之源', nodes: NODE_REGISTRY.filter((n) => n.category === 'inspiration' && !n.hidden) },
   comfyui: { label: 'ComfyUI', nodes: NODE_REGISTRY.filter((n) => n.category === 'comfyui' && !n.hidden) },
   special: { label: '特殊节点', nodes: NODE_REGISTRY.filter((n) => n.category === 'special' && !n.hidden) },
   utility: { label: '工具节点', nodes: NODE_REGISTRY.filter((n) => n.category === 'utility' && !n.hidden) },

@@ -168,6 +168,11 @@ function normalizeTrimAxis(value) {
   return ['vertical', 'horizontal', 'all'].includes(s) ? s : 'vertical';
 }
 
+function normalizeTrimStrategy(value) {
+  const s = String(value || 'auto');
+  return s === 'manual' ? 'manual' : 'auto';
+}
+
 function parseRatio(value, fallbackWidth, fallbackHeight) {
   const raw = String(value || 'keep').trim();
   if (!raw || raw === 'keep') return fallbackWidth / Math.max(1, fallbackHeight);
@@ -322,10 +327,35 @@ async function detectTrimCrop(buffer, input) {
   const width = meta.width || 0;
   const height = meta.height || 0;
   if (!width || !height) throw new Error('无法读取图像尺寸');
-  const raw = await sharp(buffer).ensureAlpha().raw().toBuffer();
   const mode = normalizeTrimMode(input.mode);
   const axis = normalizeTrimAxis(input.axis);
   const threshold = clampNumber(input.threshold, 0, 120, 18);
+  const strategy = normalizeTrimStrategy(input.strategy);
+
+  if (strategy === 'manual') {
+    const manual = input.manual || {};
+    const top = axis === 'vertical' || axis === 'all' ? Math.trunc(clampNumber(manual.top, 0, height - 1, 0)) : 0;
+    const bottomLimit = Math.max(0, height - top - 1);
+    const bottom = axis === 'vertical' || axis === 'all' ? Math.trunc(clampNumber(manual.bottom, 0, bottomLimit, 0)) : 0;
+    const left = axis === 'horizontal' || axis === 'all' ? Math.trunc(clampNumber(manual.left, 0, width - 1, 0)) : 0;
+    const rightLimit = Math.max(0, width - left - 1);
+    const right = axis === 'horizontal' || axis === 'all' ? Math.trunc(clampNumber(manual.right, 0, rightLimit, 0)) : 0;
+    return {
+      x: left,
+      y: top,
+      w: Math.max(1, width - left - right),
+      h: Math.max(1, height - top - bottom),
+      originalWidth: width,
+      originalHeight: height,
+      removed: { top, right, bottom, left },
+      strategy,
+      mode,
+      axis,
+      threshold,
+    };
+  }
+
+  const raw = await sharp(buffer).ensureAlpha().raw().toBuffer();
 
   const rowIsBorder = (y) => {
     let border = 0;
@@ -365,6 +395,16 @@ async function detectTrimCrop(buffer, input) {
     h: Math.max(1, bottom - top + 1),
     originalWidth: width,
     originalHeight: height,
+    removed: {
+      top,
+      right: Math.max(0, width - right - 1),
+      bottom: Math.max(0, height - bottom - 1),
+      left,
+    },
+    strategy,
+    mode,
+    axis,
+    threshold,
   };
 }
 
@@ -770,7 +810,7 @@ router.post('/crop', async (req, res) => {
 });
 
 // ========== POST /api/image/trim-border — 去除上下黑边/白边/透明边 ==========
-// body: { imageUrl, mode?: 'black'|'white'|'transparent'|'auto', axis?: 'vertical'|'horizontal'|'all', threshold?: number }
+// body: { imageUrl, mode?: 'black'|'white'|'transparent'|'auto', axis?: 'vertical'|'horizontal'|'all', threshold?: number, strategy?: 'auto'|'manual', manual?: {top,right,bottom,left} }
 router.post('/trim-border', async (req, res) => {
   try {
     const { imageUrl } = req.body || {};

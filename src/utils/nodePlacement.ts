@@ -54,6 +54,7 @@ export const NODE_DEFAULT_SIZE: Record<string, { w: number; h: number }> = {
   'fal-toolbox': { w: 380, h: 500 },
   'codex-cli-agent': { w: 420, h: 520 },
   'codex-image-conjure': { w: 520, h: 680 },
+  'artist-style-master': { w: 480, h: 620 },
   'model-3d-preview': { w: 520, h: 440 },
   'comfyui-store': { w: 400, h: 560 },
   'comfyui-app-maker': { w: 720, h: 620 },

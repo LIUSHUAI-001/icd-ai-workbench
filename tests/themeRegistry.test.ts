@@ -149,7 +149,11 @@ test('Tetris theme files are imported and mounted in the toolbar without coverin
   assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__pane::before \{[\s\S]*opacity:\s*0\.12/);
   assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__pane::after \{[\s\S]*content:\s*"TETRIS"/);
   assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__pane::after \{[\s\S]*pointer-events:\s*none/);
+  assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) > div::before/);
   assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) > div::after/);
+  assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__node\.dragging:not\(\.react-flow__node-groupBox\) > div::before/);
+  assert.match(css, /html\[data-theme-visual="tetris"\] \.t8-canvas-shell\.t8-node-dragging \.react-flow__node:not\(\.react-flow__node-groupBox\) > div::before/);
+  assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__node\.dragging:not\(\.react-flow__node-groupBox\) \.t8-node::before/);
   assert.match(css, /html\[data-theme-style="pixel"\]\[data-theme-visual="tetris"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) > div:first-child/);
   assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) > div > :not\(\.react-flow__handle\)/);
   assert.match(css, /html\[data-theme-visual="tetris"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) \[class\*="border-white\/10"\]/);

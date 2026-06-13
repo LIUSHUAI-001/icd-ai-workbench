@@ -45,9 +45,17 @@ import {
   type CodexImagePromptTemplate,
 } from '../../utils/codexImageConjure';
 import MentionPromptInput from './MentionPromptInput';
+import MaterialPreviewSection from './MaterialPreviewSection';
 import { resolveMediaMentions, type MediaMention } from './mediaMentions';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useUpstreamMaterials, type Material } from './useUpstreamMaterials';
+import { useOrderedMaterials } from './useOrderedMaterials';
+import {
+  countExcludedMaterials,
+  excludeMaterialId,
+  filterExcludedMaterials,
+  normalizeExcludedMaterialIds,
+} from '../../utils/materialExclusion';
 
 const STORAGE_KEY = 't8.codexImageConjure.prompts.v1';
 
@@ -191,21 +199,63 @@ const CodexImageConjureNode = ({ id, data, selected }: NodeProps) => {
   const autoPublish = d.codexConjureAutoPublish !== false;
   const persistPrompt = Boolean(d.codexConjurePersistPrompt);
   const persistRefs = d.codexConjurePersistRefs !== false;
+  const materialOrder: string[] = Array.isArray(d.codexConjureMaterialOrder) ? d.codexConjureMaterialOrder : [];
+  const excludedMaterialIds = useMemo(
+    () => normalizeExcludedMaterialIds(d.codexConjureExcludedMaterialIds),
+    [d.codexConjureExcludedMaterialIds],
+  );
 
   useEffect(() => {
     tasksRef.current = tasks;
   }, [tasks]);
 
-  const mentionMaterials = useMemo<Material[]>(() => {
-    const galleryMaterials = galleryRefs.map((url, index) => ({
+  const galleryMaterials = useMemo<Material[]>(() => (
+    galleryRefs.map((url, index) => ({
       id: `gallery:${index}:${url}`,
       kind: 'image' as const,
       url,
       sourceNodeId: id,
       origin: 'local' as const,
       label: fileNameFromUrl(url),
-    }));
-    const all = [...upstream.texts, ...upstream.images, ...galleryMaterials];
+    }))
+  ), [galleryRefs, id]);
+  const visibleUpstreamTexts = useMemo(
+    () => filterExcludedMaterials(upstream.texts, excludedMaterialIds),
+    [upstream.texts, excludedMaterialIds],
+  );
+  const visibleUpstreamImages = useMemo(
+    () => filterExcludedMaterials(upstream.images, excludedMaterialIds),
+    [upstream.images, excludedMaterialIds],
+  );
+  const inputImageMaterials = useMemo(
+    () => [...visibleUpstreamImages, ...galleryMaterials],
+    [galleryMaterials, visibleUpstreamImages],
+  );
+  const orderedInputImages = useOrderedMaterials(inputImageMaterials, materialOrder);
+  const orderedInputTexts = useOrderedMaterials(visibleUpstreamTexts, materialOrder);
+  const excludedUpstreamCount = useMemo(
+    () => countExcludedMaterials(excludedMaterialIds, [...upstream.texts, ...upstream.images]),
+    [excludedMaterialIds, upstream.texts, upstream.images],
+  );
+  const setMaterialOrder = useCallback((nextOrder: string[]) => update({ codexConjureMaterialOrder: nextOrder }), [update]);
+  const excludeUpstreamMaterial = useCallback((material: Material) => {
+    if (material.origin !== 'upstream') return;
+    update({
+      codexConjureExcludedMaterialIds: excludeMaterialId(excludedMaterialIds, material.id),
+      codexConjureMaterialOrder: materialOrder.filter((itemId) => itemId !== material.id),
+    });
+  }, [excludedMaterialIds, materialOrder, update]);
+  const removeGalleryMaterial = useCallback((material: Material) => {
+    if (material.origin !== 'local') return;
+    update({
+      codexConjureGalleryRefs: galleryRefs.filter((url) => url !== material.url),
+      codexConjureMaterialOrder: materialOrder.filter((itemId) => itemId !== material.id),
+    });
+  }, [galleryRefs, materialOrder, update]);
+  const restoreExcludedMaterials = useCallback(() => update({ codexConjureExcludedMaterialIds: [] }), [update]);
+
+  const mentionMaterials = useMemo<Material[]>(() => {
+    const all = [...orderedInputTexts, ...orderedInputImages];
     const seen = new Set<string>();
     return all.filter((item) => {
       const key = materialKey(item);
@@ -213,7 +263,7 @@ const CodexImageConjureNode = ({ id, data, selected }: NodeProps) => {
       seen.add(key);
       return true;
     });
-  }, [galleryRefs, id, upstream.images, upstream.texts]);
+  }, [orderedInputImages, orderedInputTexts]);
 
   const selectedTemplate = useMemo(
     () => promptState.templates.find((item) => item.id === d.codexConjureTemplateId) || promptState.templates[0] || null,
@@ -416,13 +466,12 @@ const CodexImageConjureNode = ({ id, data, selected }: NodeProps) => {
   }, [galleryRefs, update]);
 
   const buildCurrentTaskInput = useCallback(() => {
-    const upstreamTexts = upstream.texts.map((item) => item.url).filter(Boolean);
+    const upstreamTexts = orderedInputTexts.map((item) => item.url).filter(Boolean);
     const resolvedLocal = resolveMediaMentions(prompt, mentions, mentionMaterials).trim();
     const mentionedImageUrls = mentions.filter((mention) => mention.kind === 'image').map((mention) => mention.url);
     const imageRefs = unique([
       ...mentionedImageUrls,
-      ...upstream.images.map((item) => item.url),
-      ...galleryRefs,
+      ...orderedInputImages.map((item) => item.url),
     ]);
     const promptBody = buildCodexImageConjurePrompt({
       upstreamTexts,
@@ -453,7 +502,7 @@ const CodexImageConjureNode = ({ id, data, selected }: NodeProps) => {
       quality: String(d.codexConjureQuality || '高'),
       count,
     };
-  }, [count, d.codexConjureAspectRatio, d.codexConjureBackground, d.codexConjureFormat, d.codexConjureModel, d.codexConjureNegativePrompt, d.codexConjurePromptMode, d.codexConjureQuality, d.codexConjureSize, galleryRefs, mentionMaterials, mentions, prompt, promptState.snippets, selectedTemplate?.notes, upstream.images, upstream.texts]);
+  }, [count, d.codexConjureAspectRatio, d.codexConjureBackground, d.codexConjureFormat, d.codexConjureModel, d.codexConjureNegativePrompt, d.codexConjurePromptMode, d.codexConjureQuality, d.codexConjureSize, mentionMaterials, mentions, orderedInputImages, orderedInputTexts, prompt, promptState.snippets, selectedTemplate?.notes]);
 
   const addLatestToLibrary = useCallback(async () => {
     const url = latestUrls[0];
@@ -876,6 +925,27 @@ const CodexImageConjureNode = ({ id, data, selected }: NodeProps) => {
           </label>
         </section>
 
+        {(orderedInputImages.length > 0 || excludedUpstreamCount > 0) && (
+          <section data-codex-image-conjure-input-materials="true">
+            <MaterialPreviewSection
+              texts={[]}
+              images={orderedInputImages}
+              videos={[]}
+              audios={[]}
+              order={materialOrder}
+              onReorder={setMaterialOrder}
+              onRemoveLocal={removeGalleryMaterial}
+              onExcludeUpstream={excludeUpstreamMaterial}
+              excludedCount={excludedUpstreamCount}
+              onRestoreExcluded={restoreExcludedMaterials}
+              selected={selected}
+              isDark={isDark}
+              isPixel={isPixel}
+              title="输入参考图"
+            />
+          </section>
+        )}
+
         <section className="p-2" style={{ ...cardStyle, borderColor: accent }}>
           <MentionPromptInput
             value={prompt}
@@ -893,7 +963,7 @@ const CodexImageConjureNode = ({ id, data, selected }: NodeProps) => {
             style={{ color: text, background: isDark ? 'rgba(2,6,23,0.76)' : '#ffffff', minHeight: 180, height: 180 }}
           />
           <div className="mt-2 text-[11px]" style={{ color: subText }}>
-            参考图 {unique([...upstream.images.map((item) => item.url), ...galleryRefs]).length} 张 · 文本 {upstream.texts.length} 段 · Skill imagegen
+            参考图 {unique(orderedInputImages.map((item) => item.url)).length} 张 · 文本 {orderedInputTexts.length} 段 · Skill imagegen
           </div>
         </section>
 

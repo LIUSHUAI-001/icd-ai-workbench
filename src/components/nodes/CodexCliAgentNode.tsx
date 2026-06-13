@@ -296,6 +296,14 @@ const handleStyle: CSSProperties = {
   zIndex: 120,
 };
 
+const CODEX_AGENT_HANDLE_GAP = 34;
+
+function codexAgentHandleTop(index: number, count: number): CSSProperties['top'] {
+  const offset = Math.round((index - (count - 1) / 2) * CODEX_AGENT_HANDLE_GAP);
+  if (offset === 0) return '50%';
+  return `calc(50% ${offset > 0 ? '+' : '-'} ${Math.abs(offset)}px)`;
+}
+
 function makeId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -2076,9 +2084,11 @@ const CodexCliAgentNode = ({ id, data, selected }: NodeProps) => {
       startPatch.codexContextCompressedCount = studioMemory.compressedCount;
       startPatch.codexContextLimit = studioMemory.contextLimit;
     }
+    const shouldClearPromptAfterRun = studioOpen && !persistPrompt;
+    const shouldClearPromptMentionsAfterRun = studioOpen && (!persistPrompt || !persistMaterials);
     if (studioOpen) startPatch.codexRunIntent = codexRunIntent;
-    if (!persistPrompt) startPatch.codexQuickPrompt = '';
-    if (!persistPrompt || !persistMaterials) startPatch.codexQuickPromptMentions = [];
+    if (shouldClearPromptAfterRun) startPatch.codexQuickPrompt = '';
+    if (shouldClearPromptMentionsAfterRun) startPatch.codexQuickPromptMentions = [];
     update(startPatch);
     taskCompletionSound.primeAudio();
 
@@ -2190,8 +2200,8 @@ const CodexCliAgentNode = ({ id, data, selected }: NodeProps) => {
       const autoPublishArtifact = selectAutoPublishArtifact(runArtifactsForPublish, runIntent, latest);
       if (autoPublishArtifact && autoPublishOutput) publishArtifact(autoPublishArtifact);
       const finishPatch: Record<string, any> = {};
-      if (!persistPrompt) finishPatch.codexQuickPrompt = '';
-      if (!persistPrompt || !persistMaterials) finishPatch.codexQuickPromptMentions = [];
+      if (shouldClearPromptAfterRun) finishPatch.codexQuickPrompt = '';
+      if (shouldClearPromptMentionsAfterRun) finishPatch.codexQuickPromptMentions = [];
       if (studioOpen && !persistMaterials) {
         const consumedIds = materialIds([
           ...orderedInputTexts,
@@ -3896,15 +3906,15 @@ const CodexCliAgentNode = ({ id, data, selected }: NodeProps) => {
   return (
     <>
       <div data-codex-cli-agent-root="true" className="codex-cli-agent-node" style={rootStyle}>
-        <Handle type="target" id="text" position={Position.Left} style={{ ...handleStyle, top: 94, background: PORT_COLOR.text }} />
-        <Handle type="target" id="image" position={Position.Left} style={{ ...handleStyle, top: 130, background: PORT_COLOR.image }} />
-        <Handle type="target" id="video" position={Position.Left} style={{ ...handleStyle, top: 166, background: PORT_COLOR.video }} />
-        <Handle type="target" id="audio" position={Position.Left} style={{ ...handleStyle, top: 202, background: PORT_COLOR.audio }} />
-        <Handle type="source" id="text" position={Position.Right} style={{ ...handleStyle, top: 108, background: PORT_COLOR.text }} />
-        <Handle type="source" id="image" position={Position.Right} style={{ ...handleStyle, top: 146, background: PORT_COLOR.image }} />
-        <Handle type="source" id="video" position={Position.Right} style={{ ...handleStyle, top: 184, background: PORT_COLOR.video }} />
-        <Handle type="source" id="audio" position={Position.Right} style={{ ...handleStyle, top: 222, background: PORT_COLOR.audio }} />
-        <Handle type="source" id="model3d" position={Position.Right} style={{ ...handleStyle, top: 260, background: PORT_COLOR.model3d }} />
+        <Handle type="target" id="text" position={Position.Left} style={{ ...handleStyle, top: codexAgentHandleTop(0, 4), background: PORT_COLOR.text }} />
+        <Handle type="target" id="image" position={Position.Left} style={{ ...handleStyle, top: codexAgentHandleTop(1, 4), background: PORT_COLOR.image }} />
+        <Handle type="target" id="video" position={Position.Left} style={{ ...handleStyle, top: codexAgentHandleTop(2, 4), background: PORT_COLOR.video }} />
+        <Handle type="target" id="audio" position={Position.Left} style={{ ...handleStyle, top: codexAgentHandleTop(3, 4), background: PORT_COLOR.audio }} />
+        <Handle type="source" id="text" position={Position.Right} style={{ ...handleStyle, top: codexAgentHandleTop(0, 5), background: PORT_COLOR.text }} />
+        <Handle type="source" id="image" position={Position.Right} style={{ ...handleStyle, top: codexAgentHandleTop(1, 5), background: PORT_COLOR.image }} />
+        <Handle type="source" id="video" position={Position.Right} style={{ ...handleStyle, top: codexAgentHandleTop(2, 5), background: PORT_COLOR.video }} />
+        <Handle type="source" id="audio" position={Position.Right} style={{ ...handleStyle, top: codexAgentHandleTop(3, 5), background: PORT_COLOR.audio }} />
+        <Handle type="source" id="model3d" position={Position.Right} style={{ ...handleStyle, top: codexAgentHandleTop(4, 5), background: PORT_COLOR.model3d }} />
 
         <div data-codex-drag-surface="true" className="flex cursor-grab items-center justify-between border-b px-4 py-3 active:cursor-grabbing" style={{ borderColor: border, background: surfaceStrong, color: studioHeaderText }}>
           <div className="flex min-w-0 items-center gap-3">
@@ -4037,6 +4047,26 @@ const CodexCliAgentNode = ({ id, data, selected }: NodeProps) => {
                   自动负面词
                 </label>
               </div>
+            </div>
+          )}
+
+          {inputMaterialTotal > 0 && (
+            <div data-codex-simple-input-materials="true">
+              <MaterialPreviewSection
+                texts={orderedInputTexts}
+                images={orderedImages}
+                videos={orderedVideos}
+                audios={orderedAudios}
+                order={materialOrder}
+                onReorder={setMaterialOrder}
+                onExcludeUpstream={excludeUpstreamMaterial}
+                excludedCount={excludedUpstreamCount}
+                onRestoreExcluded={restoreExcludedMaterials}
+                selected={selected}
+                isDark={isDark}
+                isPixel={isPixel}
+                title="输入素材 · 上游参考"
+              />
             </div>
           )}
 

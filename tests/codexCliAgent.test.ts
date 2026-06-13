@@ -622,6 +622,10 @@ test('Codex simple creator mode has explicit LLM IMG intent, model defaults, ima
   const node = read('../src/components/nodes/CodexCliAgentNode.tsx');
 
   assert.match(node, /data-codex-simple-run-intent=\{codexRunIntent\}/);
+  assert.match(node, /data-codex-simple-input-materials="true"/);
+  assert.match(node, /const shouldClearPromptAfterRun = studioOpen && !persistPrompt/);
+  assert.doesNotMatch(node, /if \(!persistPrompt\) startPatch\.codexQuickPrompt = ''/);
+  assert.doesNotMatch(node, /if \(!persistPrompt\) finishPatch\.codexQuickPrompt = ''/);
   assert.match(node, /const runIntent: CodexRunIntent = codexRunIntent/);
   assert.doesNotMatch(node, /studioOpen \? codexRunIntent : 'auto'/);
   assert.match(node, /codexModelAutoPatchForRunIntent\(nextIntent\)/);
@@ -839,6 +843,20 @@ test('Codex creator studio keeps session memory with automatic compression', () 
   assert.match(node, /contextCompressedCount: clampInteger\(d\.codexContextCompressedCount/);
   assert.match(node, /已压缩 \{codexContextCompressedCount\} 条历史为长期记忆/);
   assert.doesNotMatch(node, /studioMemoryPrompt[\s\S]{0,160}simple/);
+});
+
+test('Codex CLI Agent ports stay grouped around the node middle', () => {
+  const node = read('../src/components/nodes/CodexCliAgentNode.tsx');
+
+  assert.match(node, /function codexAgentHandleTop\(index: number, count: number\)/);
+  assert.match(node, /return '50%'/);
+  assert.match(node, /calc\(50%/);
+  assert.match(node, /top: codexAgentHandleTop\(0, 4\)/);
+  assert.match(node, /top: codexAgentHandleTop\(3, 4\)/);
+  assert.match(node, /top: codexAgentHandleTop\(0, 5\)/);
+  assert.match(node, /top: codexAgentHandleTop\(4, 5\)/);
+  assert.doesNotMatch(node, /top: 94/);
+  assert.doesNotMatch(node, /top: 260/);
 });
 
 test('Codex creator product library supports durable deletion and batch cleanup', () => {

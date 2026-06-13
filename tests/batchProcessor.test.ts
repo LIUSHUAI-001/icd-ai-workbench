@@ -219,6 +219,7 @@ test('batch processor backend routes process every local image step and final ar
   try {
     const trim = await post('/api/image/trim-border', { imageUrl: '/files/input/bars.png', mode: 'black', axis: 'vertical' });
     assert.equal(trim.crop.h, 4);
+    assert.deepEqual(trim.crop.removed, { top: 3, right: 0, bottom: 3, left: 0 });
     const removeBg = await post('/api/image/remove-bg', { imageUrl: trim.imageUrl });
     const pad = await post('/api/image/pad-canvas', { imageUrl: removeBg.imageUrl, ratio: '1:1' });
     assert.equal(pad.width, pad.height);
@@ -233,6 +234,82 @@ test('batch processor backend routes process every local image step and final ar
     assert.equal(opened.subdir, 'batch');
     assert.equal(opened.opened, false);
     assert.match(opened.path, /output[\\/]batch$/);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    config.INPUT_DIR = oldConfig.INPUT_DIR;
+    config.OUTPUT_DIR = oldConfig.OUTPUT_DIR;
+    config.THUMBNAILS_DIR = oldConfig.THUMBNAILS_DIR;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('trim-border supports white, transparent, four-side auto, and manual pixels with crop feedback', async () => {
+  const express = require('express');
+  const sharp = require('sharp');
+  const config = require('../backend/src/config.js');
+  const imageOpsRouter = require('../backend/src/routes/imageOps.js');
+
+  const oldConfig = {
+    INPUT_DIR: config.INPUT_DIR,
+    OUTPUT_DIR: config.OUTPUT_DIR,
+    THUMBNAILS_DIR: config.THUMBNAILS_DIR,
+  };
+  const root = mkdtempSync(join(tmpdir(), 't8-batch-trim-'));
+  config.INPUT_DIR = join(root, 'input');
+  config.OUTPUT_DIR = join(root, 'output');
+  config.THUMBNAILS_DIR = join(root, 'thumbs');
+  mkdirSync(config.INPUT_DIR, { recursive: true });
+  mkdirSync(config.OUTPUT_DIR, { recursive: true });
+  mkdirSync(config.THUMBNAILS_DIR, { recursive: true });
+
+  writeFileSync(
+    join(config.INPUT_DIR, 'white-bars.png'),
+    await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#fff"/><rect x="2" y="1" width="4" height="6" fill="#223344"/></svg>`)).png().toBuffer(),
+  );
+  writeFileSync(
+    join(config.INPUT_DIR, 'alpha-bars.png'),
+    await sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="none"/><rect x="1" y="2" width="6" height="4" fill="#dd3366"/></svg>`)).png().toBuffer(),
+  );
+
+  const app = express();
+  app.use(express.json({ limit: '4mb' }));
+  app.use('/api/image', imageOpsRouter);
+  const server = await new Promise<any>((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = async (body: any) => {
+    const res = await fetch(`${base}/api/image/trim-border`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    assert.equal(res.ok, true, JSON.stringify(json));
+    assert.equal(json.success, true);
+    return json.data;
+  };
+
+  try {
+    const white = await post({ imageUrl: '/files/input/white-bars.png', mode: 'white', axis: 'all', threshold: 8 });
+    assert.deepEqual(white.crop.removed, { top: 1, right: 2, bottom: 1, left: 2 });
+    assert.equal(white.crop.w, 4);
+    assert.equal(white.crop.h, 6);
+
+    const alpha = await post({ imageUrl: '/files/input/alpha-bars.png', mode: 'transparent', axis: 'all', threshold: 8 });
+    assert.deepEqual(alpha.crop.removed, { top: 2, right: 1, bottom: 2, left: 1 });
+    assert.equal(alpha.crop.w, 6);
+    assert.equal(alpha.crop.h, 4);
+
+    const manual = await post({
+      imageUrl: '/files/input/white-bars.png',
+      strategy: 'manual',
+      axis: 'all',
+      manual: { top: 1, right: 1, bottom: 2, left: 2 },
+    });
+    assert.deepEqual(manual.crop.removed, { top: 1, right: 1, bottom: 2, left: 2 });
+    assert.equal(manual.crop.w, 5);
+    assert.equal(manual.crop.h, 5);
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     config.INPUT_DIR = oldConfig.INPUT_DIR;

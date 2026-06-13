@@ -43,6 +43,8 @@ test('Codex image conjure node is registered as a focused Codex image generator'
   assert.match(canvas, /CodexImageConjureNode/);
   assert.match(canvas, /import\('\.\/nodes\/CodexImageConjureNode'\)/);
   assert.match(canvas, /'codex-image-conjure': CodexImageConjureNode/);
+  assert.match(canvas, /'codex-image-conjure':\s*\{[\s\S]*codexConjureMaterialOrder:\s*\[\]/);
+  assert.match(canvas, /'codex-image-conjure':\s*\{[\s\S]*codexConjureExcludedMaterialIds:\s*\[\]/);
   assert.match(sidebar, /'codex-image-conjure': 'ImagePlus'/);
   assert.match(placement, /'codex-image-conjure':\s*\{\s*w:\s*520,\s*h:\s*680\s*\}/);
   assert.match(features, /codexImageConjureNode/);
@@ -127,6 +129,14 @@ test('Codex image conjure frontend only uses Codex CLI image generation and reso
   assert.match(node, /导入/);
   assert.match(node, /导出/);
   assert.match(node, /MentionPromptInput/);
+  assert.match(node, /MaterialPreviewSection/);
+  assert.match(node, /data-codex-image-conjure-input-materials="true"/);
+  assert.match(node, /const visibleUpstreamImages = useMemo\([\s\S]*filterExcludedMaterials\(upstream\.images, excludedMaterialIds\)/);
+  assert.match(node, /const orderedInputImages = useOrderedMaterials\(inputImageMaterials, materialOrder\)/);
+  assert.match(node, /codexConjureExcludedMaterialIds: excludeMaterialId\(excludedMaterialIds, material\.id\)/);
+  assert.match(node, /codexConjureGalleryRefs: galleryRefs\.filter\(\(url\) => url !== material\.url\)/);
+  assert.match(node, /const imageRefs = unique\(\[[\s\S]*\.\.\.orderedInputImages\.map\(\(item\) => item\.url\)/);
+  assert.doesNotMatch(node, /const imageRefs = unique\(\[[\s\S]*\.\.\.upstream\.images\.map/);
   assert.match(node, /streamCodexImageConjure/);
   assert.match(node, /getResourceItems/);
   assert.match(node, /publishCodexImageConjureResult/);

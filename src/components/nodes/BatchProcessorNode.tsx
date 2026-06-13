@@ -54,6 +54,25 @@ const RATIO_OPTIONS = [
   { value: '9:16', label: '9:16' },
 ];
 
+type TrimBorderMode = 'auto' | 'black' | 'white' | 'transparent';
+type TrimBorderAxis = 'vertical' | 'horizontal' | 'all';
+type TrimBorderStrategy = 'auto' | 'manual';
+
+const TRIM_MODE_OPTIONS: Array<{ value: TrimBorderMode; label: string }> = [
+  { value: 'auto', label: '自动检测' },
+  { value: 'black', label: '黑边' },
+  { value: 'white', label: '白边' },
+  { value: 'transparent', label: '透明边' },
+];
+
+const TRIM_AXIS_OPTIONS: Array<{ value: TrimBorderAxis; label: string }> = [
+  { value: 'vertical', label: '仅上下' },
+  { value: 'horizontal', label: '仅左右' },
+  { value: 'all', label: '上下左右' },
+];
+
+const trimModeLabel = (mode: TrimBorderMode) => TRIM_MODE_OPTIONS.find((item) => item.value === mode)?.label || '自动检测';
+
 function dedupeItems(items: BatchProcessorItem[]): BatchProcessorItem[] {
   const seen = new Set<string>();
   const out: BatchProcessorItem[] = [];
@@ -196,6 +215,20 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
       : 'keep';
   const ratio = typeof d.batchProcessorTargetRatio === 'string' ? d.batchProcessorTargetRatio : 'keep';
   const upscaleScale = Math.max(1, Math.min(8, Number(d.batchProcessorUpscaleScale || 2)));
+  const trimMode: TrimBorderMode = ['auto', 'black', 'white', 'transparent'].includes(d.batchProcessorTrimMode)
+    ? d.batchProcessorTrimMode
+    : 'auto';
+  const trimAxis: TrimBorderAxis = ['vertical', 'horizontal', 'all'].includes(d.batchProcessorTrimAxis)
+    ? d.batchProcessorTrimAxis
+    : 'vertical';
+  const trimStrategy: TrimBorderStrategy = d.batchProcessorTrimStrategy === 'manual' ? 'manual' : 'auto';
+  const trimThreshold = Math.max(0, Math.min(120, Number(d.batchProcessorTrimThreshold ?? 18)));
+  const trimManual = {
+    top: Math.max(0, Math.min(9999, Number(d.batchProcessorTrimManualTop || 0))),
+    right: Math.max(0, Math.min(9999, Number(d.batchProcessorTrimManualRight || 0))),
+    bottom: Math.max(0, Math.min(9999, Number(d.batchProcessorTrimManualBottom || 0))),
+    left: Math.max(0, Math.min(9999, Number(d.batchProcessorTrimManualLeft || 0))),
+  };
 
   const namingSettingsFor = (item: BatchProcessorItem): BatchNamingSettings => ({
     mode: nameMode,
@@ -259,13 +292,32 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
     void appendFiles(Array.from(event.dataTransfer?.files || []));
   };
 
-  const processImage = async (item: BatchProcessorItem): Promise<{ url: string; steps: string[] }> => {
+  const processImage = async (item: BatchProcessorItem): Promise<{ url: string; steps: string[]; trimInfo?: BatchProcessorItem['trimInfo'] }> => {
     let url = item.url;
     const steps: string[] = [];
+    let trimInfo: BatchProcessorItem['trimInfo'] | undefined;
     if (d.batchProcessorTrimBlackBars) {
-      const result = await opTrimBorder(url, { mode: 'black', axis: 'vertical', threshold: Number(d.batchProcessorTrimThreshold || 18) });
+      const result = await opTrimBorder(url, {
+        mode: trimMode,
+        axis: trimAxis,
+        threshold: trimThreshold,
+        strategy: trimStrategy,
+        manual: trimManual,
+      });
       url = result.imageUrl;
-      steps.push('去黑边');
+      const removed = result.crop.removed;
+      trimInfo = {
+        top: removed.top,
+        right: removed.right,
+        bottom: removed.bottom,
+        left: removed.left,
+        width: result.crop.w,
+        height: result.crop.h,
+      };
+      const totalRemoved = removed.top + removed.right + removed.bottom + removed.left;
+      steps.push(totalRemoved > 0
+        ? `裁边 上${removed.top}/右${removed.right}/下${removed.bottom}/左${removed.left}px`
+        : '裁边 0px');
     }
     if (d.batchProcessorRemoveBg) {
       const result = await opRemoveBg(url);
@@ -287,7 +339,7 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
       url = result.imageUrl;
       steps.push(outputFormat.toUpperCase());
     }
-    return { url, steps };
+    return { url, steps, trimInfo };
   };
 
   const runBatch = async () => {
@@ -298,6 +350,7 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
       resultUrl: '',
       outputName: '',
       stepsDone: [],
+      trimInfo: undefined,
     }));
     if (baseItems.length === 0) {
       const msg = '请先上传文件、文件夹或连接上游素材';
@@ -329,10 +382,12 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
         const item = nextItems[index];
         let currentUrl = item.url;
         let stepsDone: string[] = [];
+        let trimInfo: BatchProcessorItem['trimInfo'] | undefined;
         if (item.kind === 'image') {
           const processed = await processImage(item);
           currentUrl = processed.url;
           stepsDone = processed.steps;
+          trimInfo = processed.trimInfo;
         } else {
           stepsDone = ['命名归档'];
         }
@@ -347,6 +402,7 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
           outputName: copied.filename,
           size: copied.size || item.size,
           stepsDone,
+          trimInfo,
         };
       } catch (error: any) {
         nextItems[index] = {
@@ -597,11 +653,94 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
           </div>
 
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
-            <ToggleStep icon={<Scissors size={13} />} label="去除上下黑边" active={Boolean(d.batchProcessorTrimBlackBars)} disabled={running} onChange={(value) => toggleStep('batchProcessorTrimBlackBars', value, '去除上下黑边')} />
+            <ToggleStep icon={<Scissors size={13} />} label="去除黑/白/透明边" active={Boolean(d.batchProcessorTrimBlackBars)} disabled={running} onChange={(value) => toggleStep('batchProcessorTrimBlackBars', value, '去除上下黑边')} />
             <ToggleStep icon={<Wand2 size={13} />} label="批量抠图" active={Boolean(d.batchProcessorRemoveBg)} disabled={running} onChange={(value) => toggleStep('batchProcessorRemoveBg', value, '批量抠图')} />
             <ToggleStep icon={<Maximize2 size={13} />} label="批量扩图" active={Boolean(d.batchProcessorExpandCanvas)} disabled={running} onChange={(value) => toggleStep('batchProcessorExpandCanvas', value, '批量扩图')} />
             <ToggleStep icon={<ZoomIn size={13} />} label="高清放大" active={Boolean(d.batchProcessorUpscale)} disabled={running} onChange={(value) => toggleStep('batchProcessorUpscale', value, '高清放大')} />
           </div>
+
+          {Boolean(d.batchProcessorTrimBlackBars) && (
+            <div className="rounded-md border p-2" style={{ borderColor: 'var(--t8-border)', background: 'var(--t8-bg-soft)' }}>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-1 text-[10px] font-bold" style={{ color: 'var(--t8-text-main)' }}>
+                  <Scissors size={12} />
+                  <span className="truncate">裁边设置</span>
+                </div>
+                <span className="shrink-0 text-[9px]" style={{ color: 'var(--t8-text-dim)' }}>
+                  {trimStrategy === 'auto' ? `${trimModeLabel(trimMode)} · GAP ${trimThreshold}px` : '手动像素'}
+                </span>
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+                <div className="min-w-0">
+                  <FieldLabel>方式</FieldLabel>
+                  <select className="t8-select w-full px-2 py-1.5 text-xs" value={trimStrategy} onChange={(event) => update({ batchProcessorTrimStrategy: event.target.value })} disabled={running}>
+                    <option value="auto">自动检测</option>
+                    <option value="manual">手动像素</option>
+                  </select>
+                </div>
+                <div className="min-w-0">
+                  <FieldLabel>裁剪方向</FieldLabel>
+                  <select className="t8-select w-full px-2 py-1.5 text-xs" value={trimAxis} onChange={(event) => update({ batchProcessorTrimAxis: event.target.value })} disabled={running}>
+                    {TRIM_AXIS_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </div>
+              </div>
+              {trimStrategy === 'auto' ? (
+                <div className="mt-2 space-y-2">
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+                    <div className="min-w-0">
+                      <FieldLabel>边缘类型</FieldLabel>
+                      <select className="t8-select w-full px-2 py-1.5 text-xs" value={trimMode} onChange={(event) => update({ batchProcessorTrimMode: event.target.value })} disabled={running}>
+                        {TRIM_MODE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                      </select>
+                    </div>
+                    <div className="min-w-0">
+                      <FieldLabel>GAP 容差</FieldLabel>
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="nodrag nopan min-w-0 flex-1"
+                          type="range"
+                          min={0}
+                          max={80}
+                          step={1}
+                          value={trimThreshold}
+                          onChange={(event) => update({ batchProcessorTrimThreshold: Number(event.target.value) })}
+                          disabled={running}
+                          onMouseDown={(event) => event.stopPropagation()}
+                        />
+                        <span className="w-10 rounded px-1 py-0.5 text-center text-[10px] font-bold" style={{ background: 'var(--t8-bg-node)', color: 'var(--t8-text-main)' }}>{trimThreshold}px</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[10px] leading-snug" style={{ color: 'var(--t8-text-dim)' }}>
+                    自动检测黑边、白边或透明边；GAP 越大，对压缩噪点、阴影和轻微灰边越宽容。
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 grid grid-cols-4 gap-1">
+                  {[
+                    ['Top', '上', 'batchProcessorTrimManualTop', trimManual.top],
+                    ['Right', '右', 'batchProcessorTrimManualRight', trimManual.right],
+                    ['Bottom', '下', 'batchProcessorTrimManualBottom', trimManual.bottom],
+                    ['Left', '左', 'batchProcessorTrimManualLeft', trimManual.left],
+                  ].map(([key, label, field, value]) => (
+                    <label key={key} className="min-w-0">
+                      <span className="mb-0.5 block text-[9px] font-semibold" style={{ color: 'var(--t8-text-muted)' }}>{label}</span>
+                      <input
+                        className="t8-input w-full px-1.5 py-1 text-xs"
+                        type="number"
+                        min={0}
+                        max={9999}
+                        value={Number(value)}
+                        onChange={(event) => update({ [String(field)]: Math.max(0, Number(event.target.value || 0)) })}
+                        disabled={running}
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="rounded-md border p-2" style={{ borderColor: 'var(--t8-border)' }}>
             <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold" style={{ color: 'var(--t8-text-muted)' }}>
@@ -620,6 +759,11 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
                     <span className="min-w-0 flex-1 truncate text-[11px] font-semibold" style={{ color: 'var(--t8-text-main)' }}>{item.outputName || item.name}</span>
                     <span className="text-[10px]" style={{ color: 'var(--t8-text-dim)' }}>{item.stepsDone?.join(' / ')}</span>
                   </div>
+                  {item.trimInfo ? (
+                    <div className="mt-0.5 text-[10px]" style={{ color: 'var(--t8-text-dim)' }}>
+                      裁掉：上 {item.trimInfo.top}px / 右 {item.trimInfo.right}px / 下 {item.trimInfo.bottom}px / 左 {item.trimInfo.left}px，输出 {item.trimInfo.width}×{item.trimInfo.height}
+                    </div>
+                  ) : null}
                   {item.resultUrl ? (
                     <a className="block truncate text-[10px] underline" href={item.resultUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--t8-accent)' }}>{item.resultUrl}</a>
                   ) : item.error ? (
@@ -631,7 +775,7 @@ function BatchProcessorNode({ id, data, selected }: NodeProps) {
           </div>
 
           <div className="rounded-md border px-2 py-1.5 text-[10px] leading-relaxed" style={{ borderColor: 'var(--t8-border)', color: 'var(--t8-text-dim)' }}>
-            开启后点击开始批处理；纯色背景本地抠图、去黑边、扩画布、格式转换和普通放大仅图像素材可用，视频/音频/3D 当前执行批量命名归档。
+            开启后点击开始批处理；去除上下左右黑边/白边/透明边、纯色背景本地抠图、扩画布、格式转换和普通放大仅图像素材可用，视频/音频/3D 当前执行批量命名归档。
           </div>
         </div>
       </div>

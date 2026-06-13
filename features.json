@@ -1,7 +1,54 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.1.9",
-  "lastUpdated": "2026-06-13-electron-release",
+  "version": "2.2.0",
+  "lastUpdated": "2026-06-14-source-only",
+  "sourceReleaseV220": {
+    "version": "2.2.0",
+    "status": "source-only",
+    "date": "2026-06-14",
+    "description": "v2.2.0 GitHub 源码版：收口灵感之源艺术风格大师、批量素材去黑/白/透明边、Codex CLI Agent 与 Codex 生图工作台输入预览和输出链路、俄罗斯方块主题大屏/拖动残影/难度曲线；本次不打包 Electron，不发布 GitHub Release 自动更新资产。",
+    "highlights": [
+      "左侧新增「灵感之源」分类和「艺术风格大师」节点，迁移 qiaomu 艺术家风格库，支持搜索、流派/分类筛选、lightbox、方向键切换、复制画家提示词、自定义风格和导入导出。",
+      "艺术风格大师节点输出按钮可直接生成风格提示词或风格图片 OutputNode；节点缩略图改为内部滚轮浏览，长分类和长画家名不再撑出节点；自定义风格支持本地上传图片并保存到用户库。",
+      "批量素材处理优先修复去除边框能力：支持黑边、白边、透明边和自动检测，支持自动裁切、手动像素与 gap 类滑动调整，并在结果中显示裁掉像素。",
+      "Codex CLI Agent 简约模式和 Codex 生图工作台补齐上游图像预览、排序和删除，修复简约模式图像输出误落文本的问题，并保留创作台素材区原有逻辑。",
+      "俄罗斯方块主题继续修复节点拖动顶部残影、大屏游戏模式布局、关卡速度和技能消耗曲线，同时保留隐藏奖励影片与通关过场。",
+      "公开版本同步到 2.2.0：package.json、package-lock.json、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.0.md 同步；本次只推 GitHub 源码。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.2.0.md"
+    ],
+    "sourceOnly": {
+      "githubPush": true,
+      "electronPackaging": false,
+      "githubRelease": false,
+      "blockedCommands": [
+        "npm run dist:release",
+        "npm run dist",
+        "npm run release:github",
+        "npm run release:verify"
+      ]
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、Electron 缓存目录和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器与 FAL 应用制作工具仍为本地开发工具，不进入公开源码。",
+      "真实 Grok OAuth 私有调用、New API 分组令牌等私有能力继续通过本机 ignored local-private 扩展 / 加密链路处理。"
+    ],
+    "verification": [
+      "node --test tests\\artistStyleMaster.test.ts tests\\batchProcessor.test.ts tests\\codexCliAgent.test.ts tests\\codexImageConjure.test.ts tests\\themeRegistry.test.ts tests\\updateMdRegressions.test.ts",
+      "node -c backend\\src\\routes\\imageOps.js",
+      "npm run type-check",
+      "npm run build",
+      "npm run public:check",
+      "git diff --check"
+    ]
+  },
   "electronReleaseV219": {
     "version": "2.1.9",
     "status": "electron-release",
@@ -320,6 +367,49 @@
     ],
     "verification": [
       "node --test tests\\codexImageConjure.test.ts",
+      "npm run type-check",
+      "npm run build"
+    ]
+  },
+  "artistStyleMasterNode": {
+    "status": "implemented",
+    "date": "2026-06-13",
+    "nodeType": "artist-style-master",
+    "category": "inspiration",
+    "description": "左侧新增「灵感之源」分类和「艺术风格大师」节点：迁移 joeseesun/qiaomu-artist-style 本地 383 个艺术家风格参考，面向设计和生图创作提供可搜索、可筛选、可管理的风格提示词与风格图片输出。",
+    "ports": {
+      "inputs": [
+        "text"
+      ],
+      "outputs": [
+        "text",
+        "image"
+      ]
+    },
+    "capabilities": [
+      "内置 qiaomu 艺术家风格清单与缩略图，支持按英文名、中文名、流派、中文流派、分类、标签和风格描述搜索。",
+      "节点保持简洁：只展示当前选中风格、搜索、流派/分类筛选、输出模式和常用缩略图；节点缩略图列表在固定高度内容器内滚轮浏览，完整图库在外部弹层打开，避免撑高节点。",
+      "图库支持缩略图网格、点击 lightbox 大图、方向键左右切换、Esc 关闭、一键复制画家名称提示词和输出风格提示词。",
+      "运行模式提供「输出风格提示词」与「输出风格图片」两种，节点内两个快捷按钮和底部运行按钮都会生成标准 OutputNode 文本或图片素材，图片输出同时携带 directImageUrl/imageUrl 兼容字段。",
+      "支持用户保存当前风格、新增/编辑/删除自定义风格、新增/重命名/删除分类，新增自定义风格可直接上传本地图片并保存到用户库，也可用 t8-artist-style-master@1 JSON 导入导出，便于换版本迁移。",
+      "节点、图库弹层和 lightbox 使用 artist-style-master 命名空间 CSS 变量，覆盖浅色/深色主题文字、按钮、输入框和边框对比度，避免主题切换后文字不可读。"
+    ],
+    "sourceFiles": [
+      "src/components/nodes/ArtistStyleMasterNode.tsx",
+      "src/data/artistStyleMasterManifest.ts",
+      "src/utils/artistStyleMaster.ts",
+      "public/artist-style-master/generated/*.webp",
+      "public/artist-style-master/generated/thumbs/*.webp",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/components/Canvas.tsx",
+      "src/components/Sidebar.tsx",
+      "src/utils/nodePlacement.ts",
+      "src/styles/index.css",
+      "tests/artistStyleMaster.test.ts"
+    ],
+    "verification": [
+      "node --test tests\\artistStyleMaster.test.ts",
       "npm run type-check",
       "npm run build"
     ]
@@ -766,8 +856,8 @@
   },
   "canvasTutorialTopbarPanel": {
     "status": "implemented",
-    "date": "2026-06-08",
-    "description": "顶部栏在“最新应用”左侧新增“画布教程”入口，按第一弹到第十一弹整理 T8 画布教程 Bilibili / Youtube 链接；“最新应用 · RunningHub”弹窗移除“获取 RH ApiKey”快捷入口，只保留 RunningHub 国内/海外站和邀请码提示。",
+    "date": "2026-06-14",
+    "description": "顶部栏在“最新应用”左侧新增“画布教程”入口，按第一弹到第十二弹整理 T8 画布教程 Bilibili / Youtube 链接；“最新应用 · RunningHub”弹窗移除“获取 RH ApiKey”快捷入口，只保留 RunningHub 国内/海外站和邀请码提示。",
     "paths": [
       "src/App.tsx",
       "tests/updateMdRegressions.test.ts",
@@ -829,6 +919,11 @@
         "title": "教程第十一弹（新增圣斗士星矢双主题，加强本地comfyui节点和参数解析，修复不支持LIST的问题，新增画布内图片素材按鼠标左右键拖动到文件夹，新增Fal超市功能，新增grok agent节点，含创作台和简易版，新增3D素材上传和预览功能）",
         "bilibili": "https://www.bilibili.com/video/BV1gGEz6VEDA/",
         "youtube": "https://www.youtube.com/watch?v=oRT59Qf65KY"
+      },
+      {
+        "title": "教程第十二弹（grok agent的节点修复图生视频功能，新增视频延展及视频编辑功能，新增codex cli agent节点，简约模式和创作台模式，新增Codex生图工作台节点，新增自定义快捷圆盘，FAL超市新增10多个新模型，视频节点新增3个grok video 1.5模型，解锁成就系统所有隐藏模式的奖励影片，新增俄罗斯方块主题及小游戏）",
+        "bilibili": "https://www.bilibili.com/video/BV1phJs6oE2g/",
+        "youtube": "https://www.youtube.com/watch?v=BKV8YA-kKK4"
       }
     ],
     "verification": [
@@ -1600,11 +1695,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.1.9",
-    "semverVersion": "2.1.9",
+    "version": "2.2.0",
+    "semverVersion": "2.2.0",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.1.9：在 v2.1.8 源码版基础上发布 Electron 自动更新，收口俄罗斯方块主题 / 隐藏奖励影片 / Codex 与 Grok Agent / FAL 超市新增模型 / 多主题可读性修复；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.1.9 为 Electron 自动更新版，标准产物为 dist_electron/T8-PenguinCanvas-Setup-2.1.9.exe、dist_electron/T8-PenguinCanvas-Setup-2.1.9.exe.blockmap 与 dist_electron/latest.yml；发布必须走 npm run dist:release 并完成 release:verify。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.2.0 源码版：在 v2.1.9 Electron 自动更新版基础上收口灵感之源艺术风格大师、批量素材处理、Codex Agent / 生图工作台输入预览和俄罗斯方块主题问题；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.2.0 为 GitHub 源码版，本轮不生成 dist_electron 安装器、blockmap 或 latest.yml；如需桌面自动更新，后续必须另走 npm run dist:release 并完成 release:verify。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
@@ -4236,6 +4331,18 @@
         "FAL 超市新增 Bernini R、Luma Ray / Uni、BRIA、Nemotron ASR、Pixelcut 等模型入口，按 Comfyui-zhenzhen 节点实现迁移参数、分类、输入输出和回归测试。",
         "公开版本同步到 2.1.9：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.1.9.md 同步；本次按规范打包 Electron 并发布 GitHub Release 自动更新资产。"
       ]
+    },
+    "phase160": {
+      "label": "灵感之源、批量去边和 Agent 输入预览源码版 (v2.2.0)",
+      "status": "implemented",
+      "items": [
+        "新增灵感之源分类和艺术风格大师节点，迁移 qiaomu 艺术家风格图片与 manifest，支持搜索、筛选、lightbox、复制提示词、自定义风格、分类管理和导入导出。",
+        "艺术风格大师修复输出风格提示词 / 输出风格图片按钮无反应、缩略图和长文字撑出节点、节点网格不能滚轮浏览的问题；自定义风格支持本地图片上传。",
+        "批量素材处理优先完善去除图片上下左右边框：支持黑边 / 白边 / 透明边 / 自动检测，支持自动、手动像素和 gap 类滑动调整，并展示裁掉像素。",
+        "Codex CLI Agent 简约模式和 Codex 生图工作台补齐上游图片预览、排序、删除与稳定图像产物输出，创作台保持既有素材区和记忆逻辑。",
+        "俄罗斯方块主题继续修复拖动节点顶部残影、大屏游戏布局和游戏难度曲线细节。",
+        "公开版本同步到 2.2.0：package.json、package-lock.json、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.0.md 同步；本次只推 GitHub 源码，不打包 Electron，不发布 GitHub Release 自动更新资产。"
+      ]
     }
   },
   "categories": {
@@ -4325,6 +4432,17 @@
           "label": "RH 配置",
           "description": "RunningHub 工作流参数注入(v1.1.x 起 hidden:true 仅从 Sidebar 隐藏,nodeTypes 注册保留以兼容老画布)",
           "hidden": true
+        }
+      ]
+    },
+    "inspiration": {
+      "label": "灵感之源",
+      "count": 1,
+      "nodes": [
+        {
+          "type": "artist-style-master",
+          "label": "艺术风格大师",
+          "description": "移植 qiaomu 艺术家风格库，支持画家英文名/中文名/风格标签搜索、按流派和分类筛选、缩略图 lightbox、大图方向键切换、复制画家提示词、自定义分类/风格保存、导入导出，并可运行输出风格提示词或风格图片"
         }
       ]
     },

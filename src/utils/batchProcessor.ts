@@ -15,6 +15,14 @@ export interface BatchProcessorItem {
   outputName?: string;
   error?: string;
   stepsDone?: string[];
+  trimInfo?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface BatchNamingSettings {

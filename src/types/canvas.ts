@@ -25,6 +25,7 @@ export type NodeType =
   | 'grok-oauth-agent'
   | 'codex-cli-agent'
   | 'codex-image-conjure'
+  | 'artist-style-master'
   | 'comfyui-store'
   | 'comfyui-app-maker'
   // Special (5)
@@ -79,6 +80,7 @@ export type NodeCategory =
   | 'fal'
   | 'grok'
   | 'codex'
+  | 'inspiration'
   | 'comfyui'
   | 'special'
   | 'utility'
