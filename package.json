@@ -29,6 +29,7 @@
     "dev": "concurrently \"cd backend && npm start\" \"vite\"",
     "dev:vite": "vite",
     "dev:backend": "cd backend && npm start",
+    "figma:bridge": "node tools/figma-bridge/server.cjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
@@ -36,10 +37,13 @@
     "electron:dev": "cross-env T8PC_PACKAGED=0 electron electron/main.cjs",
     "encrypt": "cross-env ELECTRON_RUN_AS_NODE=1 electron electron/encrypt.cjs",
     "prepack:enc": "npm run build && npm run encrypt",
-    "dist:dir": "npm run prepack:enc && electron-builder --win --x64 --dir && node electron/_post_build.cjs",
-    "dist": "npm run prepack:enc && electron-builder --win --x64 && node electron/_post_build.cjs",
-    "dist:mac:dir": "npm run build && electron-builder --mac --arm64 --dir",
-    "dist:mac": "npm run build && electron-builder --mac --arm64",
+    "prepack:runtimes": "node scripts/prepare-runtime-archives.cjs",
+    "dist:dir": "npm run prepack:enc && npm run prepack:runtimes && electron-builder --win --x64 --dir && node electron/_post_build.cjs",
+    "dist": "npm run prepack:enc && npm run prepack:runtimes && electron-builder --win --x64 && node electron/_post_build.cjs",
+    "dist:release": "node scripts/dist-release.cjs",
+    "release:github": "node scripts/release-github.cjs",
+    "release:verify": "node scripts/verify-github-release.cjs",
+    "public:check": "node scripts/check-public-clean.cjs",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -93,9 +97,7 @@
     "files": [
       "electron/main.cjs",
       "electron/preload.cjs",
-      "backend/package.json",
-      "backend/src/**/*",
-      "shared/**/*",
+      "electron/loader.cjs",
       "package.json",
       "node_modules/**/*",
       "!node_modules/electron/**/*",
@@ -104,13 +106,16 @@
       "!node_modules/**/{test,tests,__tests__,docs,examples,example,sample,benchmark}/**",
       "!**/*.{ipynb,log}",
       "!**/.DS_Store",
+      "!backend/**/*",
       "!src/**/*",
       "!data/**/*",
       "!input/**/*",
       "!output/**/*",
       "!thumbnails/**/*",
       "!dist_electron/**/*",
-      "!build/**/*"
+      "!build/**/*",
+      "backend/src/**/*",
+      "backend/package.json"
     ],
     "extraResources": [
       {
@@ -119,6 +124,60 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "shared",
+        "to": "shared",
+        "filter": [
+          "achievementManifest.json"
+        ]
+      },
+      {
+        "from": "resources/achievement-media",
+        "to": "resources/achievement-media",
+        "filter": [
+          "*.t8media"
+        ]
+      },
+      {
+        "from": "tools/runtime-archives",
+        "to": "tools/runtime-archives",
+        "filter": [
+          "remove-ai-watermarks-runtime.zip",
+          "parsehub-pythonlibs.zip",
+          "runtime-archives-manifest.json"
+        ]
+      },
+      {
+        "from": "tools/ffmpeg-runtime",
+        "to": "tools/ffmpeg",
+        "filter": [
+          "ffmpeg.exe",
+          "ffmpeg",
+          "README.md"
+        ]
+      },
+      {
+        "from": "tools/parsehub-bridge",
+        "to": "tools/parsehub-bridge",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "tools/figma-bridge",
+        "to": "tools/figma-bridge",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "T8mars",
+        "repo": "T8-penguin-canvas",
+        "releaseType": "release"
       }
     ],
     "win": {
@@ -132,22 +191,6 @@
       ],
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
-        }
-      ],
-      "category": "public.app-category.developer-tools",
-      "identity": null,
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "dmg": {
-      "title": "${productName} ${version}"
-    },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -155,7 +198,7 @@
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
       "shortcutName": "贞贞的无限画布",
-      "createDesktopShortcut": true,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true
     }
   }
