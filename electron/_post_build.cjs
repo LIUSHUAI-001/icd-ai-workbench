@@ -56,8 +56,17 @@ function checkFrontendAsset(prefix, ext) {
 
 function checkAchievementMedia() {
   const mediaRoot = path.join(RES, 'resources', 'achievement-media');
-  const encryptedReward = path.join(mediaRoot, 'film-saint-seiya-01.mp4.t8media');
-  checkFile(encryptedReward);
+  const encryptedRewards = [
+    'film-tech-01.mp4.t8media',
+    'film-rh-01.mp4.t8media',
+    'film-yyh-01.mp4.t8media',
+    'film-dragon-ball-01.mp4.t8media',
+    'film-saint-seiya-01.mp4.t8media',
+    'film-tetris-01.mp4.t8media',
+  ];
+  for (const fileName of encryptedRewards) {
+    checkFile(path.join(mediaRoot, fileName));
+  }
   for (const file of walkFiles(mediaRoot)) {
     if (path.extname(file).toLowerCase() === '.mp4') {
       failSecurity('achievement reward video must be encrypted before packaging:', file);
@@ -361,6 +370,8 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'routes', 'themes.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'eagle.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'figma.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'grokOAuth.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'codexCli.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'aiWatermark.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'cloudUploads.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'parseHub.t8c'));
@@ -384,6 +395,7 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'tools', 'aiWatermark', 'media.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'tools', 'topaz', 'runner.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'duckPayload.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'utils', 'codexCliRunner.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'figmaBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'parseHubBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'runtimeArchive.t8c'));

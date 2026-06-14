@@ -23,6 +23,9 @@ export type NodeType =
   | 'model-3d-preview'
   | 'model-3d-upload'
   | 'grok-oauth-agent'
+  | 'codex-cli-agent'
+  | 'codex-image-conjure'
+  | 'artist-style-master'
   | 'comfyui-store'
   | 'comfyui-app-maker'
   // Special (5)
@@ -60,6 +63,7 @@ export type NodeType =
   | 'portrait-master'
   | 'pose-master'
   | 'aggregate-parser'
+  | 'batch-processor'
   | 'topaz-image-upscale'
   | 'topaz-video-upscale'
   // 3D (1)
@@ -75,6 +79,8 @@ export type NodeCategory =
   | 'rh'
   | 'fal'
   | 'grok'
+  | 'codex'
+  | 'inspiration'
   | 'comfyui'
   | 'special'
   | 'utility'

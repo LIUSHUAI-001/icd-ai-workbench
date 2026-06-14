@@ -144,7 +144,12 @@ test('Saint Seiya theme defaults to bundled sanctuary and Hades mp3 music', () =
   assert.match(themeTemplateManagerSource, /visualStyle === 'saint-seiya'[\s\S]*hiddenUrl: saintSeiyaHadesThemeMusicUrl/);
   assert.match(postBuild, /checkFrontendAsset\('saint-seiya-pegasus-fantasy-', '\.mp3'\)/);
   assert.match(postBuild, /checkFrontendAsset\('saint-seiya-hades-last-holy-war-', '\.mp3'\)/);
+  assert.match(postBuild, /film-tech-01\.mp4\.t8media/);
+  assert.match(postBuild, /film-rh-01\.mp4\.t8media/);
+  assert.match(postBuild, /film-yyh-01\.mp4\.t8media/);
+  assert.match(postBuild, /film-dragon-ball-01\.mp4\.t8media/);
   assert.match(postBuild, /film-saint-seiya-01\.mp4\.t8media/);
+  assert.match(postBuild, /film-tetris-01\.mp4\.t8media/);
   assert.match(featuresSource, /"saint-seiya-style": "saint-seiya-pegasus-fantasy\.mp3"/);
   assert.match(featuresSource, /"saint-seiya-hades-hidden": "saint-seiya-hades-last-holy-war\.mp3"/);
 });

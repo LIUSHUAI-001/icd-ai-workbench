@@ -155,6 +155,16 @@ const CANVAS_TUTORIALS = [
     bilibili: 'https://www.bilibili.com/video/BV1N9Eg6QEHs/',
     youtube: 'https://www.youtube.com/watch?v=zIW7PbEWQAs',
   },
+  {
+    title: '教程第十一弹（新增圣斗士星矢双主题，加强本地comfyui节点和参数解析，修复不支持LIST的问题，新增画布内图片素材按鼠标左右键拖动到文件夹，新增Fal超市功能，新增grok agent节点，含创作台和简易版，新增3D素材上传和预览功能）',
+    bilibili: 'https://www.bilibili.com/video/BV1gGEz6VEDA/',
+    youtube: 'https://www.youtube.com/watch?v=oRT59Qf65KY',
+  },
+  {
+    title: '教程第十二弹（grok agent的节点修复图生视频功能，新增视频延展及视频编辑功能，新增codex cli agent节点，简约模式和创作台模式，新增Codex生图工作台节点，新增自定义快捷圆盘，FAL超市新增10多个新模型，视频节点新增3个grok video 1.5模型，解锁成就系统所有隐藏模式的奖励影片，新增俄罗斯方块主题及小游戏）',
+    bilibili: 'https://www.bilibili.com/video/BV1phJs6oE2g/',
+    youtube: 'https://www.youtube.com/watch?v=BKV8YA-kKK4',
+  },
 ];
 
 function InfiniteCanvasBootLoading() {
