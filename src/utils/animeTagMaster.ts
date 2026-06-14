@@ -79,6 +79,8 @@ export interface AnimeTagOnlineProvider {
   categories: readonly string[];
 }
 
+export type AnimeTagOnlineProviderInput = AnimeTagOnlineProvider['id'] | 'galbooru' | 'gel' | 'dan' | string;
+
 export interface OnlineSearchOptions {
   category?: string;
   limit?: number;
@@ -106,6 +108,13 @@ export const ANIME_TAG_ONLINE_PROVIDERS: readonly AnimeTagOnlineProvider[] = [
 ];
 
 const COLLATOR = new Intl.Collator('zh-Hans-CN');
+
+export function normalizeAnimeTagProvider(provider: AnimeTagOnlineProviderInput): AnimeTagOnlineProvider['id'] {
+  const value = textOf(provider).toLowerCase();
+  if (value === 'gelbooru' || value === 'galbooru' || value === 'gel') return 'gelbooru';
+  if (value === 'danbooru' || value === 'dan') return 'danbooru';
+  return 'danbooru';
+}
 
 function textOf(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -404,16 +413,17 @@ export function buildDanbooruPostsUrl(query: string, options: OnlineSearchOption
 export function buildGelbooruPostsUrl(query: string, options: OnlineSearchOptions = {}): string {
   const tags = encodeURIComponent(withSafeTag(query || '1girl', options.safe !== false));
   const limit = Math.max(1, Math.min(Number(options.limit || 12), 20));
-  return `https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&tags=${tags}&limit=${limit}`;
+  return `https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&pid=0&tags=${tags}&limit=${limit}`;
 }
 
 export function buildAnimeTagProxySearchUrl(
-  provider: AnimeTagOnlineProvider['id'],
+  provider: AnimeTagOnlineProviderInput,
   query: string,
   options: OnlineSearchOptions = {},
 ): string {
+  const normalizedProvider = normalizeAnimeTagProvider(provider);
   const params = new URLSearchParams({
-    provider,
+    provider: normalizedProvider,
     q: query || '1girl',
     limit: String(Math.max(1, Math.min(Number(options.limit || 12), 20))),
     safe: options.safe === false ? '0' : '1',
@@ -451,16 +461,31 @@ export function pickAnimeTagPreviewQuery(item?: AnimeTagItem | null): string {
 }
 
 export function buildAnimeTagPreviewUrl(
-  provider: AnimeTagOnlineProvider['id'],
+  provider: AnimeTagOnlineProviderInput,
   query: string,
   options: OnlineSearchOptions = {},
 ): string {
+  const normalizedProvider = normalizeAnimeTagProvider(provider);
   const params = new URLSearchParams({
-    provider,
+    provider: normalizedProvider,
     q: normalizeAnimeTagPreviewQuery(query) || '1girl',
     safe: options.safe === false ? '0' : '1',
   });
   return `/api/anime-tags/preview?${params.toString()}`;
+}
+
+export function buildAnimeTagLivePreviewImageUrl(
+  provider: AnimeTagOnlineProviderInput,
+  query: string,
+  options: OnlineSearchOptions = {},
+): string {
+  const normalizedProvider = normalizeAnimeTagProvider(provider);
+  const params = new URLSearchParams({
+    provider: normalizedProvider,
+    q: normalizeAnimeTagPreviewQuery(query) || '1girl',
+    safe: options.safe === false ? '0' : '1',
+  });
+  return `/api/anime-tags/preview-image?${params.toString()}`;
 }
 
 function normalizeRemoteImageUrl(value: unknown): string {
@@ -501,7 +526,7 @@ function categoryPreviewColors(categoryId: string) {
 export function buildAnimeTagProxyImageUrl(imageUrl: string): string {
   const url = normalizeRemoteImageUrl(imageUrl);
   if (!url) return '';
-  if (url.startsWith('/api/anime-tags/image?')) return url;
+  if (url.startsWith('/api/anime-tags/image?') || url.startsWith('/api/anime-tags/preview-image?')) return url;
   if (!/^https?:\/\//i.test(url)) return url;
   try {
     const parsed = new URL(url);
@@ -515,6 +540,16 @@ export function buildAnimeTagProxyImageUrl(imageUrl: string): string {
   } catch {
     return url;
   }
+}
+
+export function shouldUseAnimeTagLivePreview(item?: AnimeTagItem | null): boolean {
+  if (!item) return false;
+  if (textOf(item.thumbnailUrl) || textOf(item.imageUrl)) return false;
+  return item.source !== 'custom';
+}
+
+function livePreviewProviderFor(item: AnimeTagItem): AnimeTagOnlineProvider['id'] {
+  return normalizeAnimeTagProvider(item.source === 'gelbooru' ? 'gelbooru' : 'danbooru');
 }
 
 export function createAnimeTagPreviewFallbackSvg(item?: Pick<AnimeTagItem, 'name' | 'chineseName' | 'categoryId' | 'categoryName' | 'tags'> | null): string {
@@ -567,13 +602,38 @@ export function createAnimeTagPreviewFallbackSvg(item?: Pick<AnimeTagItem, 'name
 export function getAnimeTagPreviewImageUrl(item?: AnimeTagItem | null): string {
   if (!item) return '';
   const imageUrl = textOf(item.thumbnailUrl) || textOf(item.imageUrl);
-  return imageUrl ? buildAnimeTagProxyImageUrl(imageUrl) : createAnimeTagPreviewFallbackSvg(item);
+  if (imageUrl) return buildAnimeTagProxyImageUrl(imageUrl);
+  if (shouldUseAnimeTagLivePreview(item)) {
+    return buildAnimeTagLivePreviewImageUrl(livePreviewProviderFor(item), pickAnimeTagPreviewQuery(item), { safe: true });
+  }
+  return createAnimeTagPreviewFallbackSvg(item);
 }
 
 export function getAnimeTagFullImageUrl(item?: AnimeTagItem | null): string {
   if (!item) return '';
   const imageUrl = textOf(item.imageUrl) || textOf(item.thumbnailUrl);
-  return imageUrl ? buildAnimeTagProxyImageUrl(imageUrl) : createAnimeTagPreviewFallbackSvg(item);
+  if (imageUrl) return buildAnimeTagProxyImageUrl(imageUrl);
+  if (shouldUseAnimeTagLivePreview(item)) {
+    return buildAnimeTagLivePreviewImageUrl(livePreviewProviderFor(item), pickAnimeTagPreviewQuery(item), { safe: true });
+  }
+  return createAnimeTagPreviewFallbackSvg(item);
+}
+
+export function extractGelbooruPostRecords(data: any, key = 'post'): any[] {
+  if (Array.isArray(data)) return data.filter((item) => item && typeof item === 'object');
+  if (!data || typeof data !== 'object') return [];
+  const direct = data[key];
+  if (Array.isArray(direct)) return direct.filter((item) => item && typeof item === 'object');
+  if (direct && typeof direct === 'object') return [direct];
+  const plural = data[`${key}s`];
+  if (Array.isArray(plural)) return plural.filter((item) => item && typeof item === 'object');
+  if (plural && typeof plural === 'object') {
+    const nested = plural[key];
+    if (Array.isArray(nested)) return nested.filter((item) => item && typeof item === 'object');
+    if (nested && typeof nested === 'object') return [nested];
+  }
+  if (key === 'post' && (data.file_url || data.preview_url || data.sample_url)) return [data];
+  return [];
 }
 
 export function mapDanbooruPostToAnimeTagItem(post: any, query: string): AnimeTagItem {
@@ -623,11 +683,12 @@ export function mapGelbooruPostToAnimeTagItem(post: any, query: string): AnimeTa
 }
 
 export async function searchOnlineAnimeTags(
-  provider: AnimeTagOnlineProvider['id'],
+  provider: AnimeTagOnlineProviderInput,
   query: string,
   options: OnlineSearchOptions = {},
 ): Promise<AnimeTagItem[]> {
-  const proxyUrl = buildAnimeTagProxySearchUrl(provider, query, options);
+  const normalizedProvider = normalizeAnimeTagProvider(provider);
+  const proxyUrl = buildAnimeTagProxySearchUrl(normalizedProvider, query, options);
   let proxyError: Error | null = null;
   try {
     const proxyResponse = await fetch(proxyUrl, {
@@ -653,7 +714,7 @@ export async function searchOnlineAnimeTags(
     proxyError = error instanceof Error ? error : new Error(String(error || '本地在线图库代理不可用'));
   }
 
-  const url = provider === 'gelbooru'
+  const url = normalizedProvider === 'gelbooru'
     ? buildGelbooruPostsUrl(query, options)
     : buildDanbooruPostsUrl(query, options);
   try {
@@ -662,19 +723,19 @@ export async function searchOnlineAnimeTags(
       headers: { Accept: 'application/json' },
     });
     if (!response.ok) {
-      throw new Error(`${provider} HTTP ${response.status}`);
+      throw new Error(`${normalizedProvider} HTTP ${response.status}`);
     }
     const data = await response.json();
-    const rows = provider === 'gelbooru'
-      ? (Array.isArray(data?.post) ? data.post : Array.isArray(data) ? data : data?.post ? [data.post] : [])
+    const rows = normalizedProvider === 'gelbooru'
+      ? extractGelbooruPostRecords(data, 'post')
       : (Array.isArray(data) ? data : []);
     return rows
-      .map((row: any) => (provider === 'gelbooru'
+      .map((row: any) => (normalizedProvider === 'gelbooru'
         ? mapGelbooruPostToAnimeTagItem(row, query)
         : mapDanbooruPostToAnimeTagItem(row, query)))
       .filter((item: AnimeTagItem) => item.imageUrl || item.tags.length);
   } catch (error: any) {
-    const directMessage = error?.message || `${provider} 在线图库加载失败`;
+    const directMessage = error?.message || `${normalizedProvider} 在线图库加载失败`;
     if (proxyError) throw new Error(`${proxyError.message}；直连也失败：${directMessage}`);
     throw new Error(directMessage);
   }

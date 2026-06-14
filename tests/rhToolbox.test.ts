@@ -24,11 +24,13 @@ test('RH toolbox node is registered as a visible executable RH node', () => {
   assert.match(loop, /'rh-tools', 'rh-toolbox'/);
 });
 
-test('RH toolbox manifest keeps draft tools disabled until webappId is supplied', async () => {
+test('RH toolbox manifest ships maintainer release tools for packaged users', async () => {
   const { RH_TOOLBOX_MANIFEST } = await loadRhToolboxManifest();
   const {
+    buildRhToolboxNodeInfoList,
     buildRhToolboxQuickActions,
     filterRhToolboxTools,
+    findRhToolboxToolById,
     getRhToolboxToolMajorCategory,
     isRhToolboxBuiltinCategoryId,
     listRhToolboxTools,
@@ -38,44 +40,110 @@ test('RH toolbox manifest keeps draft tools disabled until webappId is supplied'
   const manifest = normalizeRhToolboxManifest(RH_TOOLBOX_MANIFEST);
 
   assert.equal(manifest.schema, 't8-rh-toolbox-manifest');
+  assert.equal(manifest.updatedAt, '2026-06-14');
   assert.equal(manifest.categories.length, 5);
+  const categories = new Map(manifest.categories.map((category) => [category.id, category]));
   assert.deepEqual(
-    manifest.categories.map((category) => [category.id, category.parentId]),
+    ['custom-rh-tools', 'video-category-fwv2n', 'image-category-d5zwl', 'video-category-e2v4g', 'image-category-e78o2']
+      .map((id) => [id, categories.get(id)?.name, categories.get(id)?.parentId]),
     [
-      ['image-tools', 'image'],
-      ['video-tools', 'video'],
-      ['text-tools', 'text'],
-      ['audio-tools', 'audio'],
-      ['model3d-tools', 'model3d'],
+      ['custom-rh-tools', '抠图', 'image'],
+      ['video-category-fwv2n', '图生视频', 'video'],
+      ['image-category-d5zwl', '图像编辑', 'image'],
+      ['video-category-e2v4g', '文生视频', 'video'],
+      ['image-category-e78o2', '电商', 'image'],
     ],
   );
-  assert.equal(listRhToolboxTools(manifest).length, 0);
-  assert.equal(listRhToolboxTools(manifest, { includeDisabled: true }).length, 4);
+  assert.equal(listRhToolboxTools(manifest).length, 5);
+  assert.deepEqual(
+    listRhToolboxTools(manifest).map((tool) => tool.id),
+    ['image-cutout-v1', 'tuantiquv10', 'bernini1', 'berninituxiangbianji', 'bernini2'],
+  );
+  assert.equal(listRhToolboxTools(manifest, { includeDisabled: true }).length, 5);
   assert.equal(isRhToolboxBuiltinCategoryId('image-tools'), true);
   assert.equal(isRhToolboxBuiltinCategoryId('custom-rh-tools'), false);
   assert.equal(getRhToolboxToolMajorCategory(manifest.tools[0], manifest.categories), 'image');
   assert.deepEqual(
-    filterRhToolboxTools(manifest, { majorCategoryId: 'video', includeDisabled: true }).map((tool) => tool.id),
-    ['video-upscale-template'],
+    filterRhToolboxTools(manifest, { majorCategoryId: 'video' }).map((tool) => tool.id),
+    ['bernini1', 'bernini2'],
   );
   assert.deepEqual(
-    filterRhToolboxTools(manifest, { capability: 'image.cutout', includeDisabled: true }).map((tool) => tool.id),
-    ['image-cutout-template'],
+    filterRhToolboxTools(manifest, { capability: 'image.cutout' }).map((tool) => tool.id),
+    ['image-cutout-v1', 'tuantiquv10'],
   );
   assert.deepEqual(
-    buildRhToolboxQuickActions(manifest, 'image', { includeDisabled: true }).map((action) => [action.toolId, action.label, action.enabled]),
-    [['image-cutout-template', '智能抠图（模板）', false]],
+    new Set(buildRhToolboxQuickActions(manifest, 'image').map((action) => action.toolId)),
+    new Set(['image-cutout-v1', 'tuantiquv10', 'berninituxiangbianji']),
   );
   assert.deepEqual(
-    buildRhToolboxQuickActions(manifest, 'video', { includeDisabled: true }).map((action) => action.toolId),
-    ['video-upscale-template'],
+    new Set(buildRhToolboxQuickActions(manifest, 'video').map((action) => action.toolId)),
+    new Set(['bernini1', 'bernini2']),
   );
+
+  const cutout = findRhToolboxToolById(manifest, 'image-cutout-v1');
+  assert.equal(cutout?.title, '高清抠图');
+  assert.equal(cutout?.webappId, '2066002530877927426');
+  assert.equal(cutout?.inputSchema[0]?.rhNodeId, '46');
+  assert.equal(cutout?.outputSchema[0]?.kind, 'image');
+
+  const tuantiqu = findRhToolboxToolById(manifest, 'tuantiquv10');
+  assert.equal(tuantiqu?.webappId, '2034251740148666369');
+  const aspectRatio = tuantiqu?.userParams?.find((param) => param.key === 'node-22-aspect_ratio');
+  assert.equal(aspectRatio?.kind, 'select');
+  assert.ok((aspectRatio?.options?.length || 0) >= 10);
+  assert.ok(aspectRatio?.options?.includes('16:9 landscape 1344x768'));
+  assert.deepEqual(
+    buildRhToolboxNodeInfoList(tuantiqu, {
+      inputValues: { 'source-image': 'rh-uploaded-a.png' },
+      userParamValues: { 'node-22-aspect_ratio': '16:9 landscape 1344x768' },
+    }).filter((item) => (item.nodeId === '39' && item.fieldName === 'image') || item.fieldName === 'aspect_ratio'),
+    [
+      { nodeId: '39', fieldName: 'image', fieldValue: 'rh-uploaded-a.png', valueType: 'image' },
+      { nodeId: '22', fieldName: 'aspect_ratio', fieldValue: '16:9 landscape 1344x768', valueType: 'select' },
+    ],
+  );
+
+  const imageToVideo = findRhToolboxToolById(manifest, 'bernini1');
+  assert.equal(imageToVideo?.webappId, '2064192352843034626');
+  assert.equal(imageToVideo?.inputSchema.find((input) => input.kind === 'image')?.rhNodeId, '408');
+  assert.equal(imageToVideo?.inputSchema.find((input) => input.kind === 'text')?.rhNodeId, '410');
+  assert.equal(imageToVideo?.outputSchema[0]?.kind, 'video');
+
+  const textToVideo = findRhToolboxToolById(manifest, 'bernini2');
+  assert.equal(textToVideo?.webappId, '2064185875537420290');
+  assert.equal(textToVideo?.inputSchema[0]?.rhNodeId, '210');
+  assert.equal(textToVideo?.outputSchema[0]?.kind, 'video');
+});
+
+test('RH toolbox release manifest check is wired into packaging and post-build verification', () => {
+  const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const distRelease = readFileSync(new URL('../scripts/dist-release.cjs', import.meta.url), 'utf8');
+  const postBuild = readFileSync(new URL('../electron/_post_build.cjs', import.meta.url), 'utf8');
+  const checker = readFileSync(new URL('../scripts/check-rh-toolbox-release.cjs', import.meta.url), 'utf8');
+
+  assert.equal(packageJson.scripts['rh-toolbox:check'], 'node scripts/check-rh-toolbox-release.cjs');
+  assert.match(distRelease, /RH toolbox release manifest check/);
+  assert.match(distRelease, /rh-toolbox:check/);
+  assert.ok(distRelease.indexOf('rh-toolbox:check') < distRelease.indexOf('prepack:enc'));
+
+  assert.match(checker, /T8_RH_TOOLBOX_MIN_ENABLED/);
+  assert.match(checker, /image-cutout-v1/);
+  assert.match(checker, /tuantiquv10/);
+  assert.match(checker, /bernini1/);
+  assert.match(checker, /berninituxiangbianji/);
+  assert.match(checker, /bernini2/);
+
+  assert.match(postBuild, /checkRhToolboxReleaseManifest/);
+  assert.match(postBuild, /image-cutout-v1/);
+  assert.match(postBuild, /tuantiquv10/);
+  assert.match(postBuild, /bernini1/);
 });
 
 test('RH toolbox builds nodeInfoList from configured mappings without per-tool code', async () => {
   const {
     buildRhToolboxNodeInfoList,
     classifyRhToolboxOutputs,
+    getRhToolboxNodeInfoFieldOptions,
     inferRhToolboxUserParamsFromNodeInfoList,
     normalizeRhToolboxManifest,
     pickRhToolboxInputs,
@@ -187,6 +255,35 @@ test('RH toolbox builds nodeInfoList from configured mappings without per-tool c
       { key: 'node-417-value', label: '最长边', kind: 'number', rhNodeId: '417', fieldName: 'value', defaultValue: 1280 },
     ],
   );
+
+  const inferredSelectParams = inferRhToolboxUserParamsFromNodeInfoList([
+    {
+      nodeId: '22',
+      nodeName: 'Text',
+      fieldName: 'aspect_ratio',
+      fieldValue: 'custom',
+      fieldType: 'TEXT',
+      description: '比例选择/自定义',
+    },
+    {
+      nodeId: '24',
+      nodeName: 'Combo',
+      fieldName: 'quality',
+      fieldValue: 'high',
+      fieldData: ['low', 'medium', 'high'],
+      fieldType: 'TEXT',
+      description: '质量',
+    },
+  ]);
+  assert.equal(inferredSelectParams[0].kind, 'select');
+  assert.deepEqual(inferredSelectParams[0].options?.slice(0, 4), ['1:1', '16:9', '9:16', '4:3']);
+  assert.equal(inferredSelectParams[1].kind, 'select');
+  assert.deepEqual(inferredSelectParams[1].options, ['low', 'medium', 'high']);
+  assert.deepEqual(
+    getRhToolboxNodeInfoFieldOptions({ fieldName: 'instanceType', fieldValue: 'plus', fieldType: 'TEXT' }),
+    ['default', 'plus', 'pro'],
+  );
+
   assert.deepEqual(
     buildRhToolboxNodeInfoList({ ...tool, userParams: inferredParams }, { inputValues: {}, userParamValues: {} })
       .filter((item) => item.nodeId === '390' || item.nodeId === '417'),
@@ -312,6 +409,9 @@ test('RH toolbox maker is dev-only and guarded from packaged builds', () => {
 test('RH toolbox maker rebuilds mappings from the current WebApp snapshot', () => {
   const maker = readFileSync(new URL('../src/components/nodes/RHToolboxMakerNode.tsx', import.meta.url), 'utf8');
 
+  assert.match(maker, /getRhToolboxNodeInfoFieldOptions/);
+  assert.match(maker, /function fieldOptionsText/);
+  assert.match(maker, /optionsText:\s*kind === 'select' \? fieldOptionsText\(field\) : ''/);
   assert.match(maker, /function mappingSignature/);
   assert.match(maker, /currentInputs\.filter\(\(row\) => fieldKeys\.has\(mappingSignature\(row\)\) \|\| isDefaultInputPlaceholder\(row\)\)/);
   assert.match(maker, /currentParams\.filter\(\(row\) => fieldKeys\.has\(mappingSignature\(row\)\)\)/);
@@ -351,6 +451,8 @@ test('RH toolbox maker saves a per-tool default instance type', () => {
   assert.match(maker, /<option value="plus">plus<\/option>/);
   assert.match(maker, /<option value="pro">pro<\/option>/);
   assert.match(runtime, /instanceType:\s*tool\.runtime\?\.instanceType \|\| ''/);
+  assert.match(runtime, /getRhToolboxNodeInfoFieldOptions\(matchedField\)/);
+  assert.match(runtime, /shouldPatchOptions/);
   assert.match(service, /instanceType:\s*options\.instanceType \|\| tool\.runtime\?\.instanceType \|\| undefined/);
 });
 

@@ -274,7 +274,9 @@ const ARTIST_STYLE_REFERENCE_SUFFIX =
 
 export function buildArtistStylePrompt(item: ArtistStyleItem): string {
   const styleCue = textOf(item.cue) || textOf(item.displayName) || textOf(item.chineseName) || textOf(item.name);
-  return [styleCue, ARTIST_STYLE_REFERENCE_SUFFIX].filter(Boolean).join(', ');
+  const styleName = textOf(item.chineseName) || textOf(item.displayName) || textOf(item.name);
+  const leading = styleName && styleCue && styleCue !== styleName ? `${styleName}，${styleCue}` : (styleCue || styleName);
+  return [leading, ARTIST_STYLE_REFERENCE_SUFFIX].filter(Boolean).join(', ');
 }
 
 export function buildArtistStyleOutputPayload(item: ArtistStyleItem, mode: ArtistStyleOutputMode): ArtistStyleOutputPayload {

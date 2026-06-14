@@ -329,8 +329,35 @@ function fieldOptionValue(option: any): string | number | undefined {
   return undefined;
 }
 
-function extractRhNodeInfoOptions(field: any): Array<string | number> | undefined {
+const RH_TOOLBOX_KNOWN_FIELD_OPTIONS: Record<string, Array<string | number>> = {
+  aspectRatio: ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5', '5:4', '3:2', '2:3', '21:9', '9:21', '1:4', '4:1', '1:8', '8:1'],
+  aspect_ratio: ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5', '5:4', '3:2', '2:3', '21:9', '9:21'],
+  ratio: ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5', '5:4', '3:2', '2:3'],
+  resolution: ['1k', '2k', '4k', '8k'],
+  size: ['512', '768', '1024', '1280', '1536', '2048'],
+  mode: ['text2img', 'img2img'],
+  quality: ['low', 'medium', 'high', 'best'],
+  instanceType: ['default', 'plus', 'pro'],
+  instance_type: ['default', 'plus', 'pro'],
+  precision: ['fp16', 'fp32', 'bf16'],
+  scheduler: ['normal', 'karras', 'exponential', 'sgm_uniform', 'simple', 'ddim_uniform'],
+  sampler: ['euler', 'euler_ancestral', 'heun', 'dpm_2', 'dpm_2_ancestral', 'lms', 'dpmpp_2m', 'dpmpp_sde', 'ddim', 'uni_pc'],
+};
+
+function normalizeRhOptionList(candidate: unknown): Array<string | number> | undefined {
+  if (!Array.isArray(candidate)) return undefined;
+  const options = candidate.map(fieldOptionValue).filter((value): value is string | number => value !== undefined);
+  if (options.length <= 1) return undefined;
+  return Array.from(new Set(options.map((value) => String(value)))).map((value) => {
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) && String(numberValue) === value ? numberValue : value;
+  });
+}
+
+export function getRhToolboxNodeInfoFieldOptions(field: any): Array<string | number> | undefined {
+  const parsedFieldData = parseRhFieldData(field?.fieldData);
   const candidates = [
+    field?.fieldData,
     field?.options,
     field?.list,
     field?.values,
@@ -340,15 +367,22 @@ function extractRhNodeInfoOptions(field: any): Array<string | number> | undefine
     field?.selectOptions,
     field?.dropdown,
     field?.fieldValue,
-    parseRhFieldData(field?.fieldData)?.[0],
+    parsedFieldData,
+    Array.isArray(parsedFieldData) ? parsedFieldData[0] : undefined,
   ];
   for (const candidate of candidates) {
-    if (!Array.isArray(candidate)) continue;
-    const options = candidate.map(fieldOptionValue).filter((value): value is string | number => value !== undefined);
-    if (options.length > 1) return Array.from(new Set(options.map((value) => String(value)))).map((value) => {
-      const numberValue = Number(value);
-      return Number.isFinite(numberValue) && String(numberValue) === value ? numberValue : value;
-    });
+    const options = normalizeRhOptionList(candidate);
+    if (options?.length) return options;
+  }
+
+  const fieldName = getRhToolboxNodeInfoFieldName(field);
+  if (fieldName) {
+    const direct = RH_TOOLBOX_KNOWN_FIELD_OPTIONS[fieldName];
+    if (direct) return direct;
+    const lower = fieldName.toLowerCase();
+    for (const key of Object.keys(RH_TOOLBOX_KNOWN_FIELD_OPTIONS)) {
+      if (key.toLowerCase() === lower) return RH_TOOLBOX_KNOWN_FIELD_OPTIONS[key];
+    }
   }
   return undefined;
 }
@@ -428,7 +462,7 @@ export function inferRhToolboxNodeInfoParamKind(field: any): RhToolboxUserParamK
     return 'number';
   }
   if (typeText.includes('LIST') || typeText.includes('SELECT') || typeText.includes('DROPDOWN') || typeText.includes('ENUM')) return 'select';
-  if (extractRhNodeInfoOptions(field)?.length) return 'select';
+  if (getRhToolboxNodeInfoFieldOptions(field)?.length) return 'select';
   return 'text';
 }
 
@@ -436,9 +470,11 @@ function isRhNodeInfoPromptLikeField(field: any): boolean {
   const text = [
     getRhToolboxNodeInfoFieldName(field),
     getRhToolboxNodeInfoFieldLabel(field),
-    field?.fieldType,
-    field?.valueType,
+    field?.description,
     field?.descriptionEn,
+    field?.label,
+    field?.title,
+    field?.displayName,
   ].map((value) => String(value ?? '')).join(' ').toLowerCase();
   return /prompt|positive|negative|caption|description|instruction|query|text|content|提示词|提示|正向|负向|文本|文字|描述|内容/.test(text);
 }
@@ -491,7 +527,7 @@ export function inferRhToolboxUserParamsFromNodeInfoList(
     if (mapped.has(signature)) continue;
     const kind = inferRhToolboxNodeInfoParamKind(field);
     const meta = rhNodeInfoFieldMeta(field);
-    const options = kind === 'select' ? extractRhNodeInfoOptions(field) : undefined;
+    const options = kind === 'select' ? getRhToolboxNodeInfoFieldOptions(field) : undefined;
     const param: RhToolboxUserParam = {
       key: uniqueRhUserParamKey(`node-${nodeId}-${name}`, usedKeys),
       label: getRhToolboxNodeInfoFieldLabel(field),

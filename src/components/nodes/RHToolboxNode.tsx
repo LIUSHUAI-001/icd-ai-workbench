@@ -31,6 +31,7 @@ import {
   getRhToolboxNodeInfoFieldLabel,
   getRhToolboxNodeInfoFieldName,
   getRhToolboxNodeInfoFieldNodeId,
+  getRhToolboxNodeInfoFieldOptions,
   getRhToolboxToolMajorCategory,
   inferRhToolboxUserParamsFromNodeInfoList,
   isRhToolboxBuiltinCategoryId,
@@ -160,9 +161,17 @@ const RHToolboxNode = ({ id, data, selected }: NodeProps) => {
         && getRhToolboxNodeInfoFieldName(field) === String(param.fieldName || '').trim()
       ));
       const label = matchedField ? getRhToolboxNodeInfoFieldLabel(matchedField) : '';
-      if (!label || label === param.label) return param;
-      if (param.label && param.label !== param.fieldName && param.label !== param.key && param.label !== 'value') return param;
-      return { ...param, label };
+      const options = matchedField && param.kind === 'select' ? getRhToolboxNodeInfoFieldOptions(matchedField) : undefined;
+      const shouldPatchLabel = !!label
+        && label !== param.label
+        && (!param.label || param.label === param.fieldName || param.label === param.key || param.label === 'value');
+      const shouldPatchOptions = param.kind === 'select' && (!param.options?.length) && !!options?.length;
+      if (!shouldPatchLabel && !shouldPatchOptions) return param;
+      return {
+        ...param,
+        ...(shouldPatchLabel ? { label } : {}),
+        ...(shouldPatchOptions ? { options } : {}),
+      };
     });
     const inferredParams = inferRhToolboxUserParamsFromNodeInfoList(activeToolAppInfoFields, [
       ...(baseActiveTool.inputSchema || []),

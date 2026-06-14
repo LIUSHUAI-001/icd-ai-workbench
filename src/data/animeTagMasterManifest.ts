@@ -1,19 +1,16 @@
 import type { AnimeTagCategory, AnimeTagItem } from '../utils/animeTagMaster';
 
 export const ANIME_TAG_MASTER_CATEGORIES: readonly AnimeTagCategory[] = [
-  { id: 'character', name: '角色人设', description: '人物主体、身份、年龄感、角色气质', builtIn: true },
-  { id: 'pose', name: '姿势动作', description: '站姿、坐姿、动态姿势和镜头身体语言', builtIn: true },
-  { id: 'expression', name: '表情情绪', description: '表情、眼神、氛围情绪', builtIn: true },
-  { id: 'outfit', name: '服装配饰', description: '二次元常用服饰、饰品和材质', builtIn: true },
-  { id: 'composition', name: '构图镜头', description: '画幅、景别、镜头语言和主体位置', builtIn: true },
-  { id: 'style', name: '画风质感', description: '动漫画风、渲染、线条和媒介质感', builtIn: true },
-  { id: 'lighting', name: '光影场景', description: '光线、天气、场景和时间', builtIn: true },
-  { id: 'quality', name: '质量增强', description: '画质、细节、完成度、分辨率相关标签', builtIn: true },
-  { id: 'negative', name: '负面排除', description: '常用反向标签，避免画面缺陷', builtIn: true },
-  { id: 'online', name: '在线图库', description: 'Danbooru / Gelbooru 懒加载搜索结果', builtIn: true },
+  { id: 'artist', name: '画师 / Artist', description: '画师名、个人画风和作者参考标签', builtIn: true },
+  { id: 'copyright', name: '作品 IP / Copyright', description: '动画、漫画、游戏、角色所属作品标签', builtIn: true },
+  { id: 'character', name: '角色 IP / Character', description: '角色名称、人物身份和角色设定标签', builtIn: true },
+  { id: 'general', name: '通用标签 / General', description: '服装、姿势、构图、场景、光影等常用创作标签', builtIn: true },
+  { id: 'meta', name: '风格 · Meta', description: '质量、画风、媒介、反向排除和元信息标签', builtIn: true },
+  { id: 'online-danbooru', name: '在线图库 Danbooru', description: 'Danbooru 实时懒加载图库结果', builtIn: true },
+  { id: 'online-gelbooru', name: '在线图库 Gelbooru', description: 'Gelbooru / Galbooru 实时懒加载图库结果', builtIn: true },
 ];
 
-export const ANIME_TAG_MASTER_ITEMS: readonly AnimeTagItem[] = [
+const RAW_ANIME_TAG_MASTER_ITEMS: readonly AnimeTagItem[] = [
   {
     id: 'anime-key-visual-girl',
     name: '1girl key visual poster',
@@ -317,3 +314,27 @@ export const ANIME_TAG_MASTER_ITEMS: readonly AnimeTagItem[] = [
     userCreated: false,
   },
 ];
+
+const CATEGORY_NAME_BY_ID = new Map(ANIME_TAG_MASTER_CATEGORIES.map((item) => [item.id, item.name]));
+
+const LEGACY_ANIME_TAG_CATEGORY_MAP: Record<string, string> = {
+  character: 'character',
+  pose: 'general',
+  expression: 'general',
+  outfit: 'general',
+  composition: 'general',
+  style: 'meta',
+  lighting: 'general',
+  quality: 'meta',
+  negative: 'meta',
+  online: 'online-danbooru',
+};
+
+export const ANIME_TAG_MASTER_ITEMS: readonly AnimeTagItem[] = RAW_ANIME_TAG_MASTER_ITEMS.map((item) => {
+  const categoryId = LEGACY_ANIME_TAG_CATEGORY_MAP[item.categoryId] || item.categoryId;
+  return {
+    ...item,
+    categoryId,
+    categoryName: CATEGORY_NAME_BY_ID.get(categoryId) || item.categoryName,
+  };
+});

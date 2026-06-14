@@ -4820,18 +4820,19 @@ html[data-theme-mode="light"] .anime-tag-master-lightbox-backdrop {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  max-height: 350px;
+  max-height: 432px;
   overflow-x: hidden;
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-gutter: stable;
+  align-content: start;
 }
 
 .anime-tag-master-grid button {
   min-width: 0;
-  min-height: 138px;
+  min-height: 124px;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: 92px auto;
   gap: 6px;
   align-items: end;
   overflow: hidden;
@@ -4845,8 +4846,8 @@ html[data-theme-mode="light"] .anime-tag-master-lightbox-backdrop {
 
 .anime-tag-master-grid img {
   width: 100%;
-  aspect-ratio: 1;
-  max-height: 132px;
+  height: 92px;
+  max-height: 92px;
   object-fit: cover;
   border-radius: 6px;
 }

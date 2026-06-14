@@ -45,10 +45,25 @@ function normalizePreviewQuery(value) {
     .replace(/^_+|_+$/g, '') || '1girl';
 }
 
-function normalizeRemoteUrl(value) {
+function normalizeProvider(value) {
+  const provider = String(value || 'danbooru').trim().toLowerCase();
+  if (provider === 'gelbooru' || provider === 'galbooru' || provider === 'gel') return 'gelbooru';
+  if (provider === 'danbooru' || provider === 'dan') return 'danbooru';
+  return provider;
+}
+
+function normalizeRemoteUrl(value, baseUrl = '') {
   const text = String(value || '').trim();
   if (!text) return '';
   if (text.startsWith('//')) return `https:${text}`;
+  if (/^https?:\/\//i.test(text)) return text;
+  if (baseUrl) {
+    try {
+      return new URL(text, baseUrl).toString();
+    } catch {
+      // Fall through to original value.
+    }
+  }
   return text;
 }
 
@@ -56,6 +71,21 @@ function proxiedImageUrl(rawUrl) {
   const url = normalizeRemoteUrl(rawUrl);
   if (!url) return '';
   return `/api/anime-tags/image?u=${encodeURIComponent(url)}`;
+}
+
+function rawUrlFromPreviewItem(item) {
+  if (!item || typeof item !== 'object') return '';
+  const raw = item.rawThumbnailUrl || item.rawImageUrl || item.thumbnailUrl || item.imageUrl || '';
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  if (text.startsWith('/api/anime-tags/image?')) {
+    try {
+      return new URL(`${DANBOORU_BASE}${text}`).searchParams.get('u') || '';
+    } catch {
+      return '';
+    }
+  }
+  return text;
 }
 
 function splitTags(value) {
@@ -216,7 +246,7 @@ async function searchGelbooruHtml(query, { limit, safe }) {
   });
   const html = await fetchText(`${GELBOORU_BASE}/index.php?${params.toString()}`, 'text/html,*/*');
   const imageMatches = [...html.matchAll(/(?:src|data-original|href)=["']([^"']+(?:thumbnail|samples|images)[^"']+?\.(?:jpg|jpeg|png|webp))(?:\?[^"']*)?["']/gi)]
-    .map((m) => normalizeRemoteUrl(m[1]));
+    .map((m) => normalizeRemoteUrl(m[1], GELBOORU_BASE));
   const idMatches = [...html.matchAll(/index\.php\?page=post(?:&amp;|&)s=view(?:&amp;|&)id=(\d+)/g)]
     .map((m) => m[1]);
   const seen = new Set();
@@ -259,8 +289,7 @@ async function previewGelbooru(query, { safe }) {
 }
 
 router.get('/preview', async (req, res) => {
-  const provider = String(req.query.provider || 'danbooru').trim().toLowerCase();
-  const normalizedProvider = provider === 'galbooru' ? 'gelbooru' : provider;
+  const normalizedProvider = normalizeProvider(req.query.provider || 'danbooru');
   const query = normalizePreviewQuery(req.query.q || req.query.query || '');
   const safe = req.query.safe !== '0' && req.query.safe !== 'false';
 
@@ -322,9 +351,48 @@ router.get('/preview', async (req, res) => {
   }
 });
 
+router.get('/preview-image', async (req, res) => {
+  const normalizedProvider = normalizeProvider(req.query.provider || 'danbooru');
+  const query = normalizePreviewQuery(req.query.q || req.query.query || '');
+  const safe = req.query.safe !== '0' && req.query.safe !== 'false';
+
+  if (!['danbooru', 'gelbooru'].includes(normalizedProvider)) {
+    return res.status(400).json({ success: false, error: '不支持的在线图库来源' });
+  }
+
+  try {
+    let item = null;
+    if (normalizedProvider === 'gelbooru') {
+      const result = await previewGelbooru(query, { safe });
+      item = result.item;
+    } else {
+      try {
+        item = await previewDanbooru(query, { safe });
+      } catch {
+        const result = await previewGelbooru(query, { safe });
+        item = result.item;
+      }
+      if (!item) {
+        const result = await previewGelbooru(query, { safe });
+        item = result.item;
+      }
+    }
+    const rawImageUrl = rawUrlFromPreviewItem(item);
+    if (!rawImageUrl) {
+      return res.status(404).json({ success: false, error: '没有找到可预览图片' });
+    }
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    return res.redirect(302, proxiedImageUrl(rawImageUrl));
+  } catch (error) {
+    return res.status(error?.status || 502).json({
+      success: false,
+      error: error?.message || '在线预览图片加载失败',
+    });
+  }
+});
+
 router.get('/search', async (req, res) => {
-  const provider = String(req.query.provider || 'danbooru').trim().toLowerCase();
-  const normalizedProvider = provider === 'galbooru' ? 'gelbooru' : provider;
+  const normalizedProvider = normalizeProvider(req.query.provider || 'danbooru');
   const query = String(req.query.q || req.query.query || '').trim();
   const limit = clampInt(req.query.limit, 1, 20, 12);
   const safe = req.query.safe !== '0' && req.query.safe !== 'false';
@@ -407,6 +475,7 @@ router.get('/image', async (req, res) => {
 module.exports = router;
 module.exports._internals = {
   withSafeTag,
+  normalizeProvider,
   normalizePreviewQuery,
   extractGelbooruRecords,
   mapGelbooruPost,

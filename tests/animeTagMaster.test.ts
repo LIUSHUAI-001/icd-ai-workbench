@@ -6,6 +6,7 @@ import {
   ANIME_TAG_MASTER_STORAGE_KEY,
   ANIME_TAG_ONLINE_PROVIDERS,
   buildAnimeTagImageOutputPayload,
+  buildAnimeTagLivePreviewImageUrl,
   buildAnimeTagPreviewUrl,
   buildAnimeTagProxyImageUrl,
   buildAnimeTagProxySearchUrl,
@@ -13,15 +14,17 @@ import {
   buildDanbooruPostsUrl,
   buildGelbooruPostsUrl,
   createAnimeTagExport,
+  extractGelbooruPostRecords,
   getAnimeTagPreviewImageUrl,
   createAnimeTagFromMaterial,
   importAnimeTagExport,
+  normalizeAnimeTagProvider,
   normalizeAnimeTagItem,
   pickAnimeTagPreviewQuery,
   searchAnimeTags,
   upsertAnimeTagInLibrary,
 } from '../src/utils/animeTagMaster.ts';
-import { ANIME_TAG_MASTER_ITEMS } from '../src/data/animeTagMasterManifest.ts';
+import { ANIME_TAG_MASTER_CATEGORIES, ANIME_TAG_MASTER_ITEMS } from '../src/data/animeTagMasterManifest.ts';
 
 function read(rel: string) {
   return readFileSync(new URL(rel, import.meta.url), 'utf8');
@@ -50,7 +53,9 @@ test('anime tag master is registered in the Inspiration category', () => {
   assert.match(server, /\/api\/anime-tags/);
   assert.match(backendRoute, /Gelbooru DAPI 需要 user_id\/api_key/);
   assert.match(backendRoute, /searchGelbooruHtml/);
+  assert.match(backendRoute, /normalizeProvider/);
   assert.match(backendRoute, /\/preview/);
+  assert.match(backendRoute, /\/preview-image/);
   assert.match(backendRoute, /previewDanbooru/);
   assert.match(backendRoute, /previewGelbooru/);
   assert.match(backendRoute, /fallbackProvider/);
@@ -62,6 +67,15 @@ test('anime tag master is registered in the Inspiration category', () => {
 
 test('anime tag manifest and prompt output cover anime creation basics', () => {
   assert.ok(ANIME_TAG_MASTER_ITEMS.length >= 24);
+  const categoryNames = ANIME_TAG_MASTER_CATEGORIES.map((item) => item.name).join(' / ');
+  assert.match(categoryNames, /画师 \/ Artist/);
+  assert.match(categoryNames, /作品 IP \/ Copyright/);
+  assert.match(categoryNames, /角色 IP \/ Character/);
+  assert.match(categoryNames, /风格 · Meta/);
+  assert.match(categoryNames, /在线图库 Danbooru/);
+  assert.match(categoryNames, /在线图库 Gelbooru/);
+  assert.doesNotMatch(categoryNames, /表情情绪|服装配饰|负面排除/);
+
   const keyVisual = searchAnimeTags(ANIME_TAG_MASTER_ITEMS, { query: '少女 海报 1girl', category: 'character' })[0];
   assert.ok(keyVisual);
   assert.match(keyVisual.tags.join(', '), /1girl/);
@@ -82,15 +96,18 @@ test('anime tag manifest and prompt output cover anime creation basics', () => {
   });
   const library = upsertAnimeTagInLibrary({ categories: [], items: [] }, custom, {
     id: 'character',
-    name: '角色人设',
+    name: '角色 IP / Character',
   });
   assert.equal(library.items.length, 1);
-  assert.equal(library.categories[0].name, '角色人设');
+  assert.equal(library.categories[0].name, '角色 IP / Character');
 });
 
 test('anime tag master lazy-loads Danbooru and Gelbooru/Galbooru online libraries', () => {
   assert.deepEqual(ANIME_TAG_ONLINE_PROVIDERS.map((item) => item.id), ['danbooru', 'gelbooru']);
   assert.equal(ANIME_TAG_ONLINE_PROVIDERS[1].aliases.includes('galbooru'), true);
+  assert.equal(normalizeAnimeTagProvider('galbooru'), 'gelbooru');
+  assert.equal(normalizeAnimeTagProvider('gel'), 'gelbooru');
+  assert.equal(normalizeAnimeTagProvider('dan'), 'danbooru');
 
   const danbooruUrl = buildDanbooruPostsUrl('hatsune_miku', { limit: 6 });
   assert.match(danbooruUrl, /^https:\/\/danbooru\.donmai\.us\/posts\.json/);
@@ -100,13 +117,20 @@ test('anime tag master lazy-loads Danbooru and Gelbooru/Galbooru online librarie
   const gelbooruUrl = buildGelbooruPostsUrl('1girl', { limit: 6 });
   assert.match(gelbooruUrl, /^https:\/\/gelbooru\.com\/index\.php/);
   assert.match(gelbooruUrl, /page=dapi/);
+  assert.match(gelbooruUrl, /pid=0/);
   assert.match(gelbooruUrl, /tags=1girl%20rating%3Ageneral/);
 
   const proxyUrl = buildAnimeTagProxySearchUrl('gelbooru', '1girl', { limit: 6 });
   assert.equal(proxyUrl, '/api/anime-tags/search?provider=gelbooru&q=1girl&limit=6&safe=1');
+  const galProxyUrl = buildAnimeTagProxySearchUrl('galbooru', '1girl', { limit: 6 });
+  assert.equal(galProxyUrl, '/api/anime-tags/search?provider=gelbooru&q=1girl&limit=6&safe=1');
 
   const previewUrl = buildAnimeTagPreviewUrl('danbooru', '@hatsune miku, smile', { safe: true });
   assert.equal(previewUrl, '/api/anime-tags/preview?provider=danbooru&q=hatsune_miku&safe=1');
+  const livePreviewUrl = buildAnimeTagLivePreviewImageUrl('galbooru', '1girl', { safe: true });
+  assert.equal(livePreviewUrl, '/api/anime-tags/preview-image?provider=gelbooru&q=1girl&safe=1');
+  assert.deepEqual(extractGelbooruPostRecords({ posts: { post: [{ id: 1 }] } }), [{ id: 1 }]);
+  assert.deepEqual(extractGelbooruPostRecords({ post: { id: 2 } }), [{ id: 2 }]);
 
   const previewQuery = pickAnimeTagPreviewQuery({
     id: 'builtin-1',
@@ -154,14 +178,27 @@ test('anime tag preview images are proxied or generated without local downloads'
     categoryName: '角色人设',
     tags: ['1girl', 'solo', 'looking_at_viewer'],
     prompt: '1girl, solo',
+    source: 'builtin',
+    userCreated: false,
   });
   const fallbackPreview = getAnimeTagPreviewImageUrl(builtin);
-  assert.match(fallbackPreview, /^data:image\/svg\+xml/);
+  assert.equal(fallbackPreview, '/api/anime-tags/preview-image?provider=danbooru&q=1girl&safe=1');
 
   const payload = buildAnimeTagImageOutputPayload(builtin);
   assert.equal(payload.kind, 'image');
-  assert.match(payload.data.directImageUrl, /^data:image\/svg\+xml/);
+  assert.equal(payload.data.directImageUrl, '/api/anime-tags/preview-image?provider=danbooru&q=1girl&safe=1');
   assert.deepEqual(payload.data.directImageUrls, [payload.data.directImageUrl]);
+
+  const customWithoutImage = normalizeAnimeTagItem({
+    name: 'my private tag',
+    chineseName: '我的本地标签',
+    categoryId: 'custom',
+    categoryName: '自定义',
+    tags: ['private_tag'],
+    prompt: 'private_tag',
+    source: 'custom',
+  });
+  assert.match(getAnimeTagPreviewImageUrl(customWithoutImage), /^data:image\/svg\+xml/);
 });
 
 test('anime tag custom library import/export and material conversion are confirmed', () => {
@@ -219,6 +256,7 @@ test('anime tag master frontend keeps compact scrolling, lightbox and theme hook
   assert.match(node, /AnimeTagPreviewImage/);
   assert.match(node, /requestLazyPreview/);
   assert.match(node, /buildAnimeTagPreviewUrl/);
+  assert.match(node, /buildAnimeTagLivePreviewImageUrl/);
   assert.doesNotMatch(node, /previewImageOf/);
   assert.match(node, /ArrowRight/);
   assert.match(node, /ArrowLeft/);

@@ -77,7 +77,7 @@ test('artist style search, prompt output and import/export are deterministic', (
   assert.match(prompt, /Use this as a visual style reference/);
   assert.equal(prompt.includes('\n'), false);
   assert.doesNotMatch(prompt, /Artist style reference|Movement:|Visual cue:|Style tags:/);
-  assert.equal(prompt, `${mucha.cue}, Use this as a visual style reference: composition language, line quality, color palette, lighting, texture, mood and design rhythm.`);
+  assert.equal(prompt, `${mucha.chineseName}，${mucha.cue}, Use this as a visual style reference: composition language, line quality, color palette, lighting, texture, mood and design rhythm.`);
 
   const textPayload = buildArtistStyleOutputPayload(mucha, 'prompt');
   assert.equal(textPayload.kind, 'text');

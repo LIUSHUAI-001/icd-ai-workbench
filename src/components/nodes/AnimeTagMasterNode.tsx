@@ -27,6 +27,7 @@ import {
   ANIME_TAG_MASTER_EVENT,
   ANIME_TAG_MASTER_STORAGE_KEY,
   ANIME_TAG_ONLINE_PROVIDERS,
+  buildAnimeTagLivePreviewImageUrl,
   buildAnimeTagPreviewUrl,
   buildAnimeTagOutputPayload,
   buildAnimeTagPrompt,
@@ -244,6 +245,7 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     }
     const tagQuery = pickAnimeTagPreviewQuery(item);
     if (!tagQuery) return item;
+    const fallbackImageUrl = buildAnimeTagLivePreviewImageUrl(previewProviderFor(item), tagQuery, { safe: true });
     setLazyPreviewById((prev) => ({
       ...prev,
       [item.id]: { ...prev[item.id], status: 'loading' },
@@ -260,13 +262,14 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
       }
       const remoteItem = payload?.data?.item || {};
       const imageUrl = String(remoteItem.imageUrl || payload?.data?.imageUrl || '').trim();
-      const thumbnailUrl = String(remoteItem.thumbnailUrl || payload?.data?.thumbnailUrl || imageUrl).trim();
+      const usableImageUrl = imageUrl || fallbackImageUrl;
+      const thumbnailUrl = String(remoteItem.thumbnailUrl || payload?.data?.thumbnailUrl || usableImageUrl).trim();
       const sourceUrl = String(remoteItem.sourceUrl || payload?.data?.sourceUrl || item.sourceUrl || '').trim();
-      const next: AnimeTagLazyPreviewState = imageUrl
-        ? { status: 'ready', imageUrl, thumbnailUrl: thumbnailUrl || imageUrl, sourceUrl }
+      const next: AnimeTagLazyPreviewState = usableImageUrl
+        ? { status: 'ready', imageUrl: usableImageUrl, thumbnailUrl: thumbnailUrl || usableImageUrl, sourceUrl }
         : { status: 'empty' };
       setLazyPreviewById((prev) => ({ ...prev, [item.id]: next }));
-      return imageUrl ? { ...item, imageUrl, thumbnailUrl: thumbnailUrl || imageUrl, sourceUrl } : item;
+      return usableImageUrl ? { ...item, imageUrl: usableImageUrl, thumbnailUrl: thumbnailUrl || usableImageUrl, sourceUrl } : item;
     } catch (error: any) {
       if (error?.name !== 'AbortError') {
         setLazyPreviewById((prev) => ({
