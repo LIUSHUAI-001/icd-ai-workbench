@@ -80,10 +80,21 @@ export interface AnimeTagOnlineProvider {
 }
 
 export type AnimeTagOnlineProviderInput = AnimeTagOnlineProvider['id'] | 'galbooru' | 'gel' | 'dan' | string;
+export type AnimeTagOnlineCategoryId = 'artist' | 'copyright' | 'character' | 'general' | 'meta' | 'general-meta';
+
+export interface AnimeTagOnlineCategoryOption {
+  id: AnimeTagOnlineCategoryId;
+  name: string;
+  description?: string;
+}
 
 export interface OnlineSearchOptions {
   category?: string;
   limit?: number;
+  page?: number;
+  pageSize?: number;
+  query?: string;
+  letter?: string;
   safe?: boolean;
   signal?: AbortSignal;
 }
@@ -101,11 +112,65 @@ export const ANIME_TAG_ONLINE_PROVIDERS: readonly AnimeTagOnlineProvider[] = [
   },
   {
     id: 'gelbooru',
-    label: 'Gelbooru / Galbooru',
+    label: 'Gelbooru',
     aliases: ['gelbooru', 'galbooru', 'gel'],
     categories: ['artist', 'copyright', 'character', 'general'],
   },
 ];
+
+export const ANIME_TAG_ONLINE_CATEGORY_OPTIONS: readonly AnimeTagOnlineCategoryOption[] = [
+  { id: 'artist', name: '画师 / Artist', description: '作者、画师和个人作品风格标签' },
+  { id: 'copyright', name: '作品 IP / Copyright', description: '动画、漫画、游戏和系列作品标签' },
+  { id: 'character', name: '角色 IP / Character', description: '角色名、人物身份和设定标签' },
+  { id: 'general-meta', name: 'General / Meta', description: 'Danbooru 使用 Meta，Gelbooru 使用 General' },
+];
+
+const ANIME_TAG_CATEGORY_LABELS: Record<string, string> = {
+  artist: '画师 / Artist',
+  copyright: '作品 IP / Copyright',
+  character: '角色 IP / Character',
+  general: '通用标签 / General',
+  meta: '风格 · Meta',
+};
+
+const DANBOORU_CATEGORY_TO_CODE: Record<string, number> = {
+  general: 0,
+  artist: 1,
+  copyright: 3,
+  character: 4,
+  meta: 5,
+};
+
+const DANBOORU_CODE_TO_CATEGORY: Record<string, AnimeTagOnlineCategoryId> = {
+  0: 'general',
+  1: 'artist',
+  3: 'copyright',
+  4: 'character',
+  5: 'meta',
+};
+
+const GELBOORU_CATEGORY_TO_CODE: Record<string, number> = {
+  general: 0,
+  artist: 1,
+  copyright: 3,
+  character: 4,
+};
+
+const GELBOORU_CODE_TO_CATEGORY: Record<string, AnimeTagOnlineCategoryId> = {
+  0: 'general',
+  1: 'artist',
+  3: 'copyright',
+  4: 'character',
+};
+const GELBOORU_TEXT_TO_CATEGORY: Record<string, Exclude<AnimeTagOnlineCategoryId, 'general-meta'>> = {
+  tag: 'general',
+  general: 'general',
+  metadata: 'general',
+  meta: 'general',
+  artist: 'artist',
+  copyright: 'copyright',
+  character: 'character',
+};
 
 const COLLATOR = new Intl.Collator('zh-Hans-CN');
 
@@ -114,6 +179,31 @@ export function normalizeAnimeTagProvider(provider: AnimeTagOnlineProviderInput)
   if (value === 'gelbooru' || value === 'galbooru' || value === 'gel') return 'gelbooru';
   if (value === 'danbooru' || value === 'dan') return 'danbooru';
   return 'danbooru';
+}
+
+function normalizeOnlineCategory(category: unknown): AnimeTagOnlineCategoryId {
+  const value = textOf(category).toLowerCase();
+  if (value === 'artist' || value === 'copyright' || value === 'character' || value === 'general' || value === 'meta' || value === 'general-meta') {
+    return value;
+  }
+  return 'general-meta';
+}
+
+export function resolveAnimeTagOnlineCategory(
+  provider: AnimeTagOnlineProviderInput,
+  category: AnimeTagOnlineCategoryId | string = 'general-meta',
+): Exclude<AnimeTagOnlineCategoryId, 'general-meta'> {
+  const normalizedProvider = normalizeAnimeTagProvider(provider);
+  const normalizedCategory = normalizeOnlineCategory(category);
+  if (normalizedCategory === 'general-meta') {
+    return normalizedProvider === 'danbooru' ? 'meta' : 'general';
+  }
+  if (normalizedProvider === 'gelbooru' && normalizedCategory === 'meta') return 'general';
+  return normalizedCategory;
+}
+
+function animeTagCategoryName(category: string): string {
+  return ANIME_TAG_CATEGORY_LABELS[category] || '通用标签 / General';
 }
 
 function textOf(value: unknown): string {
@@ -249,6 +339,7 @@ export function searchAnimeTags(items: readonly AnimeTagItem[], options: AnimeTa
   const category = textOf(options.category);
   const source = textOf(options.source);
   const limit = Number.isFinite(options.limit) ? Math.max(1, Number(options.limit)) : undefined;
+  const preserveProviderOrder = source === 'danbooru' || source === 'gelbooru' || source === 'galbooru';
 
   const matches = items
     .filter((item) => {
@@ -267,25 +358,25 @@ export function searchAnimeTags(items: readonly AnimeTagItem[], options: AnimeTa
         ...item.tags,
       ].join(' ').toLowerCase();
       return terms.every((term) => haystack.includes(term));
-    })
-    .sort((a, b) => {
+    });
+
+  if (!preserveProviderOrder) {
+    matches.sort((a, b) => {
       const scoreA = (a.source === 'builtin' ? 0 : 1) + (a.imageUrl ? 0 : 0.4);
       const scoreB = (b.source === 'builtin' ? 0 : 1) + (b.imageUrl ? 0 : 0.4);
       return scoreA - scoreB || COLLATOR.compare(a.chineseName || a.name, b.chineseName || b.name);
     });
+  }
 
   return typeof limit === 'number' ? matches.slice(0, limit) : matches;
 }
 
 export function buildAnimeTagPrompt(item: AnimeTagItem): string {
   const tags = uniqueStrings(item.tags as string[]).join(', ');
+  const prompt = item.prompt || tags;
   return [
-    `Anime tag reference: ${item.name} (${item.chineseName})`,
-    `中文分类: ${item.categoryName}`,
     `Tags: ${tags}`,
-    item.prompt ? `Prompt: ${item.prompt}` : '',
-    item.negativePrompt ? `Negative prompt: ${item.negativePrompt}` : '',
-    item.attributes ? `Attributes: ${item.attributes}` : '',
+    `Prompt: ${prompt}`,
   ].filter(Boolean).join('\n');
 }
 
@@ -404,16 +495,108 @@ function withSafeTag(query: string, safe: boolean | undefined): string {
   return /\brating:/i.test(value) ? value : `${value} rating:general`;
 }
 
+function normalizePage(value: unknown, fallback = 1): number {
+  const n = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(n) ? Math.max(1, n) : fallback;
+}
+
+function normalizeLimit(value: unknown, fallback = 12, max = 100): number {
+  const n = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(n) ? Math.max(1, Math.min(n, max)) : fallback;
+}
+
+function wildcardQuery(query: unknown): string {
+  const value = textOf(query).replace(/\*/g, '').trim();
+  return value ? `*${value}*` : '';
+}
+
+export function buildDanbooruTagsUrl(
+  category: AnimeTagOnlineCategoryId | string = 'general-meta',
+  options: OnlineSearchOptions = {},
+): string {
+  const resolvedCategory = resolveAnimeTagOnlineCategory('danbooru', category);
+  const params = new URLSearchParams({
+    'search[category]': String(DANBOORU_CATEGORY_TO_CODE[resolvedCategory] ?? 5),
+    'search[order]': 'count',
+    'search[hide_empty]': 'yes',
+    'search[post_count_gteq]': '1',
+    page: String(normalizePage(options.page)),
+    limit: String(normalizeLimit(options.limit || options.pageSize, 60, 1000)),
+  });
+  const query = wildcardQuery(options.query);
+  if (query) params.set('search[name_matches]', query);
+  return `https://danbooru.donmai.us/tags.json?${params.toString()}`;
+}
+
+export function buildGelbooruTagsUrl(
+  category: AnimeTagOnlineCategoryId | string = 'general-meta',
+  options: OnlineSearchOptions = {},
+): string {
+  const resolvedCategory = resolveAnimeTagOnlineCategory('gelbooru', category);
+  const params = new URLSearchParams({
+    page: 'dapi',
+    s: 'tag',
+    q: 'index',
+    json: '1',
+    limit: String(normalizeLimit(options.limit || options.pageSize, 60, 100)),
+    pid: String(normalizePage(options.page) - 1),
+    order: 'desc',
+    orderby: 'count',
+    type: String(GELBOORU_CATEGORY_TO_CODE[resolvedCategory] ?? 0),
+  });
+  const query = textOf(options.query).replace(/[%*]/g, '').trim();
+  if (query) params.set('name_pattern', `%${query}%`);
+  return `https://gelbooru.com/index.php?${params.toString()}`;
+}
+
 export function buildDanbooruPostsUrl(query: string, options: OnlineSearchOptions = {}): string {
   const tags = encodeURIComponent(withSafeTag(query || '1girl', options.safe !== false));
-  const limit = Math.max(1, Math.min(Number(options.limit || 12), 20));
-  return `https://danbooru.donmai.us/posts.json?tags=${tags}&limit=${limit}&only=id,tag_string,large_file_url,file_url,preview_file_url,source,rating,score`;
+  const limit = normalizeLimit(options.limit || options.pageSize, 12, 100);
+  const page = normalizePage(options.page);
+  return `https://danbooru.donmai.us/posts.json?tags=${tags}&limit=${limit}&page=${page}&only=id,tag_string,tag_string_artist,tag_string_character,tag_string_copyright,tag_string_general,tag_string_meta,large_file_url,file_url,preview_file_url,source,rating,score`;
 }
 
 export function buildGelbooruPostsUrl(query: string, options: OnlineSearchOptions = {}): string {
   const tags = encodeURIComponent(withSafeTag(query || '1girl', options.safe !== false));
-  const limit = Math.max(1, Math.min(Number(options.limit || 12), 20));
-  return `https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&pid=0&tags=${tags}&limit=${limit}`;
+  const limit = normalizeLimit(options.limit || options.pageSize, 12, 100);
+  const pid = normalizePage(options.page) - 1;
+  return `https://gelbooru.com/index.php?page=dapi&s=post&q=index&json=1&pid=${pid}&tags=${tags}&limit=${limit}`;
+}
+
+export function buildAnimeTagProxyTagsUrl(
+  provider: AnimeTagOnlineProviderInput,
+  category: AnimeTagOnlineCategoryId | string = 'general-meta',
+  options: OnlineSearchOptions = {},
+): string {
+  const normalizedProvider = normalizeAnimeTagProvider(provider);
+  const params = new URLSearchParams({
+    provider: normalizedProvider,
+    category: resolveAnimeTagOnlineCategory(normalizedProvider, category),
+  });
+  const query = textOf(options.query);
+  const letter = textOf(options.letter).toLowerCase();
+  if (query) params.set('q', query);
+  if (letter) params.set('letter', letter);
+  params.set('page', String(normalizePage(options.page)));
+  params.set('pageSize', String(normalizeLimit(options.pageSize || options.limit, 60, 100)));
+  params.set('safe', options.safe === false ? '0' : '1');
+  return `/api/anime-tags/tags?${params.toString()}`;
+}
+
+export function buildAnimeTagProxyPostsUrl(
+  provider: AnimeTagOnlineProviderInput,
+  tag: string,
+  options: OnlineSearchOptions = {},
+): string {
+  const normalizedProvider = normalizeAnimeTagProvider(provider);
+  const params = new URLSearchParams({
+    provider: normalizedProvider,
+    tag: normalizeBooruTagQuery(tag) || '1girl',
+    page: String(normalizePage(options.page)),
+    pageSize: String(normalizeLimit(options.pageSize || options.limit, 24, 100)),
+    safe: options.safe === false ? '0' : '1',
+  });
+  return `/api/anime-tags/posts?${params.toString()}`;
 }
 
 export function buildAnimeTagProxySearchUrl(
@@ -425,9 +608,10 @@ export function buildAnimeTagProxySearchUrl(
   const params = new URLSearchParams({
     provider: normalizedProvider,
     q: query || '1girl',
-    limit: String(Math.max(1, Math.min(Number(options.limit || 12), 20))),
-    safe: options.safe === false ? '0' : '1',
+    limit: String(normalizeLimit(options.limit || options.pageSize, 12, 100)),
   });
+  if (options.page) params.set('page', String(normalizePage(options.page)));
+  params.set('safe', options.safe === false ? '0' : '1');
   return `/api/anime-tags/search?${params.toString()}`;
 }
 
@@ -435,7 +619,20 @@ export function normalizeAnimeTagPreviewQuery(value: string): string {
   const first = textOf(value)
     .replace(/^@+/, '')
     .replace(/^artist:/i, '')
-    .replace(/\([^)]*\)/g, ' ')
+    .replace(/(^|\s)\([^)]*\)/g, ' ')
+    .split(/[,\n，、]/)
+    .map((item) => item.trim())
+    .find(Boolean) || '';
+  return first
+    .replace(/:[0-9.]+$/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+export function normalizeBooruTagQuery(value: string): string {
+  const first = textOf(value)
+    .replace(/^@+/, '')
+    .replace(/^artist:/i, '')
     .split(/[,\n，、]/)
     .map((item) => item.trim())
     .find(Boolean) || '';
@@ -636,7 +833,73 @@ export function extractGelbooruPostRecords(data: any, key = 'post'): any[] {
   return [];
 }
 
+function postCountOf(value: unknown): number | undefined {
+  const n = Number.parseInt(String(value ?? ''), 10);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+function normalizeOnlineTagName(value: unknown, fallback: string): string {
+  return textOf(value).replace(/\s+/g, '_') || fallback;
+}
+
+function danbooruCategoryFromTag(tag: any): Exclude<AnimeTagOnlineCategoryId, 'general-meta'> {
+  const raw = String(tag?.category ?? '').trim();
+  return (DANBOORU_CODE_TO_CATEGORY[raw] || normalizeOnlineCategory(raw || tag?.categoryName)) as Exclude<AnimeTagOnlineCategoryId, 'general-meta'>;
+}
+
+function gelbooruCategoryFromTag(tag: any): Exclude<AnimeTagOnlineCategoryId, 'general-meta'> {
+  const candidates = [tag?.category, tag?.type, tag?.categoryName];
+  for (const value of candidates) {
+    const raw = String(value ?? '').trim().toLowerCase();
+    if (!raw) continue;
+    if (GELBOORU_TEXT_TO_CATEGORY[raw]) return GELBOORU_TEXT_TO_CATEGORY[raw];
+    if (GELBOORU_CODE_TO_CATEGORY[raw]) return GELBOORU_CODE_TO_CATEGORY[raw] as Exclude<AnimeTagOnlineCategoryId, 'general-meta'>;
+  }
+  return 'general';
+}
+
+export function mapDanbooruTagToAnimeTagItem(tag: any): AnimeTagItem {
+  const categoryId = danbooruCategoryFromTag(tag);
+  const name = normalizeOnlineTagName(tag?.name, 'danbooru_tag');
+  const postCount = postCountOf(tag?.post_count ?? tag?.postCount ?? tag?.count);
+  return normalizeAnimeTagItem({
+    id: `danbooru-tag-${categoryId}-${slugifyAnimeTag(name)}`,
+    name,
+    chineseName: name,
+    categoryId,
+    categoryName: animeTagCategoryName(categoryId),
+    tags: [name],
+    prompt: name,
+    source: 'danbooru',
+    sourceUrl: `https://danbooru.donmai.us/posts?tags=${encodeURIComponent(name)}`,
+    attributes: typeof postCount === 'number' ? `${postCount} posts` : 'Danbooru tag',
+    postCount,
+    userCreated: false,
+  });
+}
+
+export function mapGelbooruTagToAnimeTagItem(tag: any): AnimeTagItem {
+  const categoryId = gelbooruCategoryFromTag(tag);
+  const name = normalizeOnlineTagName(tag?.name || tag?.value || tag?.label, 'gelbooru_tag');
+  const postCount = postCountOf(tag?.count ?? tag?.post_count ?? tag?.postCount);
+  return normalizeAnimeTagItem({
+    id: `gelbooru-tag-${categoryId}-${slugifyAnimeTag(name)}`,
+    name,
+    chineseName: name,
+    categoryId,
+    categoryName: animeTagCategoryName(categoryId),
+    tags: [name],
+    prompt: name,
+    source: 'gelbooru',
+    sourceUrl: `https://gelbooru.com/index.php?page=post&s=list&tags=${encodeURIComponent(name)}`,
+    attributes: typeof postCount === 'number' ? `${postCount} posts` : 'Gelbooru tag',
+    postCount,
+    userCreated: false,
+  });
+}
+
 export function mapDanbooruPostToAnimeTagItem(post: any, query: string): AnimeTagItem {
+  const categoryId = resolveAnimeTagOnlineCategory('danbooru', 'general-meta');
   const tags = splitTags(String(post?.tag_string || query || 'danbooru'));
   const imageUrl = normalizeRemoteImageUrl(post?.large_file_url || post?.file_url || post?.preview_file_url);
   const thumb = normalizeRemoteImageUrl(post?.preview_file_url || imageUrl);
@@ -644,9 +907,9 @@ export function mapDanbooruPostToAnimeTagItem(post: any, query: string): AnimeTa
   return normalizeAnimeTagItem({
     id: `danbooru-${post?.id || simpleHash(`${name}\n${imageUrl}`)}`,
     name,
-    chineseName: `Danbooru ${name}`,
-    categoryId: 'online-danbooru',
-    categoryName: '在线图库 Danbooru',
+    chineseName: name,
+    categoryId,
+    categoryName: animeTagCategoryName(categoryId),
     tags,
     prompt: tags.join(', '),
     source: 'danbooru',
@@ -660,6 +923,7 @@ export function mapDanbooruPostToAnimeTagItem(post: any, query: string): AnimeTa
 }
 
 export function mapGelbooruPostToAnimeTagItem(post: any, query: string): AnimeTagItem {
+  const categoryId = resolveAnimeTagOnlineCategory('gelbooru', 'general-meta');
   const tags = splitTags(String(post?.tags || query || 'gelbooru'));
   const imageUrl = normalizeRemoteImageUrl(post?.file_url || post?.sample_url || post?.preview_url);
   const thumb = normalizeRemoteImageUrl(post?.preview_url || post?.sample_url || imageUrl);
@@ -668,9 +932,9 @@ export function mapGelbooruPostToAnimeTagItem(post: any, query: string): AnimeTa
   return normalizeAnimeTagItem({
     id: `gelbooru-${idValue}`,
     name,
-    chineseName: `Gelbooru ${name}`,
-    categoryId: 'online-gelbooru',
-    categoryName: '在线图库 Gelbooru',
+    chineseName: name,
+    categoryId,
+    categoryName: animeTagCategoryName(categoryId),
     tags,
     prompt: tags.join(', '),
     source: 'gelbooru',

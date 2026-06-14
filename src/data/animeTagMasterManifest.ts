@@ -6,8 +6,6 @@ export const ANIME_TAG_MASTER_CATEGORIES: readonly AnimeTagCategory[] = [
   { id: 'character', name: '角色 IP / Character', description: '角色名称、人物身份和角色设定标签', builtIn: true },
   { id: 'general', name: '通用标签 / General', description: '服装、姿势、构图、场景、光影等常用创作标签', builtIn: true },
   { id: 'meta', name: '风格 · Meta', description: '质量、画风、媒介、反向排除和元信息标签', builtIn: true },
-  { id: 'online-danbooru', name: '在线图库 Danbooru', description: 'Danbooru 实时懒加载图库结果', builtIn: true },
-  { id: 'online-gelbooru', name: '在线图库 Gelbooru', description: 'Gelbooru / Galbooru 实时懒加载图库结果', builtIn: true },
 ];
 
 const RAW_ANIME_TAG_MASTER_ITEMS: readonly AnimeTagItem[] = [
@@ -327,7 +325,9 @@ const LEGACY_ANIME_TAG_CATEGORY_MAP: Record<string, string> = {
   lighting: 'general',
   quality: 'meta',
   negative: 'meta',
-  online: 'online-danbooru',
+  online: 'general',
+  'online-danbooru': 'meta',
+  'online-gelbooru': 'general',
 };
 
 export const ANIME_TAG_MASTER_ITEMS: readonly AnimeTagItem[] = RAW_ANIME_TAG_MASTER_ITEMS.map((item) => {

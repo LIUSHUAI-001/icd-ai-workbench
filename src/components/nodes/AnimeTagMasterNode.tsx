@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Copy,
   Download,
+  Eye,
   FileText,
   Image as ImageIcon,
   Images,
@@ -17,7 +18,16 @@ import {
   Upload,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { PORT_COLOR } from '../../config/portTypes';
 import { ANIME_TAG_MASTER_CATEGORIES, ANIME_TAG_MASTER_ITEMS } from '../../data/animeTagMasterManifest';
@@ -26,8 +36,11 @@ import { defaultSizeOf, placeSingleNode } from '../../utils/nodePlacement';
 import {
   ANIME_TAG_MASTER_EVENT,
   ANIME_TAG_MASTER_STORAGE_KEY,
+  ANIME_TAG_ONLINE_CATEGORY_OPTIONS,
   ANIME_TAG_ONLINE_PROVIDERS,
   buildAnimeTagLivePreviewImageUrl,
+  buildAnimeTagProxyPostsUrl,
+  buildAnimeTagProxyTagsUrl,
   buildAnimeTagPreviewUrl,
   buildAnimeTagOutputPayload,
   buildAnimeTagPrompt,
@@ -40,12 +53,13 @@ import {
   normalizeAnimeTagItem,
   normalizeAnimeTagLibrary,
   pickAnimeTagPreviewQuery,
+  resolveAnimeTagOnlineCategory,
   searchAnimeTags,
-  searchOnlineAnimeTags,
   slugifyAnimeTag,
   upsertAnimeTagInLibrary,
   type AnimeTagCategory,
   type AnimeTagItem,
+  type AnimeTagOnlineCategoryId,
   type AnimeTagOutputMode,
   type AnimeTagUserLibrary,
 } from '../../utils/animeTagMaster';
@@ -71,15 +85,118 @@ type AnimeTagLazyPreviewState = {
   error?: string;
 };
 
+type AnimeTagHoverPreviewState = {
+  item: AnimeTagItem;
+  x: number;
+  y: number;
+};
+
+type AnimeTagOnlineRequestState = {
+  provider: 'danbooru' | 'gelbooru';
+  category: AnimeTagOnlineCategoryId;
+  query: string;
+  letter: string;
+};
+
 const handleStyle = {
   width: 12,
   height: 12,
   border: '2px solid var(--atm-handle-border, #0f172a)',
   boxShadow: '0 0 0 2px var(--atm-bg, #f7fee7)',
 };
+const ONLINE_FETCH_TIMEOUT_MS = 20000;
+const PREVIEW_RETRY_DELAYS_MS = [650, 1400, 2600];
 
 function stopCanvasWheel(event: React.WheelEvent) {
   event.stopPropagation();
+}
+
+function makeAbortError() {
+  const error = new Error('Aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+function waitForPreviewRetry(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(makeAbortError());
+      return;
+    }
+    let timer = 0;
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      cleanup();
+      reject(makeAbortError());
+    };
+    timer = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+async function fetchPreviewPayload(url: string, signal?: AbortSignal) {
+  if (signal?.aborted) throw makeAbortError();
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, ONLINE_FETCH_TIMEOUT_MS);
+  const abortFromParent = () => controller.abort();
+  signal?.addEventListener('abort', abortFromParent, { once: true });
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    const payload = await response.json().catch(() => null);
+    return { response, payload };
+  } catch (error: any) {
+    if (error?.name === 'AbortError' && timedOut) {
+      throw new Error(`预览请求超时 ${Math.round(ONLINE_FETCH_TIMEOUT_MS / 1000)} 秒`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+    signal?.removeEventListener('abort', abortFromParent);
+  }
+}
+
+async function fetchPreviewWithRetries(url: string, fallbackImageUrl = '', signal?: AbortSignal) {
+  let lastError = '在线预览加载失败';
+  for (let attempt = 0; attempt <= PREVIEW_RETRY_DELAYS_MS.length; attempt += 1) {
+    try {
+      const { response, payload } = await fetchPreviewPayload(url, signal);
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      const remoteItem = payload?.data?.item || {};
+      const imageUrl = String(remoteItem.imageUrl || payload?.data?.imageUrl || '').trim();
+      const thumbnailUrl = String(remoteItem.thumbnailUrl || payload?.data?.thumbnailUrl || imageUrl).trim();
+      const usableImageUrl = imageUrl || thumbnailUrl || fallbackImageUrl;
+      const sourceUrl = String(remoteItem.sourceUrl || payload?.data?.sourceUrl || '').trim();
+      if (!usableImageUrl) {
+        throw new Error('没有找到可预览图片');
+      }
+      return {
+        imageUrl: usableImageUrl,
+        thumbnailUrl: thumbnailUrl || usableImageUrl,
+        sourceUrl,
+      };
+    } catch (error: any) {
+      if (error?.name === 'AbortError') throw error;
+      lastError = error?.message || '在线预览加载失败';
+      if (attempt >= PREVIEW_RETRY_DELAYS_MS.length) break;
+      await waitForPreviewRetry(PREVIEW_RETRY_DELAYS_MS[attempt], signal);
+    }
+  }
+  throw new Error(`预览已重试 3 次：${lastError}`);
 }
 
 function readLibrary(): AnimeTagUserLibrary {
@@ -114,23 +231,89 @@ function toCategoryOptions(items: readonly AnimeTagCategory[]) {
   }));
 }
 
+function categoryToOnlineCategory(value: string): AnimeTagOnlineCategoryId | null {
+  const categoryId = String(value || '').trim().toLowerCase();
+  if (categoryId === 'artist' || categoryId === 'copyright' || categoryId === 'character') return categoryId;
+  if (categoryId === 'general' || categoryId === 'meta' || categoryId === 'general-meta') return 'general-meta';
+  return null;
+}
+
+const legacyDefaultOnlineQueries = new Set(['1girl', '1 girl', 'hatsune_miku / 1girl', 'hatsune_miku / 1 girl']);
+
+function initialOnlineQuery(value: unknown): string {
+  const text = String(value || '').trim();
+  return legacyDefaultOnlineQueries.has(text.toLowerCase()) ? '' : text;
+}
+
 function AnimeTagPreviewImage({
   item,
   alt,
   className,
   preferFull = false,
+  allowLivePreview = true,
+  previewState,
+  onRetry,
 }: {
   item?: AnimeTagItem | null;
   alt: string;
   className?: string;
   preferFull?: boolean;
+  allowLivePreview?: boolean;
+  previewState?: AnimeTagLazyPreviewState;
+  onRetry?: () => void;
 }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [item?.id, item?.imageUrl, item?.thumbnailUrl]);
+  const [tryFull, setTryFull] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+    setTryFull(false);
+  }, [allowLivePreview, item?.id, item?.imageUrl, item?.thumbnailUrl]);
   if (!item) return <span className="anime-tag-master-no-image"><Tags size={26} /> TAG</span>;
+  const hasDirectImage = Boolean(item.imageUrl || item.thumbnailUrl);
+  const isOnlineItem = item.source === 'danbooru' || item.source === 'gelbooru';
+  const isMissingOnlinePreview = isOnlineItem && (failed || previewState?.status === 'empty' || previewState?.status === 'error');
+  if (isMissingOnlinePreview) {
+    return (
+      <span
+        role="button"
+        tabIndex={0}
+        className="anime-tag-master-no-image is-online-preview-missing"
+        onClick={(event) => {
+          event.stopPropagation();
+          onRetry?.();
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          event.stopPropagation();
+          onRetry?.();
+        }}
+        title={previewState?.error || '点击重试预览'}
+      >
+        <ImageIcon size={24} />
+        未获取到预览
+        <small>重试预览</small>
+      </span>
+    );
+  }
+  const isOnlinePreviewPlaceholder = !allowLivePreview
+    && !hasDirectImage
+    && isOnlineItem;
+  if (isOnlinePreviewPlaceholder) {
+    return (
+      <span className="anime-tag-master-no-image is-online-preview-loading">
+        <ImageIcon size={24} />
+        {previewState?.status === 'loading' ? '预览加载中' : '滚动到此处加载'}
+      </span>
+    );
+  }
+  const previewSrc = !allowLivePreview && !hasDirectImage
+    ? createAnimeTagPreviewFallbackSvg(item)
+    : (preferFull || tryFull ? getAnimeTagFullImageUrl(item) : getAnimeTagPreviewImageUrl(item));
+  const fullSrc = !allowLivePreview && !hasDirectImage ? '' : getAnimeTagFullImageUrl(item);
   const src = failed
     ? createAnimeTagPreviewFallbackSvg(item)
-    : preferFull ? getAnimeTagFullImageUrl(item) : getAnimeTagPreviewImageUrl(item);
+    : previewSrc;
   return (
     <img
       className={className}
@@ -138,7 +321,13 @@ function AnimeTagPreviewImage({
       alt={alt}
       loading="lazy"
       referrerPolicy="no-referrer"
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (!preferFull && !tryFull && fullSrc && fullSrc !== src) {
+          setTryFull(true);
+          return;
+        }
+        setFailed(true);
+      }}
     />
   );
 }
@@ -156,7 +345,19 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
   const [provider, setProvider] = useState<'danbooru' | 'gelbooru'>(
     (data as any)?.animeTagProvider === 'gelbooru' ? 'gelbooru' : 'danbooru',
   );
-  const [onlineQuery, setOnlineQuery] = useState(String((data as any)?.animeTagOnlineQuery || '1girl'));
+  const [onlineQuery, setOnlineQuery] = useState(() => initialOnlineQuery((data as any)?.animeTagOnlineQuery));
+  const [onlineCategory, setOnlineCategory] = useState<AnimeTagOnlineCategoryId>(
+    ((data as any)?.animeTagOnlineCategory || 'artist') as AnimeTagOnlineCategoryId,
+  );
+  const [onlineLetter, setOnlineLetter] = useState('all');
+  const [onlinePage, setOnlinePage] = useState(1);
+  const [onlineTagReturnPage, setOnlineTagReturnPage] = useState(1);
+  const [onlineTotal, setOnlineTotal] = useState(0);
+  const [onlineTotalPages, setOnlineTotalPages] = useState(1);
+  const [onlineTotalKnown, setOnlineTotalKnown] = useState(true);
+  const [onlineHasMore, setOnlineHasMore] = useState(false);
+  const [onlineMode, setOnlineMode] = useState<'tags' | 'posts'>('tags');
+  const [onlineActiveTag, setOnlineActiveTag] = useState<AnimeTagItem | null>(null);
   const [onlineResults, setOnlineResults] = useState<AnimeTagItem[]>([]);
   const [outputMode, setOutputMode] = useState<AnimeTagOutputMode>(
     (data as any)?.animeTagOutputMode === 'image' ? 'image' : 'tags',
@@ -164,6 +365,7 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
   const [selectedId, setSelectedId] = useState(String((data as any)?.animeTagSelectedId || ANIME_TAG_MASTER_ITEMS[0]?.id || ''));
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [hoverPreview, setHoverPreview] = useState<AnimeTagHoverPreviewState | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [renameCategoryId, setRenameCategoryId] = useState('');
   const [renameCategoryName, setRenameCategoryName] = useState('');
@@ -172,10 +374,103 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
   const [status, setStatus] = useState('搜索动漫标签，运行后输出标签文本或图库参考图。');
   const [lazyPreviewById, setLazyPreviewById] = useState<Record<string, AnimeTagLazyPreviewState>>({});
   const lazyPreviewRef = useRef<Record<string, AnimeTagLazyPreviewState>>({});
+  const onlineRequestRef = useRef<AnimeTagOnlineRequestState>({
+    provider,
+    category: onlineCategory,
+    query: onlineQuery,
+    letter: onlineLetter,
+  });
+
+  const patchOnlineRequest = useCallback((patch: Partial<AnimeTagOnlineRequestState>) => {
+    onlineRequestRef.current = { ...onlineRequestRef.current, ...patch };
+  }, []);
+
+  const clearOnlineListing = useCallback(() => {
+    setOnlineResults([]);
+    setOnlineTotal(0);
+    setOnlineTotalPages(1);
+    setOnlineTotalKnown(true);
+    setOnlineHasMore(false);
+    setOnlineActiveTag(null);
+  }, []);
+
+  const updateSource = useCallback((value: string) => {
+    const nextSource = String(value || 'all');
+    setSource(nextSource);
+    if (nextSource === 'danbooru' || nextSource === 'gelbooru') {
+      patchOnlineRequest({ provider: nextSource });
+      setProvider(nextSource);
+      clearOnlineListing();
+      setOnlinePage(1);
+    }
+  }, [clearOnlineListing, patchOnlineRequest]);
+
+  const updateProvider = useCallback((value: string) => {
+    const nextProvider = value === 'gelbooru' ? 'gelbooru' : 'danbooru';
+    patchOnlineRequest({ provider: nextProvider });
+    setProvider(nextProvider);
+    setSource(nextProvider);
+    if (categoryToOnlineCategory(category)) {
+      setCategory(resolveAnimeTagOnlineCategory(nextProvider, categoryToOnlineCategory(category) || onlineCategory));
+    }
+    clearOnlineListing();
+    setOnlinePage(1);
+  }, [category, clearOnlineListing, onlineCategory, patchOnlineRequest]);
+
+  const updateCategory = useCallback((value: string) => {
+    const nextCategory = String(value || 'all');
+    setCategory(nextCategory);
+    const nextOnlineCategory = categoryToOnlineCategory(nextCategory);
+    if (nextOnlineCategory) {
+      patchOnlineRequest({ category: nextOnlineCategory });
+      setOnlineCategory(nextOnlineCategory);
+      setOnlineMode('tags');
+      clearOnlineListing();
+      setOnlinePage(1);
+    }
+  }, [clearOnlineListing, patchOnlineRequest]);
+
+  const updateOnlineCategory = useCallback((value: AnimeTagOnlineCategoryId) => {
+    const nextOnlineCategory = value || 'general-meta';
+    patchOnlineRequest({ category: nextOnlineCategory });
+    setOnlineCategory(nextOnlineCategory);
+    const activeProvider = onlineRequestRef.current.provider === 'gelbooru' ? 'gelbooru' : 'danbooru';
+    setCategory(resolveAnimeTagOnlineCategory(activeProvider, nextOnlineCategory));
+    setOnlineMode('tags');
+    clearOnlineListing();
+    setOnlinePage(1);
+  }, [clearOnlineListing, patchOnlineRequest]);
+
+  const updateOnlineQuery = useCallback((value: string) => {
+    const nextQuery = String(value || '');
+    patchOnlineRequest({ query: nextQuery });
+    setOnlineQuery(nextQuery);
+    clearOnlineListing();
+    setOnlineMode('tags');
+    setOnlinePage(1);
+  }, [clearOnlineListing, patchOnlineRequest]);
+
+  const updateOnlineLetter = useCallback((value: string) => {
+    const nextLetter = String(value || 'all');
+    patchOnlineRequest({ letter: nextLetter });
+    setOnlineLetter(nextLetter);
+    setOnlineMode('tags');
+    clearOnlineListing();
+    setOnlinePage(1);
+  }, [clearOnlineListing, patchOnlineRequest]);
 
   useEffect(() => {
     writeLibrary(library);
   }, [library]);
+
+  useEffect(() => {
+    onlineRequestRef.current = {
+      provider,
+      category: onlineCategory,
+      query: onlineQuery,
+      letter: onlineLetter,
+    };
+  }, [onlineCategory, onlineLetter, onlineQuery, provider]);
 
   useEffect(() => {
     lazyPreviewRef.current = lazyPreviewById;
@@ -196,15 +491,12 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     [...ANIME_TAG_MASTER_CATEGORIES, ...library.categories].forEach((item) => {
       if (item.id) merged.set(item.id, item);
     });
-    onlineResults.forEach((item) => {
-      merged.set(item.categoryId, { id: item.categoryId, name: item.categoryName, builtIn: true });
-    });
     return Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
-  }, [library.categories, onlineResults]);
+  }, [library.categories]);
 
   const filteredItems = useMemo(() => {
-    return searchAnimeTags(allItems, { query, category, source, limit: libraryOpen ? undefined : 12 });
-  }, [allItems, category, libraryOpen, query, source]);
+    return searchAnimeTags(allItems, { query, category: onlineMode === 'posts' ? 'all' : category, source });
+  }, [allItems, category, onlineMode, query, source]);
 
   const selectedTag = useMemo(() => {
     return allItems.find((item) => item.id === selectedId) || filteredItems[0] || allItems[0];
@@ -228,6 +520,13 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     };
   }, [lazyPreviewById]);
 
+  const visiblePreviewItemsById = useMemo(() => {
+    const byId = new Map<string, AnimeTagItem>();
+    filteredItems.forEach((item) => byId.set(item.id, item));
+    if (selectedTag) byId.set(selectedTag.id, selectedTag);
+    return byId;
+  }, [filteredItems, selectedTag]);
+
   const previewProviderFor = useCallback((item: AnimeTagItem): 'danbooru' | 'gelbooru' => (
     item.source === 'gelbooru' || item.source === 'danbooru' ? item.source : provider
   ), [provider]);
@@ -245,31 +544,43 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     }
     const tagQuery = pickAnimeTagPreviewQuery(item);
     if (!tagQuery) return item;
-    const fallbackImageUrl = buildAnimeTagLivePreviewImageUrl(previewProviderFor(item), tagQuery, { safe: true });
+    const primaryProvider = previewProviderFor(item);
+    const previewProviders: Array<'danbooru' | 'gelbooru'> = item.source === 'danbooru' || item.source === 'gelbooru'
+      ? [primaryProvider]
+      : [primaryProvider, primaryProvider === 'danbooru' ? 'gelbooru' : 'danbooru'];
     setLazyPreviewById((prev) => ({
       ...prev,
       [item.id]: { ...prev[item.id], status: 'loading' },
     }));
 
+    let lastError = '';
     try {
-      const response = await fetch(buildAnimeTagPreviewUrl(previewProviderFor(item), tagQuery, { safe: true }), {
-        signal,
-        headers: { Accept: 'application/json' },
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok || !payload?.success) {
-        throw new Error(payload?.error || `HTTP ${response.status}`);
+      for (const previewProvider of previewProviders) {
+        const fallbackImageUrl = item.source === 'builtin'
+          ? buildAnimeTagLivePreviewImageUrl(previewProvider, tagQuery, { safe: true })
+          : '';
+        try {
+          const preview = await fetchPreviewWithRetries(
+            buildAnimeTagPreviewUrl(previewProvider, tagQuery, { safe: true }),
+            fallbackImageUrl,
+            signal,
+          );
+          const sourceUrl = preview.sourceUrl || item.sourceUrl || '';
+          const next: AnimeTagLazyPreviewState = {
+            status: 'ready',
+            imageUrl: preview.imageUrl,
+            thumbnailUrl: preview.thumbnailUrl || preview.imageUrl,
+            sourceUrl,
+          };
+          setLazyPreviewById((prev) => ({ ...prev, [item.id]: next }));
+          return { ...item, imageUrl: preview.imageUrl, thumbnailUrl: preview.thumbnailUrl || preview.imageUrl, sourceUrl };
+        } catch (error: any) {
+          if (error?.name === 'AbortError') throw error;
+          lastError = `${previewProvider}: ${error?.message || '在线预览加载失败'}`;
+        }
       }
-      const remoteItem = payload?.data?.item || {};
-      const imageUrl = String(remoteItem.imageUrl || payload?.data?.imageUrl || '').trim();
-      const usableImageUrl = imageUrl || fallbackImageUrl;
-      const thumbnailUrl = String(remoteItem.thumbnailUrl || payload?.data?.thumbnailUrl || usableImageUrl).trim();
-      const sourceUrl = String(remoteItem.sourceUrl || payload?.data?.sourceUrl || item.sourceUrl || '').trim();
-      const next: AnimeTagLazyPreviewState = usableImageUrl
-        ? { status: 'ready', imageUrl: usableImageUrl, thumbnailUrl: thumbnailUrl || usableImageUrl, sourceUrl }
-        : { status: 'empty' };
-      setLazyPreviewById((prev) => ({ ...prev, [item.id]: next }));
-      return usableImageUrl ? { ...item, imageUrl: usableImageUrl, thumbnailUrl: thumbnailUrl || usableImageUrl, sourceUrl } : item;
+      setLazyPreviewById((prev) => ({ ...prev, [item.id]: { status: 'empty', error: lastError } }));
+      return item;
     } catch (error: any) {
       if (error?.name !== 'AbortError') {
         setLazyPreviewById((prev) => ({
@@ -281,10 +592,18 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     }
   }, [previewProviderFor]);
 
+  const queueVisiblePreview = useCallback((item?: AnimeTagItem | null, force = false) => {
+    if (!item || item.imageUrl || item.thumbnailUrl) return;
+    const state = lazyPreviewRef.current[item.id]?.status;
+    if (!force && (state === 'loading' || state === 'ready' || state === 'empty' || state === 'error')) return;
+    void requestLazyPreview(item);
+  }, [requestLazyPreview]);
+
   const previewSeedItems = useMemo(() => {
     const byId = new Map<string, AnimeTagItem>();
+    const previewSeedLimit = libraryOpen ? 12 : 8;
     if (selectedTag) byId.set(selectedTag.id, selectedTag);
-    filteredItems.slice(0, libraryOpen ? 24 : 8).forEach((item) => byId.set(item.id, item));
+    filteredItems.slice(0, previewSeedLimit).forEach((item) => byId.set(item.id, item));
     return Array.from(byId.values());
   }, [filteredItems, libraryOpen, selectedTag]);
 
@@ -293,9 +612,9 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
       .filter((item) => !item.imageUrl && !item.thumbnailUrl)
       .filter((item) => {
         const state = lazyPreviewRef.current[item.id]?.status;
-        return state !== 'loading' && state !== 'ready' && state !== 'empty';
+        return state !== 'loading' && state !== 'ready' && state !== 'empty' && state !== 'error';
       })
-      .slice(0, libraryOpen ? 16 : 8);
+      .slice(0, libraryOpen ? 12 : 8);
     if (!candidates.length) return undefined;
 
     const controller = new AbortController();
@@ -314,16 +633,47 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
   }, [libraryOpen, previewSeedItems, requestLazyPreview]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('[data-anime-tag-preview-id]'))
+      .filter((element) => element.dataset.animeTagPreviewOwner === id);
+    if (!elements.length) return undefined;
+
+    if (typeof IntersectionObserver === 'undefined') {
+      elements.forEach((element) => {
+        const item = visiblePreviewItemsById.get(element.dataset.animeTagPreviewId || '');
+        queueVisiblePreview(item);
+      });
+      return undefined;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const element = entry.target as HTMLElement;
+        const item = visiblePreviewItemsById.get(element.dataset.animeTagPreviewId || '');
+        queueVisiblePreview(item);
+      });
+    }, {
+      root: null,
+      rootMargin: '220px 0px',
+      threshold: 0.01,
+    });
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [id, libraryOpen, onlineMode, onlinePage, queueVisiblePreview, visiblePreviewItemsById]);
+
+  useEffect(() => {
     update({
       animeTagQuery: query,
       animeTagCategory: category,
       animeTagSource: source,
       animeTagProvider: provider,
       animeTagOnlineQuery: onlineQuery,
+      animeTagOnlineCategory: onlineCategory,
       animeTagOutputMode: outputMode,
       animeTagSelectedId: selectedTag?.id,
     });
-  }, [category, onlineQuery, outputMode, provider, query, selectedTag?.id, source, update]);
+  }, [category, onlineCategory, onlineQuery, outputMode, provider, query, selectedTag?.id, source, update]);
 
   const openLightbox = useCallback((item: AnimeTagItem) => {
     const index = filteredItems.findIndex((candidate) => candidate.id === item.id);
@@ -331,6 +681,21 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     setLightboxIndex(Math.max(0, index));
     void requestLazyPreview(item);
   }, [filteredItems, requestLazyPreview]);
+
+  const showHoverPreview = useCallback((item: AnimeTagItem, event: ReactMouseEvent<HTMLElement>) => {
+    event.stopPropagation();
+    setHoverPreview({ item, x: event.clientX, y: event.clientY });
+    void requestLazyPreview(item);
+  }, [requestLazyPreview]);
+
+  const moveHoverPreview = useCallback((event: ReactMouseEvent<HTMLElement>) => {
+    const { clientX, clientY } = event;
+    setHoverPreview((current) => (current ? { ...current, x: clientX, y: clientY } : current));
+  }, []);
+
+  const hideHoverPreview = useCallback(() => {
+    setHoverPreview(null);
+  }, []);
 
   const moveLightbox = useCallback((delta: number) => {
     setLightboxIndex((current) => {
@@ -358,31 +723,186 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     setStatus('已复制动漫标签提示词。');
   }, [selectedTag]);
 
-  const searchOnline = useCallback(async () => {
-    const term = onlineQuery.trim();
-    if (!term) {
-      setStatus('请输入 Danbooru / Gelbooru 搜索词。');
-      return;
-    }
+  const loadOnlineTags = useCallback(async (
+    nextPage = 1,
+    refresh = false,
+    requestPatch: Partial<AnimeTagOnlineRequestState> = {},
+  ) => {
+    const request = { ...onlineRequestRef.current, ...requestPatch };
+    const requestProvider = request.provider === 'gelbooru' ? 'gelbooru' : 'danbooru';
+    const requestCategory = request.category || 'general-meta';
+    const requestQuery = String(request.query || '');
+    const requestLetter = String(request.letter || 'all');
     onlineAbortRef.current?.abort();
     const controller = new AbortController();
     onlineAbortRef.current = controller;
-    setStatus(`正在懒加载 ${provider === 'danbooru' ? 'Danbooru' : 'Gelbooru'} 图片与标签...`);
+    setStatus(`正在加载 ${requestProvider === 'danbooru' ? 'Danbooru' : 'Gelbooru'} 在线 tag 列表...`);
     try {
-      const timeout = window.setTimeout(() => controller.abort(), 12000);
-      const items = await searchOnlineAnimeTags(provider, term, { limit: 12, signal: controller.signal });
+      const timeout = window.setTimeout(() => controller.abort(), ONLINE_FETCH_TIMEOUT_MS);
+      const url = refresh
+        ? '/api/anime-tags/tags/refresh'
+        : buildAnimeTagProxyTagsUrl(requestProvider, requestCategory, {
+          query: requestQuery,
+          letter: requestLetter === 'all' ? '' : requestLetter,
+          page: nextPage,
+          pageSize: 60,
+        });
+      const response = await fetch(url, refresh ? {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          provider: requestProvider,
+          category: requestCategory,
+          q: requestQuery,
+          letter: requestLetter === 'all' ? '' : requestLetter,
+          page: nextPage,
+          pageSize: 60,
+        }),
+      } : {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
       window.clearTimeout(timeout);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      const items = Array.isArray(payload?.data?.items)
+        ? payload.data.items.map((row: any) => normalizeAnimeTagItem(row))
+        : [];
       setOnlineResults(items);
+      setOnlineMode('tags');
+      const loadedPage = Number(payload?.data?.page || nextPage);
+      const hasMore = Boolean(payload?.data?.hasMore);
+      const totalPages = Number(payload?.data?.totalPages || (hasMore ? loadedPage + 1 : loadedPage));
+      setOnlinePage(loadedPage);
+      setOnlineTagReturnPage(loadedPage);
+      setOnlineTotal(Number(payload?.data?.total || items.length));
+      setOnlineTotalPages(Math.max(1, totalPages));
+      setOnlineTotalKnown(payload?.data?.totalKnown !== false);
+      setOnlineHasMore(hasMore);
+      setOnlineActiveTag(null);
       if (items[0]) {
         setSelectedId(items[0].id);
-        setCategory(items[0].categoryId);
-        setSource(provider);
+        setSource(requestProvider);
       }
-      setStatus(items.length ? `已懒加载 ${items.length} 个在线结果。` : '在线图库没有返回结果，换个关键词试试。');
+      const warning = String(payload?.data?.warning || '').trim();
+      const prefix = warning ? `${warning} ` : '';
+      setStatus(items.length
+        ? `${prefix}已加载 ${items.length} 个在线 tag，当前分类约 ${payload?.data?.total || items.length} 个。`
+        : `${prefix}在线图库没有返回 tag，换个关键词或分类试试。`);
     } catch (error: any) {
       setStatus(`在线图库加载失败：${error?.message || '网络或跨域错误'}`);
     }
-  }, [onlineQuery, provider]);
+  }, []);
+
+  const loadOnlinePosts = useCallback(async (tag: AnimeTagItem, nextPage = 1) => {
+    const requestProvider = onlineRequestRef.current.provider === 'gelbooru' ? 'gelbooru' : 'danbooru';
+    if (onlineMode !== 'posts') setOnlineTagReturnPage(onlinePage);
+    onlineAbortRef.current?.abort();
+    const controller = new AbortController();
+    onlineAbortRef.current = controller;
+    setStatus(`正在加载 ${tag.name} 的作品分页...`);
+    try {
+      const timeout = window.setTimeout(() => controller.abort(), ONLINE_FETCH_TIMEOUT_MS);
+      const response = await fetch(buildAnimeTagProxyPostsUrl(requestProvider, tag.name, {
+        page: nextPage,
+        pageSize: 24,
+      }), {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      window.clearTimeout(timeout);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.error || `HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      const items = Array.isArray(payload?.data?.items)
+        ? payload.data.items.map((row: any) => normalizeAnimeTagItem(row))
+        : [];
+      setOnlineResults(items);
+      setOnlineMode('posts');
+      setOnlineActiveTag(tag);
+      const loadedPage = Number(payload?.data?.page || nextPage);
+      const hasMore = Boolean(payload?.data?.hasMore);
+      const payloadTotal = Number(payload?.data?.total || 0);
+      const trustedTotal = payload?.data?.totalKnown !== false
+        ? payloadTotal
+        : Math.max(payloadTotal, Number(tag.postCount || 0), items.length);
+      const siteTotal = Number(tag.postCount || 0);
+      const isSafeFilteredGelbooru = requestProvider === 'gelbooru' && siteTotal > trustedTotal;
+      const totalPages = trustedTotal > 0
+        ? Math.ceil(trustedTotal / 24)
+        : Number(payload?.data?.totalPages || (hasMore ? loadedPage + 1 : loadedPage));
+      setOnlinePage(loadedPage);
+      setOnlineTotal(trustedTotal || Number(tag.postCount || items.length));
+      setOnlineTotalPages(Math.max(1, totalPages));
+      setOnlineTotalKnown(payload?.data?.totalKnown !== false);
+      setOnlineHasMore(hasMore);
+      if (items[0]) {
+        setSelectedId(items[0].id);
+        setSource(requestProvider);
+      }
+      const warning = String(payload?.data?.warning || '').trim();
+      const prefix = warning ? `${warning} ` : '';
+      setStatus(items.length
+        ? `${prefix}已加载 ${tag.name} 第 ${payload?.data?.page || nextPage} 页作品，当前安全结果 ${trustedTotal || items.length} 个${isSafeFilteredGelbooru ? `，Gelbooru 全站 ${siteTotal} 个` : ''}。`
+        : `${prefix}${tag.name} 当前页没有作品。`);
+    } catch (error: any) {
+      setStatus(`作品分页加载失败：${error?.message || '网络或跨域错误'}`);
+    }
+  }, [onlineMode, onlinePage]);
+
+  const searchOnline = useCallback(async () => {
+    await loadOnlineTags(1, true);
+  }, [loadOnlineTags]);
+
+  const handleOnlineQueryKeyDown = useCallback((event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void searchOnline();
+  }, [searchOnline]);
+
+  const runLoadedQueryAsOnlineSearch = useCallback(async (value: string) => {
+    if (source !== 'danbooru' && source !== 'gelbooru') return;
+    const nextProvider = source;
+    const nextOnlineCategory = categoryToOnlineCategory(category) || onlineCategory;
+    const nextQuery = String(value || '').trim();
+    patchOnlineRequest({
+      provider: nextProvider,
+      category: nextOnlineCategory,
+      query: nextQuery,
+      letter: 'all',
+    });
+    setProvider(nextProvider);
+    setOnlineCategory(nextOnlineCategory);
+    setOnlineQuery(nextQuery);
+    setOnlineLetter('all');
+    setOnlineMode('tags');
+    clearOnlineListing();
+    setOnlinePage(1);
+    await loadOnlineTags(1, false, {
+      provider: nextProvider,
+      category: nextOnlineCategory,
+      query: nextQuery,
+      letter: 'all',
+    });
+  }, [category, clearOnlineListing, loadOnlineTags, onlineCategory, patchOnlineRequest, source]);
+
+  const handleLoadedSearchKeyDown = useCallback((event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    void runLoadedQueryAsOnlineSearch(event.currentTarget.value);
+  }, [runLoadedQueryAsOnlineSearch]);
+
+  const selectOnlineItem = useCallback((item: AnimeTagItem) => {
+    setSelectedId(item.id);
+    const isOnlineTag = (item.source === 'danbooru' || item.source === 'gelbooru') && item.id.includes('-tag-');
+    if (isOnlineTag) void loadOnlinePosts(item, 1);
+  }, [loadOnlinePosts]);
 
   const saveCurrentTag = useCallback(() => {
     if (!selectedTag) return;
@@ -579,6 +1099,116 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
     .map((item) => itemWithLazyPreview(item))
     .filter((item): item is AnimeTagItem => Boolean(item));
   const activeLightboxTag = lightboxIndex === null ? null : imageItems[lightboxIndex] || imageItems[0];
+  const onlineLetters = ['all', '#', ...'abcdefghijklmnopqrstuvwxyz'.split('')];
+  const goOnlinePage = useCallback((nextPage: number) => {
+    const page = Math.max(1, Math.min(onlineTotalPages, nextPage));
+    if (onlineMode === 'posts' && onlineActiveTag) {
+      void loadOnlinePosts(onlineActiveTag, page);
+    } else {
+      void loadOnlineTags(page, false);
+    }
+  }, [loadOnlinePosts, loadOnlineTags, onlineActiveTag, onlineMode, onlineTotalPages]);
+
+  const returnToOnlineTags = useCallback(() => {
+    setOnlineMode('tags');
+    setOnlineActiveTag(null);
+    void loadOnlineTags(onlineTagReturnPage, false);
+  }, [loadOnlineTags, onlineTagReturnPage]);
+
+  const shouldShowOnlinePagination = onlineResults.length > 0 || onlineTotal > 0 || onlineMode === 'posts';
+  const renderOnlinePagination = useCallback((variant: 'modal' | 'compact') => {
+    if (!shouldShowOnlinePagination) return null;
+    const safeFilteredSiteTotal = onlineMode === 'posts'
+      && onlineActiveTag?.source === 'gelbooru'
+      && typeof onlineActiveTag.postCount === 'number'
+      && onlineActiveTag.postCount > onlineTotal
+      ? onlineActiveTag.postCount
+      : 0;
+    return (
+      <div className={`anime-tag-master-pagination is-${variant}`}>
+        <button type="button" disabled={onlinePage <= 1} onClick={() => goOnlinePage(onlinePage - 1)}>上一页</button>
+        <span>
+          {onlineMode === 'posts' && onlineActiveTag ? `${onlineActiveTag.name} · ` : ''}
+          第 {onlinePage} / {onlineTotalPages} 页 · 共{onlineTotalKnown ? '' : '约'} {onlineTotal || onlineResults.length} 个
+          {safeFilteredSiteTotal ? `安全结果 · Gelbooru 全站 ${safeFilteredSiteTotal.toLocaleString()} 个` : ''}
+        </span>
+        <button type="button" disabled={!onlineHasMore && onlinePage >= onlineTotalPages} onClick={() => goOnlinePage(onlinePage + 1)}>下一页</button>
+        {onlineMode === 'posts' ? (
+          <button type="button" className="anime-tag-master-pagination-back" onClick={returnToOnlineTags}>返回标签列表</button>
+        ) : null}
+      </div>
+    );
+  }, [
+    goOnlinePage,
+    onlineActiveTag,
+    onlineHasMore,
+    onlineMode,
+    onlinePage,
+    onlineResults.length,
+    onlineTotal,
+    onlineTotalKnown,
+    onlineTotalPages,
+    returnToOnlineTags,
+    shouldShowOnlinePagination,
+  ]);
+
+  const renderPreviewEye = useCallback((item: AnimeTagItem) => (
+    <span
+      className="anime-tag-master-preview-eye"
+      title="100% 大图预览"
+      onMouseEnter={(event) => showHoverPreview(item, event)}
+      onMouseMove={moveHoverPreview}
+      onMouseLeave={hideHoverPreview}
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        openLightbox(item);
+      }}
+    >
+      <Eye size={15} />
+    </span>
+  ), [hideHoverPreview, moveHoverPreview, openLightbox, showHoverPreview]);
+
+  const renderPreviewImage = useCallback((
+    item: AnimeTagItem | null | undefined,
+    alt: string,
+    preferFull = false,
+    allowLivePreview = true,
+  ) => (
+    <span
+      className="anime-tag-master-preview-wrap"
+      data-anime-tag-preview-owner={id}
+      data-anime-tag-preview-id={item?.id || undefined}
+    >
+      <AnimeTagPreviewImage
+        item={item}
+        alt={alt}
+        preferFull={preferFull}
+        allowLivePreview={allowLivePreview}
+        previewState={item ? lazyPreviewById[item.id] : undefined}
+        onRetry={item ? () => queueVisiblePreview(item, true) : undefined}
+      />
+      {item ? renderPreviewEye(item) : null}
+    </span>
+  ), [id, lazyPreviewById, queueVisiblePreview, renderPreviewEye]);
+
+  const hoverPreviewItem = hoverPreview ? itemWithLazyPreview(hoverPreview.item) || hoverPreview.item : null;
+  const hoverPreviewStyle = hoverPreview ? (() => {
+    const width = typeof window === 'undefined' ? 1280 : window.innerWidth;
+    const height = typeof window === 'undefined' ? 720 : window.innerHeight;
+    return {
+      left: `${Math.min(Math.max(16, hoverPreview.x + 18), Math.max(16, width - 460))}px`,
+      top: `${Math.min(Math.max(16, hoverPreview.y + 18), Math.max(16, height - 520))}px`,
+    };
+  })() : undefined;
+
+  const hoverPreviewPopover = hoverPreviewItem ? createPortal(
+    <div className="anime-tag-master-hover-preview-popover nodrag nopan" style={hoverPreviewStyle}>
+      <AnimeTagPreviewImage item={hoverPreviewItem} alt={`${hoverPreviewItem.name} 100% 大图预览`} preferFull />
+      <span>100%</span>
+    </div>,
+    document.body,
+  ) : null;
 
   const libraryModal = libraryOpen ? createPortal(
     <div className="anime-tag-master-modal-backdrop nodrag nopan" onWheelCapture={(event) => event.stopPropagation()}>
@@ -597,13 +1227,13 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
         <div className="anime-tag-master-modal-tools">
           <label className="anime-tag-master-search">
             <Search size={16} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索中文 / 英文 / booru tag" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleLoadedSearchKeyDown} placeholder="搜索中文 / 英文 / booru tag" />
           </label>
-          <select value={category} onChange={(event) => setCategory(event.target.value)}>
+          <select value={category} onChange={(event) => updateCategory(event.target.value)}>
             <option value="all">全部分类</option>
             {toCategoryOptions(categoryOptions).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
-          <select value={source} onChange={(event) => setSource(event.target.value)}>
+          <select value={source} onChange={(event) => updateSource(event.target.value)}>
             <option value="all">全部来源</option>
             <option value="builtin">内置</option>
             <option value="custom">自定义</option>
@@ -616,39 +1246,63 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
         </div>
 
         <div className="anime-tag-master-modal-layout">
-          <div className="anime-tag-master-gallery" onWheelCapture={stopCanvasWheel}>
-            {filteredItems.map((item) => {
-              const displayItem = itemWithLazyPreview(item) || item;
-              return (
-              <article key={item.id} className={`anime-tag-master-card ${selectedTag?.id === item.id ? 'is-selected' : ''}`}>
-                <button type="button" className="anime-tag-master-thumb-button" onClick={() => openLightbox(item)}>
-                  <AnimeTagPreviewImage item={displayItem} alt={`${item.name} ${item.chineseName}`} />
-                </button>
-                <div className="anime-tag-master-card-body">
-                  <strong>{item.chineseName}</strong>
-                  <span>{item.name}</span>
-                  <small>{item.categoryName} · {item.source}</small>
-                  <p>{item.tags.slice(0, 12).join(', ')}</p>
-                  <div className="anime-tag-master-card-actions">
-                    <button type="button" onClick={() => setSelectedId(item.id)}>选用</button>
-                    <button type="button" onClick={() => void copyPrompt(item)}>复制标签</button>
-                    {item.userCreated ? <button type="button" onClick={() => editUserTag(item)}>编辑</button> : null}
-                    {item.userCreated ? <button type="button" className="danger" onClick={() => deleteUserTag(item.id)}>删除</button> : null}
+          <div className="anime-tag-master-gallery-panel" onWheelCapture={stopCanvasWheel}>
+            {renderOnlinePagination('modal')}
+            <div className="anime-tag-master-gallery">
+              {filteredItems.map((item) => {
+                const displayItem = itemWithLazyPreview(item) || item;
+                return (
+                <article key={item.id} className={`anime-tag-master-card ${selectedTag?.id === item.id ? 'is-selected' : ''}`}>
+                  <button type="button" className="anime-tag-master-thumb-button" onClick={() => openLightbox(item)}>
+                    {renderPreviewImage(displayItem, `${item.name} ${item.chineseName}`, false, false)}
+                  </button>
+                  <div className="anime-tag-master-card-body">
+                    <strong>{item.chineseName}</strong>
+                    <span>{item.name}</span>
+                    <small>{item.categoryName} · {item.source}</small>
+                    {typeof item.postCount === 'number' ? <small>{item.postCount.toLocaleString()} posts{item.source === 'gelbooru' ? ' · 全站' : ''}</small> : null}
+                    <p>{item.tags.slice(0, 12).join(', ')}</p>
+                    <div className="anime-tag-master-card-actions">
+                      <button type="button" onClick={() => selectOnlineItem(item)}>选用</button>
+                      {(item.source === 'danbooru' || item.source === 'gelbooru') && item.id.includes('-tag-') ? (
+                        <button type="button" onClick={() => void loadOnlinePosts(item, 1)}>查看作品</button>
+                      ) : null}
+                      <button type="button" onClick={() => void copyPrompt(item)}>复制标签</button>
+                      {item.userCreated ? <button type="button" onClick={() => editUserTag(item)}>编辑</button> : null}
+                      {item.userCreated ? <button type="button" className="danger" onClick={() => deleteUserTag(item.id)}>删除</button> : null}
+                    </div>
                   </div>
-                </div>
-              </article>
-              );
-            })}
+                </article>
+                );
+              })}
+            </div>
           </div>
 
           <aside className="anime-tag-master-manager" onWheelCapture={stopCanvasWheel}>
             <h3><Library size={16} /> 在线图库懒加载</h3>
             <div className="anime-tag-master-inline-form">
-              <select value={provider} onChange={(event) => setProvider(event.target.value === 'gelbooru' ? 'gelbooru' : 'danbooru')}>
+              <select value={provider} onChange={(event) => updateProvider(event.target.value)}>
                 {ANIME_TAG_ONLINE_PROVIDERS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
               </select>
-              <input value={onlineQuery} onChange={(event) => setOnlineQuery(event.target.value)} placeholder="例如 hatsune_miku / 1girl" />
+              <select value={onlineCategory} onChange={(event) => updateOnlineCategory(event.target.value as AnimeTagOnlineCategoryId)}>
+                {ANIME_TAG_ONLINE_CATEGORY_OPTIONS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+              <input value={onlineQuery} onChange={(event) => updateOnlineQuery(event.target.value)} onKeyDown={handleOnlineQueryKeyDown} placeholder="输入 booru tag，可留空浏览" />
               <button type="button" onClick={() => void searchOnline()}>懒加载搜索</button>
+            </div>
+            <div className="anime-tag-master-letter-row">
+              {onlineLetters.map((letter) => (
+                <button
+                  key={letter}
+                  type="button"
+                  className={onlineLetter === letter ? 'active' : ''}
+                  onClick={() => {
+                    updateOnlineLetter(letter);
+                  }}
+                >
+                  {letter === 'all' ? '全部' : letter.toUpperCase()}
+                </button>
+              ))}
             </div>
 
             <h3><Save size={16} /> 保存当前标签</h3>
@@ -767,7 +1421,7 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
 
       <section className="anime-tag-master-section nodrag nopan">
         <div className="anime-tag-master-selected">
-          <AnimeTagPreviewImage item={displaySelectedTag} alt={displaySelectedTag?.name || '动漫标签'} />
+          {renderPreviewImage(displaySelectedTag, displaySelectedTag?.name || '动漫标签')}
           <div>
             <strong>{selectedTag?.chineseName || '请选择标签'}</strong>
             <span>{selectedTag?.name || 'No tag selected'}</span>
@@ -777,36 +1431,35 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
         <p className="anime-tag-master-cue">{selectedTag?.tags.slice(0, 14).join(', ')}</p>
       </section>
 
-      <section className="anime-tag-master-section nodrag nopan">
-        <label>
-          <span><Search size={14} /> 搜索</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="中文名 / 英文 tag / 风格标签" />
+      <section className="anime-tag-master-section anime-tag-master-compact-search nodrag nopan">
+        <label className="anime-tag-master-compact-query">
+          <Search size={15} />
+          <input aria-label="搜索已加载动漫标签" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={handleLoadedSearchKeyDown} placeholder="搜索已加载标签" />
         </label>
-        <div className="anime-tag-master-two-cols">
-          <label>
-            <span><BookOpen size={14} /> 分类</span>
-            <select value={category} onChange={(event) => setCategory(event.target.value)}>
-              <option value="all">全部分类</option>
-              {toCategoryOptions(categoryOptions).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </select>
-          </label>
-          <label>
-            <span><Library size={14} /> 来源</span>
-            <select value={source} onChange={(event) => setSource(event.target.value)}>
-              <option value="all">全部来源</option>
-              <option value="builtin">内置</option>
-              <option value="custom">自定义</option>
-              <option value="danbooru">Danbooru</option>
-              <option value="gelbooru">Gelbooru</option>
-            </select>
-          </label>
+        <div className="anime-tag-master-filter-row">
+          <select aria-label="标签分类" value={category} onChange={(event) => updateCategory(event.target.value)}>
+            <option value="all">全部分类</option>
+            {toCategoryOptions(categoryOptions).map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+          <select aria-label="标签来源" value={source} onChange={(event) => updateSource(event.target.value)}>
+            <option value="all">全部来源</option>
+            <option value="builtin">内置</option>
+            <option value="custom">自定义</option>
+            <option value="danbooru">Danbooru</option>
+            <option value="gelbooru">Gelbooru</option>
+          </select>
         </div>
-        <div className="anime-tag-master-online">
-          <select value={provider} onChange={(event) => setProvider(event.target.value === 'gelbooru' ? 'gelbooru' : 'danbooru')}>
+        <div className="anime-tag-master-online is-compact">
+          <select aria-label="在线图库来源" value={provider} onChange={(event) => updateProvider(event.target.value)}>
             {ANIME_TAG_ONLINE_PROVIDERS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
           </select>
-          <input value={onlineQuery} onChange={(event) => setOnlineQuery(event.target.value)} placeholder="hatsune_miku / 1girl" />
-          <button type="button" onClick={() => void searchOnline()}>懒加载搜索</button>
+          <select aria-label="在线图库分类" value={onlineCategory} onChange={(event) => updateOnlineCategory(event.target.value as AnimeTagOnlineCategoryId)}>
+            {ANIME_TAG_ONLINE_CATEGORY_OPTIONS.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+          <input aria-label="在线图库搜索词" value={onlineQuery} onChange={(event) => updateOnlineQuery(event.target.value)} onKeyDown={handleOnlineQueryKeyDown} placeholder="输入 booru tag" />
+          <button type="button" className="anime-tag-master-online-search" aria-label="在线懒加载搜索" title="在线懒加载搜索" onClick={() => void searchOnline()}>
+            <Search size={16} /> 搜索
+          </button>
         </div>
         <div className="anime-tag-master-mode">
           <button
@@ -834,16 +1487,17 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
 
       <section className="anime-tag-master-section nodrag nopan">
         <div className="anime-tag-master-grid">
-          {filteredItems.slice(0, 8).map((item) => {
+          {filteredItems.map((item) => {
             const displayItem = itemWithLazyPreview(item) || item;
             return (
-              <button key={item.id} type="button" className={selectedTag?.id === item.id ? 'active' : ''} onClick={() => setSelectedId(item.id)}>
-                <AnimeTagPreviewImage item={displayItem} alt={item.chineseName} />
-                <span>{item.chineseName}</span>
+              <button key={item.id} type="button" className={selectedTag?.id === item.id ? 'active' : ''} onClick={() => selectOnlineItem(item)}>
+                {renderPreviewImage(displayItem, item.chineseName, false, false)}
+                <span className="anime-tag-master-grid-title">{item.chineseName}</span>
               </button>
             );
           })}
         </div>
+        {renderOnlinePagination('compact')}
       </section>
 
       <section className="anime-tag-master-actions nodrag nopan">
@@ -862,6 +1516,7 @@ function AnimeTagMasterNode({ id, data, selected }: NodeProps) {
 
       {libraryModal}
       {lightbox}
+      {hoverPreviewPopover}
     </div>
   );
 }
