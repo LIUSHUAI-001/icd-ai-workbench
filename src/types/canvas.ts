@@ -26,6 +26,7 @@ export type NodeType =
   | 'codex-cli-agent'
   | 'codex-image-conjure'
   | 'artist-style-master'
+  | 'anime-tag-master'
   | 'comfyui-store'
   | 'comfyui-app-maker'
   // Special (5)
@@ -253,12 +254,104 @@ export interface CanvasListItem {
   updatedAt: number;
 }
 
+export type CreativeDeskFrameId =
+  | 'none'
+  | 'poster-card'
+  | 'glass-card'
+  | 'sticker'
+  | 'polaroid'
+  | 'comic-panel'
+  | 'matte-gallery'
+  | 'torn-paper'
+  | 'kraft-tape'
+  | 'washi-corners'
+  | 'scrapbook-tabs'
+  | 'linen-mat'
+  | 'walnut-frame'
+  | 'brass-gallery'
+  | 'silver-bevel'
+  | 'black-archive'
+  | 'neon-tube'
+  | 'holographic'
+  | 'film-strip'
+  | 'slide-mount'
+  | 'contact-sheet'
+  | 'blueprint'
+  | 'manga-speed'
+  | 'ink-brush'
+  | 'dotted-stitch'
+  | 'sewing-thread'
+  | 'lace-paper'
+  | 'ticket-stub'
+  | 'stamp-postage'
+  | 'label-maker'
+  | 'memo-pin'
+  | 'cork-board'
+  | 'magnetic-board'
+  | 'acrylic-block'
+  | 'frosted-panel'
+  | 'shadow-float'
+  | 'soft-vignette'
+  | 'double-line'
+  | 'triple-rule'
+  | 'corner-brackets'
+  | 'ruler-grid'
+  | 'studio-slate'
+  | 'photo-booth'
+  | 'album-sleeve'
+  | 'arcade-marquee'
+  | 'safety-stripe'
+  | 'cosmic-rim'
+  | 'aurora-glow'
+  | 'sakura-washi'
+  | 'ocean-glass'
+  | 'sunset-ticket';
+
+export type CreativeDeskFrameColorId =
+  | 'cream'
+  | 'white'
+  | 'black'
+  | 'rose'
+  | 'amber'
+  | 'mint'
+  | 'cyan'
+  | 'violet';
+
+export interface CreativeDeskItem {
+  id: string;
+  kind: 'image';
+  url: string;
+  title?: string;
+  resourceId?: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  scale: number;
+  rotation: number;
+  opacity: number;
+  frameId: CreativeDeskFrameId | string;
+  frameColorId?: CreativeDeskFrameColorId | string;
+  zIndex: number;
+  locked?: boolean;
+  visible?: boolean;
+  createdAt: number;
+}
+
+export interface CreativeDeskState {
+  version: 1;
+  coordinateMode?: 'viewport' | 'flow';
+  defaultOpacity?: number;
+  items: CreativeDeskItem[];
+}
+
 // 画布完整数据
 export interface CanvasData {
   nodes: any[];
   edges: any[];
   viewport: { x: number; y: number; zoom: number };
   nextNodeSerialId?: number;
+  creativeDesk?: CreativeDeskState;
 }
 
 // API Key 设置(对应后端 settings)
@@ -293,6 +386,15 @@ export interface ApiSettings {
   advancedProviderSummary?: AdvancedProviderSummary;
   cloudUploadTargets?: CloudUploadTargetConfig[];
   cloudUploadSummary?: CloudUploadSummary;
+  taskCompletionSound?: {
+    mode?: 'default' | 'custom';
+    name?: string;
+    fileName?: string;
+    mimeType?: string;
+    size?: number;
+    updatedAt?: number;
+    url?: string;
+  };
   preferences?: {
     theme?: 'dark' | 'light';
     language?: string;

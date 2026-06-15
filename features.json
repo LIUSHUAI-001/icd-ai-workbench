@@ -1,7 +1,414 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.2.0",
-  "lastUpdated": "2026-06-14-source-only",
+  "version": "2.2.6",
+  "lastUpdated": "2026-06-15-electron-release-v226",
+  "electronReleaseV226": {
+    "version": "2.2.6",
+    "status": "electron-release",
+    "date": "2026-06-15",
+    "description": "v2.2.6 Electron 自动更新版：修复动漫标签大师和艺术风格大师没有完整走主题的问题，让两个灵感节点在强主题、模板主题和样式主题下统一读取 --t8-* 主题语义变量；本次打包 Electron 并发布 GitHub Release / latest.yml 自动更新资产。",
+    "highlights": [
+      "动漫标签大师的节点本体、图库弹窗、lightbox 预览层新增 data-theme-visual / data-theme-style / data-theme-template 主题桥接，内部 --atm-* 变量改为读取 --t8-bg-node、--t8-bg-panel、--t8-accent、--t8-border-strong 等语义变量。",
+      "艺术风格大师的节点本体、图库弹窗、lightbox 预览层新增同样主题桥接，内部 --asm-* 变量不再只支持浅色 / 深色，灌篮高手、火影、EVA、RH、OP 等强主题下不会露出默认青绿色 / 白色内部风格。",
+      "补充动漫标签大师与艺术风格大师主题回归测试，防止后续只改节点私有颜色变量而漏接全局主题系统。",
+      "公开版本同步到 2.2.6：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.6.md 同步；本次生成 Electron 安装包、blockmap 与 latest.yml，并发布 GitHub Release 自动更新资产。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.2.6.md",
+      "src/styles/index.css",
+      "tests/animeTagMaster.test.ts",
+      "tests/artistStyleMaster.test.ts"
+    ],
+    "packaging": {
+      "script": "npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.2.6.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.2.6.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.2.6 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器、FAL 应用制作工具和维护者本机调试素材仍为本地开发工具，不进入公开源码和公开打包产物。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test tests\\artistStyleMaster.test.ts tests\\animeTagMaster.test.ts",
+      "npm run type-check",
+      "npm run rh-toolbox:check",
+      "npm run public:check",
+      "npm run build",
+      "git diff --check",
+      "npm run dist:release",
+      "npm run release:verify"
+    ]
+  },
+  "electronReleaseV225": {
+    "version": "2.2.5",
+    "status": "electron-release",
+    "date": "2026-06-15",
+    "description": "v2.2.5 Electron 自动更新版：修复创作台背景层完成后消失和编辑态选中/拖动问题，继续收口 RH 工具箱图像能力中间层、RH 后台任务取消、高清放大4K 输出解析和模型注意事项；本次打包 Electron 并发布 GitHub Release / latest.yml 自动更新资产。",
+    "highlights": [
+      "创作台背景层改为完成态只读展示层 + 编辑态可操作层：完成后仍位于节点下方显示，编辑时可选中、拖动、等比缩放和旋转。",
+      "创作台背景补齐导入/导出、隐藏恢复、Delete/Backspace 删除、原比例放置、50 款高质量边框和多色边框选择，并调整面板位置避免被放置栏遮挡。",
+      "RH 图像能力中间层继续完善：上传素材和输出素材图像节点左侧能力轨支持抠图与 4K，新增能力继续复用 RH_IMAGE_CAPABILITY_PRESETS / runRhImageCapabilityBatch。",
+      "修复 RH 高清放大4K 输出链路：image-upscale-4k 指向 WebAppId 2066353965784199169，默认 plus 实例，并递归提取 RunningHub 输出 URL。",
+      "修复 RH 系列停止语义：RunningHub、RH工具箱、RH超市和上传/输出素材左侧 RH 能力轨停止时都会调用 RunningHub /task/openapi/cancel，避免后台任务继续运行。",
+      "RH 工具箱列表按标题 / WebAppId / id 去重，避免制作器草稿导致同名工具重复出现。",
+      "终端日志补强 RH 提交、轮询、取消和输出解析路径；取消接口返回 HTML 时提示后端未命中或需要重启，而不是裸 JSON 解析错误。",
+      "左下角模型注意事项文案更新，补充 FAL、Seedance、Grok、Sora、Suno、LLM 等模型分组和扣费/退费说明。",
+      "公开版本同步到 2.2.5：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.5.md 同步；本次生成 Electron 安装包、blockmap 与 latest.yml，并发布 GitHub Release 自动更新资产。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.2.5.md",
+      "backend/src/routes/canvas.js",
+      "backend/src/routes/proxy.js",
+      "backend/src/routes/resources.js",
+      "scripts/check-rh-toolbox-release.cjs",
+      "src/components/Canvas.tsx",
+      "src/components/CreativeDeskLayer.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/RhImageCapabilityButton.tsx",
+      "src/components/RhImageCapabilityRail.tsx",
+      "src/components/nodes/OutputNode.tsx",
+      "src/components/nodes/RHToolboxNode.tsx",
+      "src/components/nodes/RHToolsNode.tsx",
+      "src/components/nodes/RunningHubNode.tsx",
+      "src/components/nodes/UploadNode.tsx",
+      "src/data/rhToolboxManifest.ts",
+      "src/services/api.ts",
+      "src/services/generation.ts",
+      "src/services/rhToolbox.ts",
+      "src/services/rhToolboxCapabilities.ts",
+      "src/stores/runBus.ts",
+      "src/styles/index.css",
+      "src/styles/theme-slamdunk.css",
+      "src/types/canvas.ts",
+      "src/utils/creativeDesk.ts",
+      "src/utils/imageNaturalSize.ts",
+      "src/utils/rhToolbox.ts",
+      "src/utils/rhToolboxCapabilities.ts",
+      "tests/creativeDesk.test.ts",
+      "tests/modelUsageHelp.test.ts",
+      "tests/rhToolbox.test.ts"
+    ],
+    "packaging": {
+      "script": "npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.2.5.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.2.5.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.2.5 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器、FAL 应用制作工具和维护者本机调试素材仍为本地开发工具，不进入公开源码和公开打包产物。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test tests\\rhToolbox.test.ts tests\\creativeDesk.test.ts tests\\mediaMetadataDisplay.test.ts tests\\canvasMouseInteractions.test.ts tests\\aiWatermarkRunner.test.ts tests\\comfyuiAppNodes.test.ts tests\\comfyuiProvider.test.ts tests\\updateMdRegressions.test.ts",
+      "npm run type-check",
+      "npm run rh-toolbox:check",
+      "npm run public:check",
+      "npm run build",
+      "git diff --check",
+      "npm run dist:release",
+      "npm run release:verify"
+    ]
+  },
+  "sourceReleaseV224": {
+    "version": "2.2.4",
+    "status": "source-only",
+    "date": "2026-06-15",
+    "description": "v2.2.4 GitHub 源码版：收口创作台背景层、RH 工具箱图像能力中间层、AI 去水印停止/CUDA 兼容、上传/输出素材媒体元信息和 ComfyUI 应用制作器稳定性；本次只推公开源码，不打包 Electron，不发布 GitHub Release / latest.yml 自动更新资产。",
+    "highlights": [
+      "新增创作台背景层：左侧控制轨进入编辑，支持从资源库放置图片、透明度、边框、等比缩放、旋转、层级和持久化，背景位于节点下方不挡创作。",
+      "RH 工具箱升级为可调度图像能力中间层：上传素材和输出素材图像节点改用左侧 RH 能力轨，内置抠图和高清放大4K小按钮，不再挤占节点顶部。",
+      "新增 RH 图像能力预设和批处理服务：内置 cutout/upscale/expand 预设位，upscale 已绑定 image-upscale-4k，默认串行、每张最多 3 次尝试、支持取消和部分成功输出，后续高清化/扩图可复用同一入口。",
+      "修复 RH 停止只停本地的问题：RunningHub、RH工具箱、RH超市和上传/输出素材左侧 RH 能力轨都会在停止时调用 RunningHub cancel，并等待远端取消成功后才清本地状态；提交中点停止会在 taskId 返回后立即取消后台任务，query/cancel 复用提交时的 API Key，取消接口返回 HTML 时会提示后端未命中/需重启而不是裸 JSON 解析错误。",
+      "修复 RH 高清放大4K 指向正确 WebAppId 2066353965784199169 并默认 plus 实例；开发环境会合并制作器最新草稿，同时按标题/WebApp/ID 清理旧重复草稿，工具箱列表和筛选结果都不会再显示两个同名工具。",
+      "AI 去水印节点补齐停止能力；追加隐形处理时可中止长任务，选择 CUDA 但随包 PyTorch 为 CPU-only 时会回退/提示兼容原因，避免用户被长堆栈卡住。",
+      "上传素材和输出素材节点新增媒体元信息展示：图片显示分辨率，视频显示分辨率和时长，音频显示时长，保持紧凑节点布局。",
+      "ComfyUI 应用制作器继续修复控件手势边界和参数映射稳定性，降低点击标签无响应、参数被改乱等问题。",
+      "公开版本同步到 2.2.4：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.4.md 同步；本次不打包 Electron，不发布 GitHub Release。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.2.4.md",
+      "backend/src/routes/aiWatermark.js",
+      "backend/src/routes/canvas.js",
+      "backend/src/routes/proxy.js",
+      "backend/src/tools/aiWatermark/runner.js",
+      "src/components/Canvas.tsx",
+      "src/components/CreativeDeskLayer.tsx",
+      "src/components/MediaMetadataBadge.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/RhImageCapabilityButton.tsx",
+      "src/components/RhImageCapabilityRail.tsx",
+      "src/data/rhToolboxManifest.ts",
+      "src/components/nodes/ComfyUIAppMakerNode.tsx",
+      "src/components/nodes/ComfyUIStoreNode.tsx",
+      "src/components/nodes/OutputNode.tsx",
+      "src/components/nodes/RemoveAiWatermarkNode.tsx",
+      "src/components/nodes/RHToolboxNode.tsx",
+      "src/components/nodes/RHToolsNode.tsx",
+      "src/components/nodes/RunningHubNode.tsx",
+      "src/components/nodes/UploadNode.tsx",
+      "src/services/aiWatermark.ts",
+      "src/services/rhToolbox.ts",
+      "src/services/rhToolboxCapabilities.ts",
+      "src/stores/runBus.ts",
+      "src/types/canvas.ts",
+      "src/utils/comfyuiApps.ts",
+      "src/utils/creativeDesk.ts",
+      "src/utils/mediaMetadata.ts",
+      "src/utils/rhToolboxCapabilities.ts",
+      "src/styles/index.css",
+      "tests/aiWatermarkRunner.test.ts",
+      "tests/canvasMouseInteractions.test.ts",
+      "tests/comfyuiAppNodes.test.ts",
+      "tests/comfyuiProvider.test.ts",
+      "tests/creativeDesk.test.ts",
+      "tests/mediaMetadataDisplay.test.ts",
+      "tests/rhToolbox.test.ts",
+      "tests/updateMdRegressions.test.ts"
+    ],
+    "sourceOnly": {
+      "githubPush": true,
+      "electronPackaging": false,
+      "githubRelease": false,
+      "blockedCommands": [
+        "npm run dist:release",
+        "npm run dist",
+        "npm run release:github",
+        "npm run release:verify"
+      ]
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、Electron 缓存目录、comfyui-anima-t8/** 参考 clone 和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器、FAL 应用制作工具和维护者本机调试素材仍为本地开发工具，不进入公开源码。",
+      "本次不生成安装包、blockmap、latest.yml，也不创建或更新 GitHub Release。"
+    ],
+    "verification": [
+      "node --test tests\\rhToolbox.test.ts tests\\creativeDesk.test.ts tests\\mediaMetadataDisplay.test.ts tests\\canvasMouseInteractions.test.ts tests\\aiWatermarkRunner.test.ts tests\\comfyuiAppNodes.test.ts tests\\comfyuiProvider.test.ts tests\\updateMdRegressions.test.ts",
+      "npm run type-check",
+      "npm run rh-toolbox:check",
+      "npm run public:check",
+      "npm run build",
+      "git diff --check",
+      "浏览器本地预览冒烟：http://localhost:4175/ 页面正常挂载，控制台无 error"
+    ]
+  },
+  "sourceReleaseV223": {
+    "version": "2.2.3",
+    "status": "source-only",
+    "date": "2026-06-15",
+    "description": "v2.2.3 GitHub 源码版：继续收口动漫标签大师 Danbooru / Gelbooru 在线图库体验，本次只推公开源码，不打包 Electron，不发布 GitHub Release / latest.yml 自动更新资产。",
+    "highlights": [
+      "动漫标签大师在线源保持 provider/source 模型，分类只保留画师 / Artist、作品 IP / Copyright、角色 IP / Character、General / Meta，不再把 Danbooru / Gelbooru 混进分类。",
+      "修复在线结果被前端通用搜索按名称重排的问题，Danbooru / Gelbooru 列表保留后端按 post_count 返回的热门顺序。",
+      "补齐在线搜索回车触发、分页、返回标签列表、分类搜索不串回画师、搜索默认空值、紧凑搜索按钮和按钮文字居中。",
+      "Gelbooru 未登录兜底继续使用公开 autocomplete / HTML，候选集合按 post_count 降序整理；预览失败不再显示误导性占位图，并保留 3 次预览重试。",
+      "在线卡片和弹层收口长文本溢出、预览小眼睛、100% 悬停预览、标签输出只保留 Tags / Prompt 两行。",
+      "公开版本同步到 2.2.3：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.3.md 同步；本次不打包 Electron，不发布 GitHub Release。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.2.3.md",
+      "src/data/animeTagMasterManifest.ts",
+      "src/utils/animeTagMaster.ts",
+      "src/components/nodes/AnimeTagMasterNode.tsx",
+      "src/styles/index.css",
+      "backend/src/routes/animeTags.js",
+      "tests/animeTagMaster.test.ts"
+    ],
+    "sourceOnly": {
+      "githubPush": true,
+      "electronPackaging": false,
+      "githubRelease": false,
+      "blockedCommands": [
+        "npm run dist:release",
+        "npm run dist",
+        "npm run release:github",
+        "npm run release:verify"
+      ]
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、Electron 缓存目录、comfyui-anima-t8/** 参考 clone 和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器、FAL 应用制作工具和维护者本机调试素材仍为本地开发工具，不进入公开源码。",
+      "本次不生成安装包、blockmap、latest.yml，也不创建或更新 GitHub Release。"
+    ],
+    "verification": [
+      "node --test tests\\animeTagMaster.test.ts",
+      "node -c backend\\src\\routes\\animeTags.js",
+      "npm run type-check",
+      "npm run build",
+      "npm run public:check",
+      "git diff --check"
+    ]
+  },
+  "animeTagMasterOnlineGalleryV223Dev": {
+    "version": "2.2.3-dev",
+    "status": "implemented-dev",
+    "date": "2026-06-14",
+    "description": "动漫标签大师在线图库二次重构：Danbooru / Gelbooru 不再作为分类，在线源改为 provider/source；在线分类新增 provider-aware General / Meta，Danbooru 实际请求 meta，Gelbooru / Galbooru 实际请求 general。",
+    "highlights": [
+      "移除 ANIME_TAG_MASTER_CATEGORIES 中的 在线图库 Danbooru / 在线图库 Gelbooru，节点分类下拉不再被站点名称污染。",
+      "新增在线 tag 分类浏览：画师 / Artist、作品 IP / Copyright、角色 IP / Character、General / Meta，并支持搜索、字母筛选、刷新和分页。",
+      "新增 /api/anime-tags/tags、/api/anime-tags/tags/refresh、/api/anime-tags/posts，支持先分页浏览 tag，再点进 tag 分页查看作品图片、提示词和来源链接。",
+      "Danbooru 使用站点可接受的产品 UA，避免 Node fetch 触发 Cloudflare 403；Gelbooru 未配置 user_id/api_key 时直接走公开 autocomplete / HTML 兜底，并正确识别 autocomplete 的 category 字段，避免节点加载空白。",
+      "节点顶部来源选择 Danbooru / Gelbooru 时同步在线 provider；真实本地接口已验证 Danbooru tag/post、Gelbooru tag/post 均返回非空。",
+      "保留旧 /api/anime-tags/search 兼容入口，但前端在线图库面板优先使用新的 tag/post 分层加载。"
+    ],
+    "sourceFiles": [
+      "roadmap.md",
+      "skill.md",
+      "features.json",
+      "src/data/animeTagMasterManifest.ts",
+      "src/utils/animeTagMaster.ts",
+      "src/components/nodes/AnimeTagMasterNode.tsx",
+      "src/styles/index.css",
+      "backend/src/routes/animeTags.js",
+      "tests/animeTagMaster.test.ts"
+    ],
+    "verification": [
+      "node --test tests\\animeTagMaster.test.ts",
+      "node -c backend\\src\\routes\\animeTags.js",
+      "npm run type-check",
+      "npm run build",
+      "git diff --check"
+    ]
+  },
+  "electronReleaseV222": {
+    "version": "2.2.2",
+    "status": "electron-release",
+    "date": "2026-06-14",
+    "description": "v2.2.2 Electron 自动更新发布：在 v2.2.1 源码版基础上把维护者已封装的 RH 工具箱真实 AI 应用纳入用户包，并补齐打包前 manifest preflight、打包后前端 bundle 标记检查、动漫标签大师在线预览与艺术风格短提示词修复。",
+    "highlights": [
+      "RH 工具箱从禁用模板升级为正式内置 5 个 RunningHub AI 应用：高清抠图、图案提取V10、Bernini 图生视频+音效、bernini 图像编辑、Bernini 文生视频+音效，用户包不再依赖开发态制作器 localStorage。",
+      "新增 scripts/check-rh-toolbox-release.cjs 与 npm run rh-toolbox:check，发布前校验 manifest 非空、真实启用工具、分类、输入 / 输出映射、select 选项、危险 token 和 hash。",
+      "npm run dist:release 在 build + encrypt 前强制执行 RH 工具箱发布清单检查；electron/_post_build.cjs 在打包后继续扫描制作器泄漏，并确认前端产物包含 5 个 RH 工具及 WebAppId 标记。",
+      "动漫标签大师在线图库继续收口 Danbooru / Gelbooru / Galbooru 懒加载预览、分类结构和节点内滚动展示；艺术风格大师输出风格提示词带名称前缀。",
+      "保留 v2.2.1 的资源库、任务完成提示音、输出素材持久化、图像裁切比例、Codex / 生图工作台输入预览和俄罗斯方块主题修复。",
+      "公开版本同步到 2.2.2：package.json、package-lock.json、vite.config.ts/js、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.2.md 同步；本次生成 Electron 安装包、blockmap 与 latest.yml，并发布 GitHub Release 自动更新资产。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.2.2.md",
+      "scripts/check-rh-toolbox-release.cjs",
+      "scripts/dist-release.cjs",
+      "electron/_post_build.cjs",
+      "src/data/rhToolboxManifest.ts",
+      "tests/rhToolbox.test.ts"
+    ],
+    "packaging": {
+      "script": "npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.2.2.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.2.2.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.2.2 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、Electron 缓存目录和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器仍为本机开发工具，不进入公开源码和公开打包产物；用户包只读取 src/data/rhToolboxManifest.ts 中的发布 manifest。",
+      "发布 manifest 只包含 WebApp ID、分类、字段映射、默认参数和输出协议，不包含 RunningHub API Key、curl、localStorage 草稿或制作器源码。"
+    ],
+    "verification": [
+      "node --test tests\\artistStyleMaster.test.ts tests\\animeTagMaster.test.ts tests\\resourceLibraryPanorama.test.ts tests\\rhToolbox.test.ts tests\\taskCompletionSound.test.ts tests\\taskCompletionSoundRoute.test.ts tests\\nodeAlign.test.ts tests\\imageCropAspect.test.ts tests\\outputMaterialPersistence.test.ts tests\\textNodeResize.test.ts tests\\canvasCenterShortcut.test.ts tests\\themeRegistry.test.ts tests\\apiSettingsTheme.test.ts",
+      "node -c backend\\src\\routes\\animeTags.js",
+      "node -c scripts\\check-rh-toolbox-release.cjs",
+      "node -c electron\\_post_build.cjs",
+      "npm run rh-toolbox:check",
+      "npm run type-check",
+      "npm run build",
+      "npm run public:check",
+      "git diff --check",
+      "npm run dist:release"
+    ]
+  },
+  "sourceReleaseV221": {
+    "version": "2.2.1",
+    "status": "source-only",
+    "date": "2026-06-14",
+    "description": "v2.2.1 GitHub 源码版：继续收口灵感之源、资源库、工具节点、Codex / 生图工作台、RH 工具箱、图像裁切、任务提示音和画布快捷体验；本次不打包 Electron，不发布 GitHub Release 自动更新资产。",
+    "highlights": [
+      "艺术风格大师补齐素材右键保存风格、自定义图片上传、分类 / 流派筛选与节点内滚轮浏览，输出风格提示词 / 图片可稳定生成对应 OutputNode；风格提示词收敛为单行「风格提示词, Use this as a visual style reference...」格式，避免输出冗长元信息。",
+      "新增并完善动漫标签大师节点，按 comfyui-anima-t8 思路懒加载 Danbooru / Gelbooru 等图库，支持标签 / 图像输出、自定义分类、导入导出和素材右键保存。",
+      "资源库分类新增 / 重命名 / 删除恢复可用，任务完成提示音支持设置页上传自定义音频，顶部快捷栏新增输出素材持久化开关。",
+      "画布交互修复 Home 键回到画布中心、文本节点长文缩放溢出、对齐 / 整理顺序颠倒、图像编辑裁切比例默认撑满和俄罗斯方块主题节点顶部残影。",
+      "RH 工具箱每次读取 NodeList 都以当前 WebAppId 为准，不再混入上一次应用字段；修复 fieldType: TEXT 被误判为 Prompt 导致 aspect_ratio / quality 等 LIST 下拉为空的问题，制作器保存和旧工具节点运行时都会补齐 select 选项；用户节点隐藏调试映射块但保持参数映射完整。",
+      "Codex CLI Agent 简约模式和 Codex 生图工作台继续补齐上游图片预览、排序、删除和图像模式 / LLM 模式边界；模型帮助新增 gpt-image-2-vip 注意事项。",
+      "公开版本同步到 2.2.1：package.json、package-lock.json、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.1.md 同步；本次只推 GitHub 源码。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.2.1.md"
+    ],
+    "sourceOnly": {
+      "githubPush": true,
+      "electronPackaging": false,
+      "githubRelease": false,
+      "blockedCommands": [
+        "npm run dist:release",
+        "npm run dist",
+        "npm run release:github",
+        "npm run release:verify"
+      ]
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、Electron 缓存目录和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "RH 工具箱制作器与 FAL 应用制作工具仍为本地开发工具，不进入公开源码。",
+      "真实 Grok OAuth 私有调用、New API 分组令牌等私有能力继续通过本机 ignored local-private 扩展 / 加密链路处理。"
+    ],
+    "verification": [
+      "node --test tests\\artistStyleMaster.test.ts tests\\animeTagMaster.test.ts tests\\resourceLibraryPanorama.test.ts tests\\rhToolbox.test.ts tests\\taskCompletionSound.test.ts tests\\taskCompletionSoundRoute.test.ts tests\\nodeAlign.test.ts tests\\imageCropAspect.test.ts tests\\outputMaterialPersistence.test.ts tests\\textNodeResize.test.ts tests\\canvasCenterShortcut.test.ts tests\\themeRegistry.test.ts tests\\apiSettingsTheme.test.ts",
+      "node -c backend\\src\\routes\\animeTags.js",
+      "npm run type-check",
+      "npm run build",
+      "npm run public:check",
+      "git diff --check"
+    ]
+  },
   "sourceReleaseV220": {
     "version": "2.2.0",
     "status": "source-only",
@@ -390,12 +797,14 @@
       "内置 qiaomu 艺术家风格清单与缩略图，支持按英文名、中文名、流派、中文流派、分类、标签和风格描述搜索。",
       "节点保持简洁：只展示当前选中风格、搜索、流派/分类筛选、输出模式和常用缩略图；节点缩略图列表在固定高度内容器内滚轮浏览，完整图库在外部弹层打开，避免撑高节点。",
       "图库支持缩略图网格、点击 lightbox 大图、方向键左右切换、Esc 关闭、一键复制画家名称提示词和输出风格提示词。",
-      "运行模式提供「输出风格提示词」与「输出风格图片」两种，节点内两个快捷按钮和底部运行按钮都会生成标准 OutputNode 文本或图片素材，图片输出同时携带 directImageUrl/imageUrl 兼容字段。",
+      "运行模式提供「输出风格提示词」与「输出风格图片」两种，节点内两个快捷按钮和底部运行按钮都会生成标准 OutputNode 文本或图片素材；文本只输出当前风格提示词和固定英文 visual reference 句子，图片输出同时携带 directImageUrl/imageUrl 兼容字段。",
       "支持用户保存当前风格、新增/编辑/删除自定义风格、新增/重命名/删除分类，新增自定义风格可直接上传本地图片并保存到用户库，也可用 t8-artist-style-master@1 JSON 导入导出，便于换版本迁移。",
+      "上传素材节点和输出素材节点的图片素材支持右键「保存风格到艺术风格大师」：输出素材优先自动带出来源提示词，上传素材可手动填写；保存前必须在确认窗里修改或确认风格提示词。",
       "节点、图库弹层和 lightbox 使用 artist-style-master 命名空间 CSS 变量，覆盖浅色/深色主题文字、按钮、输入框和边框对比度，避免主题切换后文字不可读。"
     ],
     "sourceFiles": [
       "src/components/nodes/ArtistStyleMasterNode.tsx",
+      "src/components/MaterialContextMenu.tsx",
       "src/data/artistStyleMasterManifest.ts",
       "src/utils/artistStyleMaster.ts",
       "public/artist-style-master/generated/*.webp",
@@ -410,6 +819,54 @@
     ],
     "verification": [
       "node --test tests\\artistStyleMaster.test.ts",
+      "npm run type-check",
+      "npm run build"
+    ]
+  },
+  "animeTagMasterNode": {
+    "status": "implemented",
+    "date": "2026-06-14",
+    "nodeType": "anime-tag-master",
+    "category": "inspiration",
+    "description": "左侧「灵感之源」新增「动漫标签大师」节点：基于 comfyui-anima-t8 的 Danbooru / Gelbooru 在线图库懒加载思路，面向动漫创作提供标签检索、参考图浏览、自定义标签库和一键输出能力。",
+    "ports": {
+      "inputs": [
+        "text",
+        "image"
+      ],
+      "outputs": [
+        "text",
+        "image"
+      ]
+    },
+    "capabilities": [
+      "内置动漫创作常用标签库，覆盖角色人设、姿势动作、表情情绪、服装配饰、构图镜头、画风质感、光影场景、质量增强和负面排除等分类。",
+      "支持按英文标签、中文名、分类、标签、描述搜索，支持按分类和来源筛选；节点内只展示精简缩略图，完整图库通过外部弹层打开，避免节点被撑高。",
+      "Danbooru 与 Gelbooru / Galbooru 在线图库采用懒加载搜索：用户输入标签后通过 /api/anime-tags 同源代理按需拉取公开预览图，不提前打包大图库，适合后续扩展更多图库源。",
+      "Gelbooru 优先使用 DAPI；未配置 user_id/api_key 或接口拒绝时自动切到公开 HTML 兜底解析，并通过 /api/anime-tags/image 代理预览图，减少 CORS、热链和鉴权导致的空白。",
+      "运行模式提供「输出标签」和「输出图像」两种，按钮和运行动作都会生成标准 OutputNode；图像输出携带 directImageUrl/imageUrl/directImageUrls/imageUrls，便于后续节点继续接线。",
+      "图库支持点击缩略图进入 lightbox、方向键左右切换、Esc 关闭、复制标签提示词；每张卡片展示中文翻译、原始标签、分类、来源和属性信息。",
+      "支持用户新增、编辑、删除自定义动漫标签，新增/重命名/删除分类，上传本地参考图保存到自定义库，并用 t8-anime-tag-master@1 JSON 导入导出迁移。",
+      "上传素材节点和输出素材节点的图片素材支持右键「保存动漫标签到动漫标签大师」：自动带出来源提示词时也必须经过确认弹窗，用户可手动修改名称、分类、标签、提示词和负面提示词后保存。",
+      "节点、图库弹层和 lightbox 使用 anime-tag-master 命名空间 CSS 变量，覆盖浅色/深色主题文字、按钮、输入框和边框对比度。"
+    ],
+    "sourceFiles": [
+      "src/components/nodes/AnimeTagMasterNode.tsx",
+      "src/components/MaterialContextMenu.tsx",
+      "src/data/animeTagMasterManifest.ts",
+      "src/utils/animeTagMaster.ts",
+      "backend/src/routes/animeTags.js",
+      "backend/src/server.js",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/components/Canvas.tsx",
+      "src/components/Sidebar.tsx",
+      "src/utils/nodePlacement.ts",
+      "src/styles/index.css",
+      "tests/animeTagMaster.test.ts"
+    ],
+    "verification": [
+      "node --test tests\\animeTagMaster.test.ts",
       "npm run type-check",
       "npm run build"
     ]
@@ -1695,11 +2152,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.2.0",
-    "semverVersion": "2.2.0",
+    "version": "2.2.6",
+    "semverVersion": "2.2.6",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.2.0 源码版：在 v2.1.9 Electron 自动更新版基础上收口灵感之源艺术风格大师、批量素材处理、Codex Agent / 生图工作台输入预览和俄罗斯方块主题问题；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.2.0 为 GitHub 源码版，本轮不生成 dist_electron 安装器、blockmap 或 latest.yml；如需桌面自动更新，后续必须另走 npm run dist:release 并完成 release:verify。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.2.6 Electron 自动更新版：修复动漫标签大师和艺术风格大师强主题适配，两个灵感节点内部变量接入 --t8-* 主题语义系统；GitHub 公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.2.6 是 Electron 自动更新版本：本次通过 npm run dist:release 生成 dist_electron/T8-PenguinCanvas-Setup-2.2.6.exe、blockmap 与 latest.yml，并发布 GitHub Release 自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
@@ -1749,6 +2206,7 @@
       "_post_build.cjs 必须检查 resources/tools/runtime-archives/remove-ai-watermarks-runtime.zip 与 runtime-archives-manifest.json；旧展开目录 resources/tools/remove-ai-watermarks 仅保留兼容，不得作为默认打包方式",
       "_post_build.cjs 必须检查 resources/tools/parsehub-bridge/parsehub_bridge.py、resources/tools/runtime-archives/parsehub-pythonlibs.zip、backend-enc/routes/parseHub.t8c、backend-enc/utils/parseHubBridge.t8c 与 backend-enc/utils/runtimeArchive.t8c；正式发布脚本设置 T8_REQUIRE_PARSEHUB_RUNTIME=1 与 T8_REQUIRE_RUNTIME_ARCHIVES=1，缺少 ParseHub 依赖归档时必须失败",
       "_post_build.cjs 必须检查 RH工具箱制作器不得进入用户包；resources/frontend 内若出现 RHToolboxMakerNode、RH工具箱制作器 或 rh-toolbox-maker，打包后置检查必须失败",
+      "dist:release 必须在 build + encrypt 前执行 npm run rh-toolbox:check；_post_build.cjs 必须确认 resources/frontend 内包含 image-cutout-v1、tuantiquv10、bernini1、berninituxiangbianji、bernini2 和对应 WebAppId，避免用户包丢失 RH 工具箱正式应用",
       "去AI水印 full runtime 不提交 Git；如需离线用户包，先把 Python/Torch/remove-ai-watermarks[gpu,detect,trustmark,lama] sidecar 放入 tools/remove-ai-watermarks-runtime，再执行 npm run prepack:runtimes 或 npm run dist；zip 归档也不提交 Git",
       "_post_build.cjs 自动清除任何意外混入的 resources/{app,backend}/src 明文目录",
       "GitHub 公开推送必须排除 roadmap.md、skill.md 与所有本地私有计费/支付/充值实现；执行 git add 前后都要用 publicReleasePolicy.prePushScan 的关键字检查 staged diff",
@@ -4343,6 +4801,19 @@
         "俄罗斯方块主题继续修复拖动节点顶部残影、大屏游戏布局和游戏难度曲线细节。",
         "公开版本同步到 2.2.0：package.json、package-lock.json、electron/main.cjs、backend/src/config.js APP_VERSION、features.json、README.md 与 release-notes/v2.2.0.md 同步；本次只推 GitHub 源码，不打包 Electron，不发布 GitHub Release 自动更新资产。"
       ]
+    },
+    "phase161": {
+      "label": "灵感之源与工具体验源码收口版 (v2.2.1)",
+      "status": "implemented",
+      "items": [
+        "艺术风格大师继续完善输出风格提示词 / 图片、自定义图片上传、右键保存风格、分类 / 流派筛选、节点内滚轮浏览和长文字防溢出；输出提示词改为单行风格提示词 + 固定英文参考句，避免冗长元信息。",
+        "新增并完善动漫标签大师节点，支持 Danbooru / Gelbooru 懒加载图库、标签 / 图像输出、自定义分类、导入导出和素材图片右键保存标签。",
+        "资源库分类新增 / 重命名 / 删除恢复可用，任务完成提示音支持设置页上传自定义音频，顶部快捷栏新增输出素材持久化开关。",
+        "画布交互修复 Home 键回到画布中心、文本节点长文缩放溢出、对齐 / 整理顺序颠倒和图像编辑裁切比例默认撑满。",
+        "RH 工具箱读取字段时每次以当前 WebAppId 为准，完整映射字段但在用户节点隐藏调试映射块，避免旧应用字段混入。",
+        "Codex CLI Agent 简约模式和 Codex 生图工作台补齐上游图片预览、排序、删除、LLM / IMG 模式边界和 gpt-image-2-vip 模型提示。",
+        "俄罗斯方块主题继续修复节点顶部残影；公开版本同步到 2.2.1，本次只推 GitHub 源码，不打包 Electron，不发布 GitHub Release 自动更新资产。"
+      ]
     }
   },
   "categories": {
@@ -4437,12 +4908,17 @@
     },
     "inspiration": {
       "label": "灵感之源",
-      "count": 1,
+      "count": 2,
       "nodes": [
         {
           "type": "artist-style-master",
           "label": "艺术风格大师",
           "description": "移植 qiaomu 艺术家风格库，支持画家英文名/中文名/风格标签搜索、按流派和分类筛选、缩略图 lightbox、大图方向键切换、复制画家提示词、自定义分类/风格保存、导入导出，并可运行输出风格提示词或风格图片"
+        },
+        {
+          "type": "anime-tag-master",
+          "label": "动漫标签大师",
+          "description": "基于 comfyui-anima-t8 的 Danbooru / Gelbooru 懒加载图库思路，支持动漫标签搜索、按分类/来源筛选、在线预览、lightbox、复制标签提示词、自定义分类/标签保存、图片上传、导入导出，并可运行输出标签或参考图"
         }
       ]
     },

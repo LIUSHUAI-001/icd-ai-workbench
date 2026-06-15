@@ -6,6 +6,7 @@ import {
   ARTIST_STYLE_MASTER_STORAGE_KEY,
   buildArtistStyleOutputPayload,
   buildArtistStylePrompt,
+  createArtistStyleFromMaterial,
   createArtistStyleExport,
   importArtistStyleExport,
   normalizeArtistStyleItem,
@@ -72,14 +73,15 @@ test('artist style search, prompt output and import/export are deterministic', (
 
   const mucha = matches.find((item) => item.id === 'alphonse-mucha')!;
   const prompt = buildArtistStylePrompt(mucha);
-  assert.match(prompt, /Alphonse Mucha/);
-  assert.match(prompt, /阿尔丰斯·穆夏/);
-  assert.match(prompt, /Art Nouveau/);
   assert.match(prompt, /装饰线条/);
+  assert.match(prompt, /Use this as a visual style reference/);
+  assert.equal(prompt.includes('\n'), false);
+  assert.doesNotMatch(prompt, /Artist style reference|Movement:|Visual cue:|Style tags:/);
+  assert.equal(prompt, `${mucha.chineseName}，${mucha.cue}, Use this as a visual style reference: composition language, line quality, color palette, lighting, texture, mood and design rhythm.`);
 
   const textPayload = buildArtistStyleOutputPayload(mucha, 'prompt');
   assert.equal(textPayload.kind, 'text');
-  assert.match(textPayload.data.directOutputText, /Alphonse Mucha/);
+  assert.equal(textPayload.data.directOutputText, prompt);
   assert.equal(textPayload.data.directImageUrl, undefined);
 
   const imagePayload = buildArtistStyleOutputPayload(mucha, 'image');
@@ -87,7 +89,7 @@ test('artist style search, prompt output and import/export are deterministic', (
   assert.match(imagePayload.data.directImageUrl, /alphonse-mucha\.webp$/);
   assert.deepEqual(imagePayload.data.directImageUrls, [mucha.imageUrl]);
   assert.deepEqual(imagePayload.data.imageUrls, [mucha.imageUrl]);
-  assert.match(imagePayload.data.directOutputText, /Alphonse Mucha/);
+  assert.equal(imagePayload.data.directOutputText, prompt);
 
   const custom = normalizeArtistStyleItem({
     name: 'Studio Test',
@@ -145,6 +147,46 @@ test('artist style custom library supports editing saved styles in place', () =>
   assert.ok(library.categories.some((item) => item.id === 'commerce'));
 });
 
+test('image materials can be converted into confirmed custom artist styles', () => {
+  const style = createArtistStyleFromMaterial({
+    imageUrl: '/files/output/poster.png',
+    title: 'neo-cinema-poster.png',
+    prompt: 'neon poster lighting, dramatic composition',
+    negativePrompt: 'blur, low quality',
+    categoryZh: '素材收藏',
+    tags: ['right-click', 'poster'],
+  });
+
+  assert.equal(style.imageUrl, '/files/output/poster.png');
+  assert.equal(style.thumbnailUrl, '/files/output/poster.png');
+  assert.equal(style.name, 'neo-cinema-poster');
+  assert.equal(style.chineseName, 'neo-cinema-poster');
+  assert.equal(style.categoryZh, '素材收藏');
+  assert.equal(style.userCreated, true);
+  assert.ok(style.tags.includes('right-click'));
+  assert.match(style.cue, /neon poster lighting/);
+  assert.match(style.cue, /Negative prompt: blur, low quality/);
+  assert.match(buildArtistStylePrompt(style), /neon poster lighting/);
+});
+
+test('material context menu can save image materials to artist style master', () => {
+  const contextMenu = read('../src/components/MaterialContextMenu.tsx');
+  const uploadNode = read('../src/components/nodes/UploadNode.tsx');
+  const outputNode = read('../src/components/nodes/OutputNode.tsx');
+  const artistNode = read('../src/components/nodes/ArtistStyleMasterNode.tsx');
+
+  assert.match(contextMenu, /保存风格到艺术风格大师/);
+  assert.match(contextMenu, /openArtistStyleSaveDialog/);
+  assert.match(contextMenu, /createArtistStyleFromMaterial/);
+  assert.match(contextMenu, /menu\.kind !== 'image'/);
+  assert.match(contextMenu, /penguin:artist-style-master-changed/);
+  assert.match(contextMenu, /请确认或修改风格提示词/);
+  assert.match(contextMenu, /自动获取提示词/);
+  assert.match(uploadNode, /data-drag-kind="image"/);
+  assert.match(outputNode, /data-prompt-template-prompt=\{mediaPromptByUrl\.get\(u\)\?\.prompt \|\| displayText\}/);
+  assert.match(artistNode, /penguin:artist-style-master-changed/);
+});
+
 test('artist style master frontend keeps gallery and theme readability hooks', () => {
   const node = read('../src/components/nodes/ArtistStyleMasterNode.tsx');
   const styles = read('../src/styles/index.css');
@@ -165,6 +207,8 @@ test('artist style master frontend keeps gallery and theme readability hooks', (
   assert.match(node, /新增分类/);
   assert.match(node, /重命名分类/);
   assert.match(node, /删除分类/);
+  assert.match(node, /收藏分类/);
+  assert.match(node, /全部收藏分类/);
   assert.match(node, /type="file" accept="image\/\*"/);
   assert.match(node, /上传风格图/);
   assert.match(node, /customImageUploadRef/);
@@ -174,6 +218,9 @@ test('artist style master frontend keeps gallery and theme readability hooks', (
   assert.match(node, /导入/);
   assert.match(node, /导出/);
   assert.match(node, /复制画家提示词/);
+  assert.doesNotMatch(node, /ARTIST_STYLE_MASTER_CATEGORIES/);
+  assert.doesNotMatch(node, /filteredStyles\.slice\(0,\s*6\)/);
+  assert.match(node, /artist-style-master-mini-grid" onWheelCapture=\{stopCanvasWheel\}/);
 
   assert.match(styles, /artist-style-master-node/);
   assert.match(styles, /artist-style-master-modal/);
@@ -186,5 +233,10 @@ test('artist style master frontend keeps gallery and theme readability hooks', (
   assert.match(styles, /artist-style-master-custom-upload/);
   assert.match(styles, /\[data-theme-mode="dark"\][\s\S]*artist-style-master-node/);
   assert.match(styles, /\[data-theme-mode="light"\][\s\S]*artist-style-master-node/);
+  assert.match(styles, /html\[data-theme-visual\] \.artist-style-master-node/);
+  assert.match(styles, /--asm-bg:\s*var\(--t8-bg-node/);
+  assert.match(styles, /--asm-panel:\s*var\(--t8-bg-panel/);
+  assert.match(styles, /--asm-accent:\s*var\(--t8-accent/);
+  assert.match(styles, /--asm-border:\s*var\(--t8-border-strong/);
   assert.match(styles, /color:\s*var\(--asm-text\)/);
 });

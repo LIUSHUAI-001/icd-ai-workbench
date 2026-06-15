@@ -320,6 +320,48 @@ function checkNoRhToolboxMaker() {
   console.log('  ✅ RH toolbox maker is not present in packaged resources');
 }
 
+function isFrontendBundleTextFile(p) {
+  const ext = path.extname(p).toLowerCase();
+  if (!['.json', '.js', '.mjs', '.html'].includes(ext)) return false;
+  try {
+    return fs.statSync(p).size <= 20 * 1024 * 1024;
+  } catch (_) {
+    return false;
+  }
+}
+
+function checkRhToolboxReleaseManifest() {
+  const frontendRoot = path.join(RES, 'frontend');
+  if (!fs.existsSync(frontendRoot)) {
+    failSecurity('frontend assets missing before RH toolbox release manifest check:', frontendRoot);
+  }
+  const requiredMarkers = [
+    'image-cutout-v1',
+    'tuantiquv10',
+    'bernini1',
+    'berninituxiangbianji',
+    'bernini2',
+    '2066002530877927426',
+    '2034251740148666369',
+    '2064192352843034626',
+    '2064222937024131073',
+    '2064185875537420290',
+  ];
+  const found = new Set();
+  for (const p of walkFiles(frontendRoot).filter(isFrontendBundleTextFile)) {
+    const text = fs.readFileSync(p, 'utf-8');
+    for (const marker of requiredMarkers) {
+      if (text.includes(marker)) found.add(marker);
+    }
+  }
+  for (const marker of requiredMarkers) {
+    if (!found.has(marker)) {
+      failSecurity(`RH toolbox release manifest marker missing from frontend assets: ${marker}`, frontendRoot);
+    }
+  }
+  console.log('  ✅ RH toolbox release manifest is bundled in frontend assets');
+}
+
 function checkNoFalToolboxMaker() {
   const forbiddenDirs = [
     path.join(RES, 'tools', 'fal-toolbox-maker'),
@@ -442,13 +484,16 @@ function main() {
   console.log('\n[9] RH工具箱制作器分发检查:');
   checkNoRhToolboxMaker();
 
-  console.log('\n[10] FAL应用制作工具分发检查:');
+  console.log('\n[10] RH工具箱发布清单分发检查:');
+  checkRhToolboxReleaseManifest();
+
+  console.log('\n[11] FAL应用制作工具分发检查:');
   checkNoFalToolboxMaker();
 
-  console.log('\n[11] GitHub 自动更新资产:');
+  console.log('\n[12] GitHub 自动更新资产:');
   checkUpdateArtifacts();
 
-  console.log('\n[12] resources/ 完整结构:');
+  console.log('\n[13] resources/ 完整结构:');
   listDir(RES);
 
   if (missingCount > 0) {

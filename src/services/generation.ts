@@ -4,6 +4,23 @@
  */
 import type { AdvancedProviderConfig } from '../types/canvas';
 
+async function safeJsonResponse(response: Response, label: string): Promise<any> {
+  const text = await response.text();
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const contentType = response.headers.get('content-type') || 'unknown';
+    const looksLikeHtml = /^<!doctype html|^<html|cannot\s+(post|get)\s+/i.test(trimmed);
+    const hint = looksLikeHtml
+      ? '（本地后端可能没有命中该 API，常见原因是后端未重启或代理返回了 HTML 页面）'
+      : '';
+    const preview = trimmed.replace(/\s+/g, ' ').slice(0, 160);
+    throw new Error(`${label} 返回了非 JSON 响应${hint}：HTTP ${response.status} ${contentType} · ${preview}`);
+  }
+}
+
 export interface GenerateImageRequest {
   model: string;          // 节点 id (gpt-image-2 / nano-banana-2 / nano-banana-pro / grok-image)
   apiModel?: string;       // 上游真实模型名(优先使用)
@@ -891,6 +908,17 @@ export async function queryRh(taskId: string): Promise<RhQueryResult> {
   const url = `/api/proxy/runninghub/query?taskId=${encodeURIComponent(taskId)}`;
   const r = await fetch(url);
   const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export async function cancelRh(taskId: string): Promise<{ taskId: string; raw?: any }> {
+  const r = await fetch('/api/proxy/runninghub/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ taskId }),
+  });
+  const data = await safeJsonResponse(r, 'RunningHub 取消任务');
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;
 }
