@@ -57,6 +57,7 @@ import {
   shouldPreserveAutoOutputMaterialNode,
   writeOutputMaterialPersistenceSetting,
 } from '../utils/outputMaterialPersistence';
+import { buildDirectorStoryboardOutputNodeData } from '../utils/directorStoryboard';
 import { markCanvasNodesDeleted } from '../utils/deletedNodeRegistry';
 import {
   bucketSendableMaterials,
@@ -888,6 +889,11 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     panoramaScenePrompt: '',
     panoramaStoryboardPromptEnabled: false,
     panoramaStoryboardPromptText: '｛［人物］是@在做［动作］，｝',
+    panoramaStoryboardPromptSnapshotText: '',
+    panoramaStoryboardPresetPrompt: '｛［人物］是@在做［动作］，｝',
+    panoramaStoryboardPresetName: '',
+    panoramaStoryboardPromptPresets: [],
+    panoramaStoryboardSelectedPresetId: '',
     panoramaShotCamera: {
       mode: 'panorama-view',
       presetId: 'full-body',
@@ -5763,6 +5769,9 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       const t = n.type as string;
       if (!t || SKIP_TYPES.has(t)) continue;
       const d = (n.data as any) || {};
+      const directorOutputItems = t === 'director-storyboard' && Array.isArray(d.directorOutputItems)
+        ? d.directorOutputItems
+        : [];
       // v1.2.9.10: 正在被 LoopNode 累积跑路的 EXEC 节点 (带 __loopAccumulate 标记) 跳过,
       //          避免 autoOutput 把下游的 OutputNode 升级为 pickKind+pickIndex (会误将累积全集切为单项)。
       //          OutputNode 侧的 v1.2.9.10 修复 (hasAnyDirectAccumulated 跳过 pickKind) 是主双保险,
@@ -5929,11 +5938,14 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         seen.add(u);
         mods.push(u);
       };
-      pushTxt(d.outputText);
-      pushTxt(d.reply);
-      if (Array.isArray(d.textSegments)) d.textSegments.forEach(pushTxt);
-      if (Array.isArray(d.segments)) d.segments.forEach(pushTxt);
-      if (Array.isArray(d.texts)) d.texts.forEach(pushTxt);
+      const suppressStandaloneTextOutputs = t === 'director-storyboard';
+      if (!suppressStandaloneTextOutputs) {
+        pushTxt(d.outputText);
+        pushTxt(d.reply);
+        if (Array.isArray(d.textSegments)) d.textSegments.forEach(pushTxt);
+        if (Array.isArray(d.segments)) d.segments.forEach(pushTxt);
+        if (Array.isArray(d.texts)) d.texts.forEach(pushTxt);
+      }
       pushImg(d.imageUrl);
       if (Array.isArray(d.imageUrls)) d.imageUrls.forEach(pushImg);
       // d.urls 是通用产物数组（RH/FAL 使用），可能同时含图/视频/音频/3D 模型。
@@ -5959,9 +5971,16 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         if (Array.isArray(d.modelUrls)) d.modelUrls.forEach(pushMod);
         if (Array.isArray(d.directModelUrls)) d.directModelUrls.forEach(pushMod);
       }
-      pushVid(d.videoUrl);
-      // v1.2.8.2: 支持 videoUrls 数组 (LoopNode 聚合多个视频产物)
-      if (Array.isArray(d.videoUrls)) d.videoUrls.forEach(pushVid);
+      if (t === 'director-storyboard') {
+        if (directorOutputItems.length > 0) {
+          directorOutputItems.forEach((item: any) => pushVid(item.videoUrl));
+        } else if (Array.isArray(d.videoUrls)) d.videoUrls.forEach(pushVid);
+        else pushVid(d.videoUrl);
+      } else {
+        pushVid(d.videoUrl);
+        // v1.2.8.2: 支持 videoUrls 数组 (LoopNode 聚合多个视频产物)
+        if (Array.isArray(d.videoUrls)) d.videoUrls.forEach(pushVid);
+      }
       pushAud(d.audioUrl);
       // Suno / AudioNode 双轨输出口: audioUrl=轨1, audioUrl_1=轨2
       // 不取 audioUrl_1 会导致 autoOutput 只创建 1 个 OutputNode
@@ -5978,9 +5997,34 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       const modelItems = mods.map((url, i) => ({ kind: 'model3d' as const, url, kindIndex: i }));
       if (items.length === 0 && modelItems.length === 0) continue;
 
-      const sig = [...items, ...modelItems].map((x) => `${x.kind}:${x.url}`).join('|');
+      const outputDataForItem = (item: { kind: 'text' | 'image' | 'video' | 'audio'; url: string; kindIndex: number }) => {
+        const base = { pickKind: item.kind, pickIndex: item.kindIndex };
+        if (t === 'director-storyboard' && item.kind === 'video') {
+          const directorItem = directorOutputItems[item.kindIndex];
+          if (directorItem && typeof directorItem.videoUrl === 'string' && directorItem.videoUrl.trim()) {
+            return { ...base, ...buildDirectorStoryboardOutputNodeData(directorItem) };
+          }
+        }
+        return outputMaterialPersistenceEnabled
+          ? { ...base, ...buildPersistentOutputSnapshotData(item) }
+          : base;
+      };
+
+      const outputPatchChanged = (current: any, patch: Record<string, any>) => (
+        Object.entries(patch).some(([key, value]) => JSON.stringify(current?.[key]) !== JSON.stringify(value))
+      );
+
+      const sig = [...items, ...modelItems].map((x) => {
+        if (t === 'director-storyboard' && x.kind === 'video') {
+          const directorItem = directorOutputItems[x.kindIndex];
+          return `${x.kind}:${x.url}:${directorItem?.shotId || ''}:${directorItem?.text || ''}`;
+        }
+        return `${x.kind}:${x.url}`;
+      }).join('|');
+      const directorOutputRefreshNonce = t === 'director-storyboard' ? String(d.directorOutputRefreshNonce || '') : '';
+      const outputSig = directorOutputRefreshNonce ? `${sig}|refresh:${directorOutputRefreshNonce}` : sig;
       const lastSig = autoOutputProcessedRef.current.get(n.id);
-      if (lastSig === sig) continue;
+      if (lastSig === outputSig) continue;
 
       if (modelItems.length > 0) {
         const modelUrlSet = new Set(modelItems.map((item) => item.url));
@@ -6057,7 +6101,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       }
 
       if (items.length === 0) {
-        newSigPatches.push([n.id, sig]);
+        newSigPatches.push([n.id, outputSig]);
         continue;
       }
 
@@ -6069,6 +6113,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         id: string;
         pickKind?: string;
         pickIndex?: number;
+        data?: any;
         incomingFromMe: number;
         auto: boolean;
         removable: boolean;
@@ -6086,10 +6131,10 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         const removable = auto && totalIncoming === 1 && !hasOutgoing && td.userMoved !== true;
         if (totalIncoming > 1) {
           // 多上游合并节点 → 不动 data, 但计数占位
-          downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, incomingFromMe, auto, removable: false });
+          downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, data: td, incomingFromMe, auto, removable: false });
           continue;
         }
-        downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, incomingFromMe, auto, removable });
+        downstreamOutputs.push({ id: t.id, pickKind: td.pickKind, pickIndex: td.pickIndex, data: td, incomingFromMe, auto, removable });
       }
 
       const itemKey = (it: { kind: string; kindIndex: number }) => `${it.kind}:${it.kindIndex}`;
@@ -6101,7 +6146,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
           typeof o.pickIndex === 'number' &&
           !validItemKeys.has(`${o.pickKind}:${o.pickIndex}`)
         ) {
-          if (shouldPreserveAutoOutputMaterialNode(nodeById.get(o.id), outputMaterialPersistenceEnabled)) {
+          if (t !== 'director-storyboard' && shouldPreserveAutoOutputMaterialNode(nodeById.get(o.id), outputMaterialPersistenceEnabled)) {
             return true;
           }
           toRemoveNodeIds.add(o.id);
@@ -6126,31 +6171,44 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
           occupied.add(`${o.pickKind}:${o.pickIndex}`);
         }
       }
-      const upgradePatches: Array<[string, { pickKind: string; pickIndex: number }]> = [];
+      const upgradePatches: Array<[string, Record<string, any>]> = [];
+      if (t === 'director-storyboard') {
+        for (const o of activeDownstreamOutputs) {
+          if (!o.pickKind || typeof o.pickIndex !== 'number') continue;
+          const item = items.find((it) => it.kind === o.pickKind && it.kindIndex === o.pickIndex);
+          if (!item) continue;
+          const patch = outputDataForItem(item);
+          if (outputPatchChanged(o.data, patch)) upgradePatches.push([o.id, patch]);
+        }
+      }
       for (const o of activeDownstreamOutputs) {
         if (o.pickKind) continue;
         // 指定下一个未占用项
         const next = items.find((it) => !occupied.has(itemKey(it)));
         if (!next) break;
         occupied.add(itemKey(next));
-        upgradePatches.push([o.id, { pickKind: next.kind, pickIndex: next.kindIndex }]);
+        upgradePatches.push([o.id, outputDataForItem(next)]);
       }
 
       // 仍然未被占用的 items 数量 = 需要补建的 OutputNode 个数
       const remainingItems = items.filter((it) => !occupied.has(itemKey(it)));
       const needCount = remainingItems.length;
-      newSigPatches.push([n.id, sig]);
+      newSigPatches.push([n.id, outputSig]);
 
       // 接下来先应用 upgradePatches 再补建节点
       if (upgradePatches.length > 0) {
         const patchMap = new Map(upgradePatches);
-        setNodes((prev) =>
-          prev.map((nd) => {
+        setNodes((prev) => {
+          let changed = false;
+          const next = prev.map((nd) => {
             const p = patchMap.get(nd.id);
             if (!p) return nd;
-            return { ...nd, data: { ...(nd.data as any), pickKind: p.pickKind, pickIndex: p.pickIndex } };
-          })
-        );
+            if (!outputPatchChanged(nd.data, p)) return nd;
+            changed = true;
+            return { ...nd, data: { ...(nd.data as any), ...p } };
+          });
+          return changed ? next : prev;
+        });
       }
       if (needCount <= 0) continue;
 
@@ -6193,9 +6251,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
           },
           // pickKind/pickIndex: 下游 OutputNode 只拾上游对应 kind 的第 kindIndex 项,
           // 避免多图场景下所有 OutputNode 都重复显示全部输出
-          data: outputMaterialPersistenceEnabled
-            ? { pickKind: item.kind, pickIndex: item.kindIndex, ...buildPersistentOutputSnapshotData(item) }
-            : { pickKind: item.kind, pickIndex: item.kindIndex },
+          data: outputDataForItem(item),
           selected: false,
         } as Node;
         toAddNodes.push(_newNodeGen);
