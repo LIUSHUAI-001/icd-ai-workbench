@@ -334,8 +334,8 @@ html[data-theme-visual="farm-story"] .react-flow__node:not(.react-flow__node-gro
   opacity: 0.7;
 }
 
-html[data-theme-visual="farm-story"] .react-flow__node:not(.react-flow__node-groupBox) > div:first-child > :not(.react-flow__handle),
-html[data-theme-visual="farm-story"] .react-flow__node:not(.react-flow__node-groupBox) .t8-node > * {
+html[data-theme-visual="farm-story"] .react-flow__node:not(.react-flow__node-groupBox) > div:first-child > :not(.react-flow__handle):not(.react-flow__resize-control):not(.t8-resize-handle),
+html[data-theme-visual="farm-story"] .react-flow__node:not(.react-flow__node-groupBox) .t8-node > :not(.react-flow__handle):not(.react-flow__resize-control):not(.t8-resize-handle) {
   position: relative;
   z-index: 1;
 }
@@ -640,6 +640,38 @@ html[data-theme-visual="farm-story"] .react-flow__handle[data-t8-port-type="any"
 /* Farm handle hover keeps ReactFlow anchor transform v1. */
 html[data-theme-visual="farm-story"] .react-flow__handle:hover {
   box-shadow: 0 0 0 3px var(--farm-cream), 0 0 12px var(--farm-water);
+}
+
+/* Farm Story ReactFlow stacking guard v1. */
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__nodes {
+  z-index: 3 !important;
+}
+
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__edgelabel-renderer {
+  z-index: 2 !important;
+  pointer-events: none;
+}
+
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__node:not(.react-flow__node-groupBox),
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__node:not(.react-flow__node-groupBox) > div:first-child {
+  overflow: visible !important;
+}
+
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__node:not(.react-flow__node-groupBox) .react-flow__handle {
+  position: absolute !important;
+  z-index: 80 !important;
+  pointer-events: all !important;
+}
+
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__node:not(.react-flow__node-groupBox) .react-flow__resize-control,
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__node:not(.react-flow__node-groupBox) .t8-resize-handle {
+  position: absolute !important;
+  z-index: 70 !important;
+}
+
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__edgelabel-renderer .t8-edge-theme-marker,
+html[data-theme-visual="farm-story"] .t8-canvas-shell .react-flow__edgelabel-renderer .t8-edge-cut-label {
+  z-index: 2 !important;
 }
 
 html[data-theme-visual="farm-story"] .react-flow__edge-path,
@@ -3175,7 +3207,7 @@ html[data-theme-visual="farm-story"] [tabindex]:focus-visible {
 }
 
 .t8-main-layout[data-sidebar-collapsed="true"] .t8-farm-story-panel__mini-status {
-  left: 12px;
+  left: var(--t8-sidebar-collapsed-content-left, 54px);
 }
 
 .t8-farm-story-panel:not(.is-open) .t8-farm-story-panel__mini-status {
@@ -3252,7 +3284,7 @@ html[data-theme-visual="farm-story"] [tabindex]:focus-visible {
 }
 
 .t8-main-layout[data-sidebar-collapsed="true"] .t8-farm-story-panel__quick-actions {
-  left: 12px;
+  left: var(--t8-sidebar-collapsed-content-left, 54px);
 }
 
 .t8-farm-story-panel__quick-actions button {
@@ -26358,7 +26390,7 @@ html[data-theme-visual="farm-story"] .t8-farm-followup-notice[data-farm-followup
 }
 
 .t8-main-layout[data-sidebar-collapsed="true"] .t8-farm-followup-notice[data-farm-followup-notice="top-quick-board"] {
-  --farm-followup-quickbar-left: 12px;
+  --farm-followup-quickbar-left: var(--t8-sidebar-collapsed-content-left, 54px);
 }
 
 html[data-theme-visual="farm-story"] .t8-farm-followup-notice[data-farm-followup-notice="top-quick-board"]::before,

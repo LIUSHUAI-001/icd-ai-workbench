@@ -145,6 +145,24 @@ async function reverseAndGenerate(message) {
   };
 }
 
+async function generateImage(message) {
+  const settings = await storageGet({ t8_backend_base: DEFAULT_BACKEND_BASE });
+  const backendBase = message?.backendBase || settings.t8_backend_base || DEFAULT_BACKEND_BASE;
+  const response = await fetch(absoluteBackendUrl(backendBase, '/api/proxy/external/image'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(message?.payload || {}),
+  });
+  const data = await readJsonResponse(response);
+  const ok = response.ok && data?.success !== false;
+  return {
+    ok,
+    status: response.status,
+    data,
+    error: ok ? '' : (data?.error || `T8 后端返回 HTTP ${response.status}`),
+  };
+}
+
 chrome.runtime.onInstalled.addListener(installContextMenu);
 chrome.runtime.onStartup.addListener(installContextMenu);
 installContextMenu();
@@ -182,6 +200,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message?.action === 't8WebImage.reverseAndGenerate') {
     reverseAndGenerate(message)
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ ok: false, error: normalizeBackendFetchError(error), data: { success: false } }));
+    return true;
+  }
+
+  if (message?.action === 't8WebImage.generateImage') {
+    generateImage(message)
       .then((result) => sendResponse(result))
       .catch((error) => sendResponse({ ok: false, error: normalizeBackendFetchError(error), data: { success: false } }));
     return true;

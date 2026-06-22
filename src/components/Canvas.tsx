@@ -1848,11 +1848,12 @@ function webImagePayloadImages(payload: WebImageExtensionPayload): MediaItem[] {
 function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNodeSpec[] {
   const mode = normalizeWebImageSendMode(payload.mode);
   const prompt = cleanWebImageText(payload.prompt);
+  const includePromptInOutput = mode === 'both' && !!prompt;
   const sourceImageUrl = cleanWebImageText(payload.sourceImageUrl, 2048);
   const pageUrl = cleanWebImageText(payload.pageUrl, 2048);
   const pageTitle = cleanWebImageText(payload.pageTitle, 200);
   const specs: SendNodeSpec[] = [];
-  if ((mode === 'prompt' || mode === 'both') && prompt) {
+  if (mode === 'prompt' && prompt) {
     specs.push({
       type: 'text',
       data: {
@@ -1873,12 +1874,14 @@ function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNode
       type: 'output',
       data: {
         ...createOutputDataFromItems('image', imageItems),
-        prompt,
-        outputText: prompt,
-        directOutputText: prompt,
+        ...(includePromptInOutput ? {
+          prompt,
+          outputText: prompt,
+          directOutputText: prompt,
+          webImageReversePrompt: prompt,
+        } : {}),
         sendSource: 'web-image-reverse',
         source: 'web-image-reverse',
-        webImageReversePrompt: prompt,
         webImageReverseSourceImageUrl: sourceImageUrl,
         webImageReversePageUrl: pageUrl,
         webImageReversePageTitle: pageTitle,
@@ -2633,6 +2636,7 @@ function PlacementShelf({
   isDark,
   isPixel,
   onToggle,
+  onHide,
   onClear,
   onMoveNode,
   onRemove,
@@ -2642,6 +2646,7 @@ function PlacementShelf({
   isDark: boolean;
   isPixel: boolean;
   onToggle: () => void;
+  onHide: () => void;
   onClear: () => void;
   onMoveNode: (item: PlacementShelfItem, point: { x: number; y: number }) => void;
   onRemove: (id: string) => void;
@@ -2701,6 +2706,7 @@ function PlacementShelf({
     <>
       <div
         data-canvas-floating-ui="placement-shelf"
+        data-placement-shelf-hidden="false"
         className="t8-placement-shelf p-2"
         style={shellStyle}
       >
@@ -2730,6 +2736,20 @@ function PlacementShelf({
                 <LucideIcons.Trash2 size={13} />
               </button>
             )}
+            <button
+              type="button"
+              className="t8-placement-shelf__hide t8-mini-icon-button"
+              data-canvas-floating-ui="placement-shelf-hide"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onHide();
+              }}
+              aria-label="隐藏放置栏"
+              title="隐藏放置栏"
+            >
+              <LucideIcons.EyeOff size={13} />
+            </button>
             <button
               type="button"
               className="t8-mini-icon-button"
@@ -2915,6 +2935,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   const memoPanOnDrag = useMemo(() => (canvasPanLocked ? false : [...CANVAS_PAN_MOUSE_BUTTONS]), [canvasPanLocked]);
   const [placementShelfItems, setPlacementShelfItems] = useState<PlacementShelfItem[]>([]);
   const [placementShelfOpen, setPlacementShelfOpen] = useState(false);
+  const [placementShelfHidden, setPlacementShelfHidden] = useState(false);
   const placementShelfClearedCanvasIdsRef = useRef<Set<string>>(new Set());
   const [loaded, setLoaded] = useState(false);
   const [loadedCanvasId, setLoadedCanvasId] = useState<string | null>(null);
@@ -3514,12 +3535,14 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       const next = [...mapped, ...prev.filter((item) => !replacementIds.has(item.nodeId))];
       return next.slice(0, 60);
     });
+    setPlacementShelfHidden(false);
     setPlacementShelfOpen(true);
     logBus.success(`已添加 ${mapped.length} 个节点到放置栏`, '放置栏');
   }, []);
 
   const clearPlacementShelf = useCallback(() => {
     if (activeId) placementShelfClearedCanvasIdsRef.current.add(activeId);
+    setPlacementShelfHidden(true);
     setPlacementShelfItems([]);
     setPlacementShelfOpen(false);
     logBus.success('已清空放置栏', '放置栏');
@@ -8683,6 +8706,21 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         <div className="t8-control-stack">
           <button
             type="button"
+            className={`t8-control-rail-help t8-control-rail-placement-shelf t8-mini-icon-button${!placementShelfHidden ? ' is-active' : ''}`}
+            data-canvas-floating-ui="placement-shelf-toggle"
+            aria-label={placementShelfHidden ? '展开放置栏' : '折叠放置栏'}
+            title={placementShelfHidden ? '展开放置栏' : '折叠放置栏'}
+            aria-expanded={!placementShelfHidden}
+            aria-pressed={!placementShelfHidden}
+            onClick={(event) => {
+              event.stopPropagation();
+              setPlacementShelfHidden((value) => !value);
+            }}
+          >
+            <LucideIcons.Archive size={16} />
+          </button>
+          <button
+            type="button"
             className={`t8-control-rail-help t8-control-rail-creative-desk t8-mini-icon-button${creativeDeskEditing ? ' is-active' : ''}`}
             data-canvas-floating-ui="creative-desk-toggle"
             aria-label="创作台背景"
@@ -8766,16 +8804,19 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
             }}
           />
         </div>
-        <PlacementShelf
-          items={placementShelfItems}
-          open={placementShelfOpen}
-          isDark={isDark}
-          isPixel={isPixel}
-          onToggle={() => setPlacementShelfOpen((prev) => !prev)}
-          onClear={clearPlacementShelf}
-          onMoveNode={movePlacementShelfNode}
-          onRemove={(id) => setPlacementShelfItems((prev) => prev.filter((item) => item.id !== id))}
-        />
+        {!placementShelfHidden && (
+          <PlacementShelf
+            items={placementShelfItems}
+            open={placementShelfOpen}
+            isDark={isDark}
+            isPixel={isPixel}
+            onToggle={() => setPlacementShelfOpen((prev) => !prev)}
+            onHide={() => setPlacementShelfHidden(true)}
+            onClear={clearPlacementShelf}
+            onMoveNode={movePlacementShelfNode}
+            onRemove={(id) => setPlacementShelfItems((prev) => prev.filter((item) => item.id !== id))}
+          />
+        )}
       </div>
       <RadialMenuSettingsModal open={radialSettingsOpen} onClose={() => setRadialSettingsOpen(false)} />
       {modelHelpOpen && (

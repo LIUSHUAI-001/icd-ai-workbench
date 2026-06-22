@@ -70,6 +70,33 @@
     document.getElementById(MODAL_ID)?.remove();
   }
 
+  function readPromptFromTextarea(modal, state) {
+    const promptEl = modal.querySelector('[data-role="prompt"]');
+    const prompt = String(promptEl?.value || state.prompt || '').trim();
+    state.prompt = prompt;
+    return prompt;
+  }
+
+  function buildCanvasSendPayload(state, mode) {
+    const prompt = String(state.prompt || '').trim();
+    const images = Array.isArray(state.imageUrls) ? state.imageUrls.slice(0, 12) : [];
+    const payload = {
+      mode,
+      sourceImageUrl: state.sourceImageUrl,
+      pageUrl: state.pageUrl,
+      pageTitle: state.pageTitle,
+      source: 'web-image-reverse',
+      createdAt: Date.now(),
+    };
+    if (mode === 'prompt') payload.prompt = prompt;
+    if (mode === 'image') payload.images = images;
+    if (mode === 'both') {
+      payload.prompt = prompt;
+      payload.images = images;
+    }
+    return payload;
+  }
+
   function createModal({ imageUrl, pageUrl, pageTitle }) {
     removeExistingModal();
     const modal = document.createElement('div');
@@ -87,7 +114,10 @@
           <img class="t8-web-image-source" src="${escapeHtml(imageUrl)}" alt="source image" />
           <div class="t8-web-image-status" data-role="status">准备反推提示词并生成图片...</div>
           <div class="t8-web-image-section">
-            <div class="t8-web-image-label">生成提示词</div>
+            <div class="t8-web-image-label-row">
+              <div class="t8-web-image-label">生成提示词</div>
+              <button class="t8-web-image-generate" type="button" data-role="generate-image" title="用当前提示词生成图片" aria-label="用当前提示词生成图片" disabled>生成图片</button>
+            </div>
             <textarea class="t8-web-image-prompt" data-role="prompt" spellcheck="false" placeholder="等待 ModelScope 返回提示词..."></textarea>
           </div>
           <div class="t8-web-image-section">
@@ -110,24 +140,24 @@
       sourceImageUrl: imageUrl,
       pageUrl: pageUrl || location.href,
       pageTitle: pageTitle || document.title,
+      generating: false,
     };
 
     modal.querySelector('.t8-web-image-close')?.addEventListener('click', removeExistingModal);
+    modal.querySelector('[data-role="prompt"]')?.addEventListener('input', () => {
+      readPromptFromTextarea(modal, state);
+      updateButtons(modal, state);
+    });
+    modal.querySelector('[data-role="generate-image"]')?.addEventListener('click', () => {
+      runGenerateFromPrompt(modal, state);
+    });
     modal.querySelectorAll('[data-send-mode]').forEach((button) => {
       button.addEventListener('click', async () => {
         const mode = button.getAttribute('data-send-mode') || 'both';
+        readPromptFromTextarea(modal, state);
         const response = await sendRuntimeMessage({
           action: 't8WebImage.sendToCanvas',
-          payload: {
-            mode,
-            prompt: state.prompt,
-            images: state.imageUrls,
-            sourceImageUrl: state.sourceImageUrl,
-            pageUrl: state.pageUrl,
-            pageTitle: state.pageTitle,
-            source: 'web-image-reverse',
-            createdAt: Date.now(),
-          },
+          payload: buildCanvasSendPayload(state, mode),
         });
         setStatus(modal, response.ok ? '已发送到 T8 画布。' : `发送失败：${response.error || '未知错误'}`, !response.ok);
       });
@@ -148,7 +178,9 @@
     const hasImages = Array.isArray(state.imageUrls) && state.imageUrls.length > 0;
     modal.querySelector('[data-send-mode="prompt"]').disabled = !hasPrompt;
     modal.querySelector('[data-send-mode="image"]').disabled = !hasImages;
-    modal.querySelector('[data-send-mode="both"]').disabled = !(hasPrompt || hasImages);
+    modal.querySelector('[data-send-mode="both"]').disabled = !(hasPrompt && hasImages);
+    const generateButton = modal.querySelector('[data-role="generate-image"]');
+    if (generateButton) generateButton.disabled = !hasPrompt || !!state.generating;
   }
 
   function renderResults(modal, state, backendBase) {
@@ -204,6 +236,46 @@
     } catch (error) {
       if (runId !== activeRunId) return;
       setStatus(modal, error?.message || '反推失败，请确认 T8 后端已启动。', true);
+      updateButtons(modal, state);
+    }
+  }
+
+  async function runGenerateFromPrompt(modal, state) {
+    const prompt = readPromptFromTextarea(modal, state);
+    if (!prompt) {
+      setStatus(modal, '请先在生成提示词里填写内容。', true);
+      updateButtons(modal, state);
+      return;
+    }
+    state.generating = true;
+    updateButtons(modal, state);
+    try {
+      const settings = await getSettings().catch(() => ({ t8_backend_base: DEFAULT_BACKEND_BASE }));
+      const backendBase = settings.t8_backend_base || DEFAULT_BACKEND_BASE;
+      setStatus(modal, '正在用当前提示词生成图片...');
+      const response = await sendRuntimeMessage({
+        action: 't8WebImage.generateImage',
+        backendBase,
+        payload: {
+          providerId: 'modelscope',
+          prompt,
+          size: '1024x1024',
+        },
+      });
+      const data = response.data || {};
+      const imageUrls = normalizeImageUrls(data);
+      if (!response.ok || !data.success || imageUrls.length === 0) {
+        setStatus(modal, response.error || data.error || '生成图片失败，请调整提示词后重试。', true);
+        return;
+      }
+      state.prompt = prompt;
+      state.imageUrls = imageUrls;
+      renderResults(modal, state, backendBase);
+      setStatus(modal, '已按当前提示词生成新图，可发送回画布。');
+    } catch (error) {
+      setStatus(modal, error?.message || '生成图片失败，请确认 T8 后端已启动。', true);
+    } finally {
+      state.generating = false;
       updateButtons(modal, state);
     }
   }

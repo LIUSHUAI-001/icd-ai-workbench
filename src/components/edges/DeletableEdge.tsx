@@ -261,7 +261,7 @@ export default function DeletableEdge(props: EdgeProps) {
           aria-hidden="true"
         />
         <div
-          className="nodrag nopan"
+          className="t8-edge-cut-label nodrag nopan"
           style={{
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,

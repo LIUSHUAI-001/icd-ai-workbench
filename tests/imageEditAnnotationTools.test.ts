@@ -34,7 +34,10 @@ test('image edit arrow keeps the filled triangle at the visual endpoint', () => 
 });
 
 test('image edit brush shapes use local shift-drag aspect lock', () => {
-  assert.match(source, /function brushRectFromDrag\(start: Pt, end: Pt, lockAspect: boolean\)/);
-  assert.match(source, /const brushRect = brushRectFromDrag\(ctx\.startPt, pt, e\.shiftKey\)/);
+  assert.match(source, /function brushRectFromDrag\(start: Pt, end: Pt, lockAspect: boolean, naturalSize: \{ w: number; h: number \} \| null\)/);
+  assert.match(source, /const sidePx = Math\.min\(\s*Math\.max\(Math\.abs\(dx\) \* naturalSize\.w, Math\.abs\(dy\) \* naturalSize\.h\),\s*maxX \* naturalSize\.w,\s*maxY \* naturalSize\.h,\s*\)/);
+  assert.match(source, /x: start\.x \+ signX \* \(sidePx \/ naturalSize\.w\)/);
+  assert.match(source, /y: start\.y \+ signY \* \(sidePx \/ naturalSize\.h\)/);
+  assert.match(source, /const brushRect = brushRectFromDrag\(ctx\.startPt, pt, e\.shiftKey, naturalSize\)/);
   assert.match(source, /rect: brushRect/);
 });
