@@ -96,6 +96,35 @@
   color: #244c3d;
 }
 
+.t8-web-image-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.t8-web-image-generate {
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(66, 135, 99, 0.42);
+  border-radius: 999px;
+  background: #f8fff6;
+  color: #214c3c;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.t8-web-image-generate:not(:disabled):hover {
+  background: #dbf6df;
+  border-color: rgba(52, 128, 82, 0.64);
+}
+
+.t8-web-image-generate:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 .t8-web-image-prompt {
   width: 100%;
   min-height: 92px;

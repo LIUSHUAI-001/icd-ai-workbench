@@ -156,6 +156,23 @@ test('Farm Story browser QA keeps top quick actions from being vertically clippe
   assert.match(css, /\[data-farm-panel-night-readable="true"\] \.t8-farm-story-panel__quick-actions\[data-farm-quick-actions-mirror="top-monitor"\]\[data-farm-quick-actions-density="compact-readable"\] \{[\s\S]*color:\s*var\(--farm-night-text-final, #2e1708\) !important[\s\S]*opacity:\s*1 !important/);
 });
 
+test('Collapsed sidebar reserves the top-left toggle lane for theme overlays', () => {
+  const app = read('../src/App.tsx');
+  const cssIndex = read('../src/styles/index.css');
+  const farmCss = read('../src/styles/theme-farm-story.css');
+  const saintCss = read('../src/styles/theme-saintseiya.css');
+
+  assert.match(app, /data-sidebar-collapsed=\{sidebarCollapsed \? 'true' : 'false'\}/);
+  assert.match(cssIndex, /--t8-sidebar-toggle-size:\s*32px/);
+  assert.match(cssIndex, /--t8-sidebar-toggle-gap:\s*12px/);
+  assert.match(cssIndex, /--t8-sidebar-collapsed-content-left:\s*12px/);
+  assert.match(cssIndex, /--t8-sidebar-collapsed-content-left:\s*calc\(var\(--t8-sidebar-toggle-left\) \+ var\(--t8-sidebar-toggle-size\) \+ var\(--t8-sidebar-toggle-gap\)\)/);
+  assert.match(farmCss, /\.t8-main-layout\[data-sidebar-collapsed="true"\] \.t8-farm-story-panel__mini-status \{[\s\S]*left:\s*var\(--t8-sidebar-collapsed-content-left, 54px\)/);
+  assert.match(farmCss, /\.t8-main-layout\[data-sidebar-collapsed="true"\] \.t8-farm-story-panel__quick-actions \{[\s\S]*left:\s*var\(--t8-sidebar-collapsed-content-left, 54px\)/);
+  assert.match(farmCss, /--farm-followup-quickbar-left:\s*var\(--t8-sidebar-collapsed-content-left, 54px\)/);
+  assert.match(saintCss, /\.t8-main-layout\[data-sidebar-collapsed="true"\] \.t8-saint-sanctuary \{[\s\S]*left:\s*var\(--t8-sidebar-collapsed-content-left, 54px\) !important/);
+});
+
 test('Farm Story handle hover keeps ReactFlow anchor transform untouched', () => {
   const css = read('../src/styles/theme-farm-story.css');
   const farmHandleHoverRule = css.match(/html\[data-theme-visual="farm-story"\] \.react-flow__handle:hover\s*\{[^}]*\}/)?.[0] ?? '';
@@ -173,6 +190,34 @@ test('Farm Story handle hover keeps ReactFlow anchor transform untouched', () =>
     /transform\s*:/,
     'Farm Story node hover must not move the node content away from hovered handles',
   );
+});
+
+test('Farm Story keeps React Flow ports and edge cut markers in the correct canvas layer', () => {
+  const css = read('../src/styles/theme-farm-story.css');
+  const edge = read('../src/components/edges/DeletableEdge.tsx');
+
+  assert.match(css, /Farm Story ReactFlow stacking guard v1/);
+  assert.match(
+    css,
+    /html\[data-theme-visual="farm-story"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) > div:first-child > :not\(\.react-flow__handle\):not\(\.react-flow__resize-control\):not\(\.t8-resize-handle\)/,
+  );
+  assert.match(
+    css,
+    /html\[data-theme-visual="farm-story"\] \.t8-canvas-shell \.react-flow__node:not\(\.react-flow__node-groupBox\) \.react-flow__handle \{[\s\S]*position:\s*absolute !important;[\s\S]*z-index:\s*80 !important/,
+  );
+  assert.match(
+    css,
+    /html\[data-theme-visual="farm-story"\] \.t8-canvas-shell \.react-flow__edgelabel-renderer \{[\s\S]*z-index:\s*2 !important/,
+  );
+  assert.match(
+    css,
+    /html\[data-theme-visual="farm-story"\] \.t8-canvas-shell \.react-flow__nodes \{[\s\S]*z-index:\s*3 !important/,
+  );
+  assert.match(
+    css,
+    /html\[data-theme-visual="farm-story"\] \.t8-canvas-shell \.react-flow__edgelabel-renderer \.t8-edge-theme-marker,[\s\S]*html\[data-theme-visual="farm-story"\] \.t8-canvas-shell \.react-flow__edgelabel-renderer \.t8-edge-cut-label \{[\s\S]*z-index:\s*2 !important/,
+  );
+  assert.match(edge, /className="t8-edge-cut-label nodrag nopan"/);
 });
 
 test('Farm Story theme mounts canvas chrome, sidebar icons, cuts, minimap, and the farm panel', () => {

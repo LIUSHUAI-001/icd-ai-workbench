@@ -151,6 +151,97 @@ test('web image reverse route uses ModelScope vision prompt and image generation
   assert.equal(Buffer.from(remoteVisionUrl.split(',')[1], 'base64').toString(), remoteImageBytes.toString());
 });
 
+test('web image reverse route pins the qwen-web VL model and stops unreadable vision output', async (t) => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 't8-web-image-vl-pin-'));
+  t.after(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const upstreamApp = express();
+  upstreamApp.use(express.json({ limit: '8mb' }));
+  const upstreamCalls: any[] = [];
+  upstreamApp.post('/v1/chat/completions', (req, res) => {
+    upstreamCalls.push({ path: req.path, body: req.body, auth: req.header('authorization') });
+    res.json({ choices: [{ message: { content: '无法读取图片，未检测到可分析的图像数据。' } }] });
+  });
+  upstreamApp.post('/v1/images/generations', (req, res) => {
+    upstreamCalls.push({ path: req.path, body: req.body, auth: req.header('authorization') });
+    res.json({ task_id: 'should-not-run' });
+  });
+  const upstreamServer = await listen(upstreamApp);
+  t.after(() => upstreamServer.close());
+
+  const config = require('../backend/src/config.js');
+  const oldConfig = {
+    SETTINGS_FILE: config.SETTINGS_FILE,
+    OUTPUT_DIR: config.OUTPUT_DIR,
+    DEFAULT_LOCAL_SAVE_DIR: config.DEFAULT_LOCAL_SAVE_DIR,
+    DEFAULT_CANVAS_AUTO_SAVE_DIR: config.DEFAULT_CANVAS_AUTO_SAVE_DIR,
+    DEFAULT_RESOURCE_LIBRARY_DIR: config.DEFAULT_RESOURCE_LIBRARY_DIR,
+    DEFAULT_THEME_TEMPLATE_DIR: config.DEFAULT_THEME_TEMPLATE_DIR,
+  };
+  t.after(() => Object.assign(config, oldConfig));
+  config.SETTINGS_FILE = path.join(tmpDir, 'settings.json');
+  config.OUTPUT_DIR = path.join(tmpDir, 'output');
+  config.DEFAULT_LOCAL_SAVE_DIR = path.join(tmpDir, 'save');
+  config.DEFAULT_CANVAS_AUTO_SAVE_DIR = path.join(tmpDir, 'canvas');
+  config.DEFAULT_RESOURCE_LIBRARY_DIR = path.join(tmpDir, 'resources');
+  config.DEFAULT_THEME_TEMPLATE_DIR = path.join(tmpDir, 'themes');
+  fs.mkdirSync(config.OUTPUT_DIR, { recursive: true });
+
+  const settingsRouter = require('../backend/src/routes/settings.js');
+  const externalProvidersRouter = require('../backend/src/routes/externalProviders.js');
+  const app = express();
+  app.use(express.json({ limit: '8mb' }));
+  app.use('/api/settings', settingsRouter);
+  app.use('/api/proxy/external', externalProvidersRouter);
+  const server = await listen(app);
+  t.after(() => server.close());
+
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const upstreamBase = `http://127.0.0.1:${upstreamServer.address().port}/v1`;
+  await fetch(`${base}/api/settings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      advancedProviders: [
+        {
+          id: 'modelscope',
+          protocol: 'modelscope',
+          enabled: true,
+          baseUrl: upstreamBase,
+          apiKey: 'ms-route-secret',
+          imageModels: ['Tongyi-MAI/Z-Image-Turbo'],
+          chatModels: ['Qwen/Qwen3-235B-A22B', 'Qwen/Qwen3-VL-235B-A22B-Instruct'],
+          defaults: {
+            imageModel: 'Tongyi-MAI/Z-Image-Turbo',
+            chatModel: 'Qwen/Qwen3-235B-A22B',
+          },
+        },
+      ],
+    }),
+  }).then((res) => res.json());
+
+  const response = await fetch(`${base}/api/proxy/external/web-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      imageUrl: 'data:image/png;base64,UE5HREFUQQ==',
+      generateImage: true,
+      model: 'Qwen/Qwen3-235B-A22B',
+      chatModel: 'Qwen/Qwen3-235B-A22B',
+    }),
+  });
+  const result = await response.json();
+
+  assert.equal(result.success, false);
+  assert.equal(result.code, 'unreadable_image_prompt');
+  assert.equal(result.data.prompt, '');
+  assert.equal(result.data.visionFailureText, '无法读取图片，未检测到可分析的图像数据。');
+  assert.equal(upstreamCalls[0].body.model, 'Qwen/Qwen3-VL-235B-A22B-Instruct');
+  assert.equal(upstreamCalls.some((call) => call.path === '/v1/images/generations'), false);
+});
+
 test('web image Chrome extension exposes image context menu and canvas send modes', () => {
   const manifest = JSON.parse(readProjectFile('extension/manifest.json'));
   assert.equal(manifest.manifest_version, 3);
@@ -175,6 +266,18 @@ test('web image Chrome extension exposes image context menu and canvas send mode
   assert.match(content, /data-send-mode="prompt"/);
   assert.match(content, /data-send-mode="image"/);
   assert.match(content, /data-send-mode="both"/);
+  assert.match(content, /buildCanvasSendPayload/);
+  assert.match(content, /if \(mode === 'prompt'\) payload\.prompt = prompt/);
+  assert.match(content, /if \(mode === 'image'\) payload\.images = images/);
+  assert.match(content, /if \(mode === 'both'\)/);
+  assert.match(content, /readPromptFromTextarea/);
+  assert.match(content, /addEventListener\('input'/);
+  assert.match(content, /data-role="generate-image"/);
+  assert.match(content, /t8WebImage\.generateImage/);
+  assert.match(content, /用当前提示词生成图片/);
+
+  assert.match(background, /t8WebImage\.generateImage/);
+  assert.match(background, /\/api\/proxy\/external\/image/);
 });
 
 test('Canvas accepts web image extension payloads as prompt and output material nodes', () => {
@@ -184,4 +287,7 @@ test('Canvas accepts web image extension payloads as prompt and output material 
   assert.match(canvas, /web-image-reverse/);
   assert.match(canvas, /createOutputDataFromItems\('image'/);
   assert.match(canvas, /type:\s*'text'/);
+  assert.match(canvas, /const includePromptInOutput = mode === 'both' && !!prompt/);
+  assert.match(canvas, /if \(mode === 'prompt' && prompt\)/);
+  assert.match(canvas, /\.\.\.\(includePromptInOutput\s*\?\s*\{/);
 });

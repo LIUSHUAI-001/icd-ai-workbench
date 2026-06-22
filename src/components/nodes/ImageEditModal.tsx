@@ -12,6 +12,7 @@ import {
   Redo2,
   Check,
   Loader2,
+  Scissors,
   Brush,
   Paintbrush,
   Square as SquareIcon,
@@ -37,6 +38,7 @@ import {
 } from 'lucide-react';
 import { useThemeStore } from '../../stores/theme';
 import { opCrop, opGridCrop, uploadDataUrl, uploadFileBlob } from '../../services/imageOps';
+import { runRhImageCutout } from '../../services/rhToolboxCapabilities';
 import { createMaxCropBoxForAspect, fitCropBoxToAspect, resizeCropBoxWithAspect } from '../../utils/imageCropAspect';
 
 /**
@@ -182,7 +184,7 @@ function brushShapeKindForTool(tool: BrushTool): BrushShapeStrokeKind | null {
   return null;
 }
 
-function brushRectFromDrag(start: Pt, end: Pt, lockAspect: boolean): FRect {
+function brushRectFromDrag(start: Pt, end: Pt, lockAspect: boolean, naturalSize: { w: number; h: number } | null): FRect {
   let next = end;
   if (lockAspect) {
     const dx = end.x - start.x;
@@ -191,11 +193,23 @@ function brushRectFromDrag(start: Pt, end: Pt, lockAspect: boolean): FRect {
     const signY = dy < 0 ? -1 : 1;
     const maxX = signX > 0 ? 1 - start.x : start.x;
     const maxY = signY > 0 ? 1 - start.y : start.y;
-    const side = Math.min(Math.max(Math.abs(dx), Math.abs(dy)), maxX, maxY);
-    next = {
-      x: start.x + signX * side,
-      y: start.y + signY * side,
-    };
+    if (naturalSize && naturalSize.w > 0 && naturalSize.h > 0) {
+      const sidePx = Math.min(
+        Math.max(Math.abs(dx) * naturalSize.w, Math.abs(dy) * naturalSize.h),
+        maxX * naturalSize.w,
+        maxY * naturalSize.h,
+      );
+      next = {
+        x: start.x + signX * (sidePx / naturalSize.w),
+        y: start.y + signY * (sidePx / naturalSize.h),
+      };
+    } else {
+      const side = Math.min(Math.max(Math.abs(dx), Math.abs(dy)), maxX, maxY);
+      next = {
+        x: start.x + signX * side,
+        y: start.y + signY * side,
+      };
+    }
   }
   return {
     x: Math.min(start.x, next.x),
@@ -374,6 +388,9 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
   const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [workingSrcUrl, setWorkingSrcUrl] = useState(srcUrl);
+  const [rhCutoutRunning, setRhCutoutRunning] = useState(false);
+  const [rhCutoutMessage, setRhCutoutMessage] = useState<string | null>(null);
 
   // ---- mask / brush ----
   const [maskStrokes, setMaskStrokes] = useState<DrawStroke[]>([]);
@@ -435,6 +452,17 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
     startPt: Pt;
     pending: DrawStroke | null;
   } | null>(null);
+
+  useEffect(() => {
+    setWorkingSrcUrl(srcUrl);
+    setNaturalSize(null);
+    setRhCutoutMessage(null);
+  }, [srcUrl]);
+
+  const selectedComposeImageLayer = useMemo(() => {
+    if (mode !== 'compose' || selectedIds.length !== 1) return null;
+    return composeLayers.find((layer) => layer.id === selectedIds[0]) || null;
+  }, [composeLayers, mode, selectedIds]);
 
   const setGridGap = useCallback((value: number) => {
     setGap(clamp(Math.round(Number.isFinite(value) ? value : 0), 0, 240));
@@ -766,7 +794,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
         w: Math.max(1, Math.round(crop.w * naturalSize.w)),
         h: Math.max(1, Math.round(crop.h * naturalSize.h)),
       };
-      const { imageUrl } = await opCrop(srcUrl, px.x, px.y, px.w, px.h);
+      const { imageUrl } = await opCrop(workingSrcUrl, px.x, px.y, px.w, px.h);
       onProduce([imageUrl], { type: 'crop', rect: px });
       onClose();
     } catch (e: any) {
@@ -795,7 +823,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
         return;
       }
       const { urls, layout } = await opGridCrop(
-        srcUrl,
+        workingSrcUrl,
         useCustom ? Math.max(1, ...rects.map((r) => r.row + 1)) : rows,
         useCustom ? Math.max(1, ...rects.map((r) => r.col + 1)) : cols,
         gap,
@@ -962,6 +990,62 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
     );
   };
 
+  async function applyRhCutoutToCurrentImage() {
+    if (mode === 'compose' && !selectedComposeImageLayer) {
+      setErrMsg('请先选中一个图像图层再抠图');
+      return;
+    }
+    if (selectedComposeImageLayer?.locked) {
+      setErrMsg('选中图层已锁定，无法抠图');
+      return;
+    }
+    const sourceUrl = selectedComposeImageLayer?.src || workingSrcUrl;
+    if (!sourceUrl) {
+      setErrMsg('缺少可抠图的图片');
+      return;
+    }
+
+    setBusy(true);
+    setRhCutoutRunning(true);
+    setErrMsg(null);
+    setRhCutoutMessage('RH工具箱抠图中...');
+    try {
+      const result = await runRhImageCutout(sourceUrl, {
+        onProgress: (progress) => setRhCutoutMessage(progress.message),
+      });
+
+      if (selectedComposeImageLayer) {
+        pushComposeHistory();
+        updateLayer(selectedComposeImageLayer.id, {
+          src: result.outputUrl,
+          name: `${selectedComposeImageLayer.name || '图层'} RH抠图`,
+        });
+        setSelectedIds([selectedComposeImageLayer.id]);
+      } else {
+        setWorkingSrcUrl(result.outputUrl);
+        const img = await loadImage(result.outputUrl).catch(() => null);
+        if (img) setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+        setMaskStrokes([]);
+        setMaskHistory([]);
+        setMaskRedo([]);
+        setBrushStrokes([]);
+        setBrushHistory([]);
+        setBrushRedo([]);
+        setCustomLines([]);
+        setHistory([]);
+        setCrop({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 });
+      }
+
+      setRhCutoutMessage(`已完成 RH抠图：${result.tool.title}`);
+    } catch (e: any) {
+      setErrMsg(e?.message || 'RH抠图失败');
+      setRhCutoutMessage(null);
+    } finally {
+      setRhCutoutRunning(false);
+      setBusy(false);
+    }
+  }
+
   // 应用 compose: 离屏 canvas 渲染 → toDataURL → uploadDataUrl → onProduce
   async function applyCompose() {
     if (composeLayers.length === 0) {
@@ -1008,14 +1092,14 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
     }
   }
 
-  // ---- compose 底图初始化: 双击进来的 srcUrl 作为图层 #0 (并以其原图尺寸作为画布默认) ----
+  // ---- compose 底图初始化: 双击进来的当前图作为图层 #0 (并以其原图尺寸作为画布默认) ----
   useEffect(() => {
     if (mode !== 'compose') return;
     if (composeInited) return;
     let cancelled = false;
     (async () => {
       try {
-        const im = await loadImage(srcUrl);
+        const im = await loadImage(workingSrcUrl);
         if (cancelled) return;
         const W = im.naturalWidth || 1024;
         const H = im.naturalHeight || 1024;
@@ -1025,7 +1109,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
           id: genLayerId(),
           kind: 'image',
           name: '底图',
-          src: srcUrl,
+          src: workingSrcUrl,
           x: 0,
           y: 0,
           w: cw,
@@ -1050,7 +1134,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, srcUrl]);
+  }, [mode, workingSrcUrl]);
 
   // ---- compose 鼠标交互 (move / scale 4 角 / rotate 把手) ----
   const stagePointToCanvas = (clientX: number, clientY: number): { x: number; y: number } | null => {
@@ -1594,7 +1678,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
           )
             return arr;
           const next = [...arr];
-          const brushRect = brushRectFromDrag(ctx.startPt, pt, e.shiftKey);
+          const brushRect = brushRectFromDrag(ctx.startPt, pt, e.shiftKey, naturalSize);
           next[next.length - 1] = {
             ...last,
             rect: brushRect,
@@ -1632,7 +1716,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
       const maskDataUrl = cv.toDataURL('image/png');
 
       // 原图转存（同步上传一份与 mask 同源）
-      const originUrl = await fetchAndUpload(srcUrl, 'mask-src');
+      const originUrl = await fetchAndUpload(workingSrcUrl, 'mask-src');
       const maskUrl = await uploadDataUrl(maskDataUrl, 'mask');
       onProduce([originUrl, maskUrl], { type: 'mask', strokeCount: maskStrokes.length });
       onClose();
@@ -1649,7 +1733,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
     setBusy(true);
     setErrMsg(null);
     try {
-      const img = await loadImage(srcUrl);
+      const img = await loadImage(workingSrcUrl);
       const cv = document.createElement('canvas');
       cv.width = naturalSize.w;
       cv.height = naturalSize.h;
@@ -1858,6 +1942,34 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
             fontSize: 12,
           }}
         >
+          <button
+            type="button"
+            style={btnBase}
+            onClick={applyRhCutoutToCurrentImage}
+            disabled={
+              busy ||
+              (mode === 'compose' && (!selectedComposeImageLayer || selectedComposeImageLayer.locked))
+            }
+            title={
+              mode === 'compose'
+                ? selectedComposeImageLayer
+                  ? selectedComposeImageLayer.locked
+                    ? '选中图层已锁定，无法抠图'
+                    : '调用 RH工具箱自动抠图并替换选中图层'
+                  : '请先选中一个图像图层'
+                : '调用 RH工具箱自动抠图并替换当前图片'
+            }
+          >
+            {rhCutoutRunning ? (
+              <>
+                <Loader2 size={13} className="animate-spin" /> RH抠图中...
+              </>
+            ) : (
+              <>
+                <Scissors size={13} /> RH抠图
+              </>
+            )}
+          </button>
           {mode === 'crop' && (
             <>
               <span style={{ color: subText }}>框尺寸</span>
@@ -2712,7 +2824,7 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
             {/* eslint-disable-next-line jsx-a11y/alt-text */}
             <img
               ref={imgRef}
-              src={srcUrl}
+              src={workingSrcUrl}
               draggable={false}
               crossOrigin="anonymous"
               onLoad={(e) => {
@@ -2929,6 +3041,9 @@ const ImageEditModal = ({ srcUrl, onClose, onProduce }: Props) => {
         >
           {errMsg && (
             <div style={{ color: '#EF4444', fontSize: 12, fontWeight: 600 }}>{errMsg}</div>
+          )}
+          {!errMsg && rhCutoutMessage && (
+            <div style={{ color: subText, fontSize: 12, fontWeight: 600 }}>{rhCutoutMessage}</div>
           )}
           <div style={{ flex: 1 }} />
           <button style={btnBase} onClick={onClose} disabled={busy}>

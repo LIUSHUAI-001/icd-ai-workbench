@@ -251,6 +251,22 @@ function webImagePromptFromChatText(value) {
     .trim();
 }
 
+function webImagePromptLooksUnreadable(value) {
+  const text = cleanWebText(value, 1200);
+  if (!text) return false;
+  return [
+    /无法读取(?:该|这张|当前)?(?:网页)?图片/,
+    /未检测到(?:可分析的)?图像数据/,
+    /无法(?:识别|分析)(?:该|这张|当前)?(?:图片|图像)/,
+    /不能(?:读取|识别|查看|看到|分析)(?:该|这张|当前)?(?:图片|图像)/,
+    /没有(?:收到|提供|检测到)(?:图片|图像)/,
+    /看不到(?:图片|图像)/,
+    /unable to (?:read|view|access|analy[sz]e) (?:the )?image/i,
+    /cannot (?:read|view|access|see|analy[sz]e) (?:the )?image/i,
+    /no image (?:data|provided|attached|available)/i,
+  ].some((pattern) => pattern.test(text));
+}
+
 function webImageChatMessages(imageUrl, instruction) {
   return [
     {
@@ -391,15 +407,7 @@ router.post('/web-image', async (req, res) => {
     }
 
     const instruction = cleanWebText(req.body?.promptInstruction || req.body?.instruction, 2000) || DEFAULT_WEB_IMAGE_PROMPT_INSTRUCTION;
-    const visionModel = cleanWebText(
-      req.body?.visionModel ||
-      req.body?.chatModel ||
-      req.body?.model ||
-      provider.defaults?.visionModel ||
-      provider.defaults?.chatModel ||
-      DEFAULT_WEB_IMAGE_VISION_MODEL,
-      240,
-    ) || DEFAULT_WEB_IMAGE_VISION_MODEL;
+    const visionModel = DEFAULT_WEB_IMAGE_VISION_MODEL;
 
     const visionImageUrl = await resolveWebImageForVision(imageUrl, {
       baseUrl: `http://127.0.0.1:${config.PORT}`,
@@ -427,6 +435,28 @@ router.post('/web-image', async (req, res) => {
           provider: safeProviderForResponse(provider),
           prompt: '',
           sourceImageUrl: imageUrl,
+        },
+      });
+    }
+    if (webImagePromptLooksUnreadable(prompt)) {
+      return res.json({
+        success: false,
+        code: 'unreadable_image_prompt',
+        error: 'ModelScope 视觉模型没有读到这张网页图片，已停止生图。请换一张可访问图片，或先下载图片后上传到画布。',
+        data: {
+          ...chatResult,
+          provider: safeProviderForResponse(provider),
+          prompt: '',
+          sourceImageUrl: imageUrl,
+          imageUrls: [],
+          remoteImageUrls: [],
+          visionModel,
+          visionFailureText: prompt,
+          chat: {
+            model: chatResult.model,
+            finishReason: chatResult.finishReason,
+            truncated: chatResult.truncated,
+          },
         },
       });
     }

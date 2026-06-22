@@ -442,13 +442,17 @@ body,
 
 .t8-main-layout {
   --t8-sidebar-width: 256px;
+  --t8-sidebar-toggle-size: 32px;
+  --t8-sidebar-toggle-gap: 12px;
   --t8-sidebar-toggle-left: calc(var(--t8-sidebar-width) - 16px);
   --t8-sidebar-toggle-top: 62px;
+  --t8-sidebar-collapsed-content-left: 12px;
 }
 
 .t8-main-layout--sidebar-collapsed {
   --t8-sidebar-toggle-left: 10px;
   --t8-sidebar-toggle-top: 10px;
+  --t8-sidebar-collapsed-content-left: calc(var(--t8-sidebar-toggle-left) + var(--t8-sidebar-toggle-size) + var(--t8-sidebar-toggle-gap));
 }
 
 .t8-main-layout > .t8-canvas-shell {
@@ -731,8 +735,40 @@ html[data-theme-visual] .t8-canvas-shell .t8-control-rail .react-flow__controls,
   pointer-events: all;
 }
 
+.t8-placement-shelf[data-placement-shelf-hidden="false"] {
+  display: block;
+}
+
 .t8-placement-shelf__grid {
   max-width: 100%;
+}
+
+.t8-placement-shelf__hide {
+  color: var(--t8-flow-controls-fg, currentColor);
+}
+
+.t8-placement-shelf__hide:hover {
+  color: var(--t8-flow-controls-accent, currentColor);
+}
+
+.t8-control-rail-placement-shelf {
+  position: relative;
+}
+
+html[data-theme-visual] .t8-canvas-shell .t8-control-rail-placement-shelf,
+.t8-canvas-shell[data-theme-visual] .t8-control-rail-placement-shelf {
+  background: var(--t8-flow-controls-bg) !important;
+  border-color: var(--t8-flow-controls-border) !important;
+  color: var(--t8-flow-controls-fg) !important;
+}
+
+html[data-theme-visual] .t8-canvas-shell .t8-control-rail-placement-shelf:hover,
+html[data-theme-visual] .t8-canvas-shell .t8-control-rail-placement-shelf.is-active,
+.t8-canvas-shell[data-theme-visual] .t8-control-rail-placement-shelf:hover,
+.t8-canvas-shell[data-theme-visual] .t8-control-rail-placement-shelf.is-active {
+  background: var(--t8-flow-controls-button-hover-bg) !important;
+  border-color: var(--t8-flow-controls-accent) !important;
+  color: var(--t8-flow-controls-accent) !important;
 }
 
 body.t8-file-drag-out-active,
