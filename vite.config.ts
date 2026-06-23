@@ -45,7 +45,8 @@ export default defineConfig({
   server: {
     port: 11422,
     strictPort: true,
-    host: '127.0.0.1',
+    host: '0.0.0.0',
+    allowedHosts: true,
     warmup: {
       clientFiles: [
         './src/main.tsx',
