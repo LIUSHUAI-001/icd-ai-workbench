@@ -13,6 +13,19 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://vibex.runninghub.cn/*",
+        "https://www.runninghub.cn/*",
+        "https://runninghub.cn/*"
+      ],
+      "js": [
+        "scripts/runninghub-bridge.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
   "background": {
     "service_worker": "scripts/background.js"
   },

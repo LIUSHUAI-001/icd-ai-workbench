@@ -19,6 +19,7 @@ export type NodeType =
   | 'rh-tools'
   | 'rh-toolbox'
   | 'rh-toolbox-maker'
+  | 'vibex'
   | 'fal-toolbox'
   | 'fal-toolbox-maker'
   | 'model-3d-preview'

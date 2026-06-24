@@ -37,6 +37,7 @@ export const NODE_REGISTRY: NodeMeta[] = [
   // RH 工具节点 (v1.2.10+, 显示名从 v1.2.10.4 起改为「RH 超市」): 启动器式包装多个 RunningHub AI 应用，在节点内直接运行
   { type: 'rh-tools', label: 'RH超市', category: 'rh', description: '启动器式包装多个 RunningHub AI 应用，在节点内分类浏览 / 拼音搜索 / 一键运行', icon: 'Sparkles', color: 'cyan' },
   { type: 'rh-toolbox', label: 'RH工具箱', category: 'rh', description: '维护者精选 RunningHub 工具箱，只读分类运行，可作为图像/视频/文本/音频辅助能力被其他节点复用', icon: 'Wrench', color: 'cyan' },
+  { type: 'vibex', label: 'VibeX工作台', category: 'rh', description: '嵌入 VibeX 视频工作台，支持线上 / 本地页面并把视频、图片、音频和提示词发送回当前画布', icon: 'Clapperboard', color: 'cyan' },
   ...DEV_NODE_REGISTRY,
 
   // ========== FAL 工具箱节点 ==========

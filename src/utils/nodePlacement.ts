@@ -52,6 +52,7 @@ export const NODE_DEFAULT_SIZE: Record<string, { w: number; h: number }> = {
   'runninghub-wallet': { w: 360, h: 460 },
   'rh-tools': { w: 360, h: 460 },
   'rh-toolbox': { w: 360, h: 460 },
+  vibex: { w: 1080, h: 820 },
   'fal-toolbox': { w: 380, h: 500 },
   'codex-cli-agent': { w: 420, h: 520 },
   'codex-image-conjure': { w: 520, h: 680 },

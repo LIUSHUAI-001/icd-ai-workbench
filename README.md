@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.3.4
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.3.5
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.3.4-brightgreen) ![node](https://img.shields.io/badge/node-%E2%89%A518-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.3.5-brightgreen) ![node](https://img.shields.io/badge/node-%E2%89%A518-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -35,10 +35,11 @@ My favorite girl Go YounJung
 
 ## ✨ 功能亮点
 
-- 🎨 **50 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集
+- 🎨 **52 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
 - 👁️ **上传 / 输出图像原图悬停预览**（v1.8.7）：上传素材与输出素材的图像卡片在 hover 时显示小眼睛按钮，鼠标停在按钮上可按 100% 原尺寸预览，超出视口时自动等比收进可见区域，输出素材入口位于图像对比按钮下方
 - 🧾 **提示词模板库媒体套件**（v2.1.2）：图像 / 视频 / 音频 / 文本素材可从节点右键直接保存到提示词模板库，连同原 Prompt、标题、标签和配套媒体一起沉淀；右键保存时可选择或新建模板分类，模板库支持分类新增 / 删除 / 重命名，预览采用懒加载并支持图像 100% 查看
+- 🧩 **v2.3.5 VibeX 与大画布性能自动更新版**：新增 VibeX 工作台节点，支持线上嵌入、RunningHub 登录适配、结果回传画布和 Chrome 插件桥接；批量素材处理的抠图、扩图、高清放大全部走 RH 工具箱能力层并支持并发/重试；100+ 节点画布增加生成历史懒收集、拖拽时隐藏非焦点端口/操作条和暂停非焦点动画等性能护栏。Electron 安装包会带上网页图片反推插件目录 `resources/extension/web-image-reverse/`。
 - 🧩 **v2.3.4 画布创作流自动更新版**：补齐 Cowart 启发工作流第二段，图像编辑画板可直接“标注改图”，输出/上传素材会保留干净原图与标注图并自动生成干净改图结果；当前画布资源包导出加入资源库索引、缩略图引用和生成历史摘要，网页图片反推 Chrome 插件继续随公开源码发布。
 - 🧩 **v2.3.3 画布创作流自动更新版**：新增“生成目标框”，用户可先在画布上摆好 AI 结果位置，再由上游文本/图像、网页图片反推或选区生成把结果准确填入；选区右键可整理提示词和参考图创建图像节点，当前画布资源包可导出轻量 manifest，网页图片反推 Chrome 插件继续随公开源码发布。
 - 🧩 **v2.3.2 网页反推与画布体验自动更新版**：网页图片反推插件支持只发提示词、只发图片、图文一起发送，并可在浮层里直接用修改后的提示词重新生成图片；ModelScope 反推固定使用 qwen-web 同款 VL 模型并拦截不可读图片；画板节点和图像编辑弹窗新增 RH 自动抠图，结果直接替换选中图像；放置栏可隐藏/恢复，牧场物语和圣斗士主题折叠侧栏不再遮挡顶部主题栏。

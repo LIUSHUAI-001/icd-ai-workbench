@@ -78,6 +78,8 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   'rh-tools': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['image', 'video', 'audio'] },
   // RH 工具箱: 维护者精选工具，可处理/输出四类素材，后续供其他节点按 capability 快捷调用。
   'rh-toolbox': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
+  // VibeX 工作台: 独立视频工作台，可接收四类素材语境，并通过 postMessage 回传四类素材与提示词。
+  vibex: { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
   ...DEV_NODE_PORTS,
 
   // ========== FAL ==========

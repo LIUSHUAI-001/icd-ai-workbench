@@ -74,6 +74,15 @@ function checkAchievementMedia() {
   }
 }
 
+function checkWebImageExtensionResources() {
+  const extensionRoot = path.join(RES, 'extension', 'web-image-reverse');
+  checkFile(path.join(extensionRoot, 'manifest.json'));
+  checkFile(path.join(extensionRoot, 'scripts', 'background.js'));
+  checkFile(path.join(extensionRoot, 'scripts', 'content.js'));
+  checkFile(path.join(extensionRoot, 'scripts', 'runninghub-bridge.js'));
+  checkFile(path.join(extensionRoot, 'styles', 'content.css'));
+}
+
 function listDir(p, indent = '    ') {
   if (!fs.existsSync(p)) return;
   for (const name of fs.readdirSync(p)) {
@@ -456,6 +465,7 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'routes', 'parseHub.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'achievements.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'topaz.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'vibexBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'media.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'store.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'cloudUploads', 'settings.t8c'));
@@ -482,6 +492,7 @@ function main() {
   console.log('\n[2] 前端 dist:');
   checkFile(path.join(RES, 'frontend', 'index.html'));
   checkFile(path.join(RES, 'frontend', 'assets'));
+  checkWebImageExtensionResources();
   checkFile(path.join(RES, 'shared', 'achievementManifest.json'));
   checkFrontendAsset('classic-one-summer-day-', '.mp3');
   checkFrontendAsset('pixel-theme-of-sss-', '.mp3');

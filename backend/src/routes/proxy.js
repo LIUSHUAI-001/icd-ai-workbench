@@ -2917,6 +2917,8 @@ router.get('/video/query', async (req, res) => {
 // Seedance 2.0(异步)— 完全对齐 gpt-image-2-web runSeedance / pollSeedance
 //   submit: POST ${ZHENZHEN_BASE_URL}/seedance/v3/contents/generations/tasks
 //   query : GET  ${ZHENZHEN_BASE_URL}/seedance/v3/contents/generations/tasks/{tid}
+// model includes: doubao-seedance-2-0-260128 / doubao-seedance-2-0-fast-260128 / doubao-seedance-2.0-mini
+// resolution includes: 480p / 720p / native1080p / native4K / 1080p / 2k / 4k
 // payload: { model, content[], duration, ratio, resolution, generate_audio,
 //            return_last_frame, watermark, tools?[web_search], seed? }
 // content 数组成员:
