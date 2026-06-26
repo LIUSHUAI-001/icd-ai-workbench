@@ -71,6 +71,8 @@ const parseHubRouter = require('./routes/parseHub');
 const achievementsRouter = require('./routes/achievements');
 const topazRouter = require('./routes/topaz');
 const animeTagsRouter = require('./routes/animeTags');
+const vibexBridgeRouter = require('./routes/vibexBridge');
+const videoOpsRouter = require('./routes/videoOps');
 const { registerLocalExtensions } = require('./extensions/localExtensions');
 const localHooks = require('./extensions/runtimeHooks');
 
@@ -92,6 +94,8 @@ app.use('/api/parsehub', parseHubRouter);
 app.use('/api/achievements', achievementsRouter);
 app.use('/api/topaz', topazRouter);
 app.use('/api/anime-tags', animeTagsRouter);
+app.use('/api/vibex-bridge', vibexBridgeRouter);
+app.use('/api/video-ops', videoOpsRouter);
 registerLocalExtensions(app, { config, express, logger: console, hooks: localHooks });
 
 // ========== 前端静态资源托管 (Electron 生产模式) ==========

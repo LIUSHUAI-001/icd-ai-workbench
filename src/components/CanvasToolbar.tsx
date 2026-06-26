@@ -16,6 +16,7 @@ import {
   Bell,
   BellOff,
   Archive,
+  PackageOpen,
   Search,
   History,
   Terminal as TerminalIcon,
@@ -33,6 +34,7 @@ import {
   AlignVerticalSpaceBetween,
   Grid3x3,
   ScanLine,
+  Clapperboard,
 } from 'lucide-react';
 import { useThemeStore } from '../stores/theme';
 import { useLogStore } from '../stores/logs';
@@ -86,6 +88,8 @@ interface CanvasToolbarProps {
   historyCount: number;
   historyOpen: boolean;
   onToggleHistory: () => void;
+  onOpenVibeXWorkbench: () => void;
+  onCreateVibeXNode: () => void;
   onCreateGenerationTarget: () => void;
   onExportResourcePackage: () => void;
   onAlignSelection: (action: NodeAlignAction) => void;
@@ -118,6 +122,8 @@ export default function CanvasToolbar({
   historyCount,
   historyOpen,
   onToggleHistory,
+  onOpenVibeXWorkbench,
+  onCreateVibeXNode,
   onCreateGenerationTarget,
   onExportResourcePackage,
   onAlignSelection,
@@ -493,6 +499,23 @@ export default function CanvasToolbar({
         </button>
         <button
           className={baseBtn}
+          onClick={onOpenVibeXWorkbench}
+          title="打开 VibeX 工作台"
+          aria-label="打开 VibeX 工作台"
+        >
+          <Clapperboard size={15} />
+        </button>
+        <button
+          className={baseBtn}
+          onClick={onCreateVibeXNode}
+          title="创建 VibeX 节点：在画布中嵌入工作台"
+          aria-label="创建 VibeX 节点"
+        >
+          <Clapperboard size={15} />
+          <span className="absolute -bottom-1 -right-1 h-2 w-2 rounded-full bg-cyan-400 ring-1 ring-white" />
+        </button>
+        <button
+          className={baseBtn}
           onClick={onCreateGenerationTarget}
           title="生成目标框：先摆位置，再把 AI 结果填入"
           aria-label="生成目标框"
@@ -513,7 +536,7 @@ export default function CanvasToolbar({
           title="资源包：导出当前画布素材清单"
           aria-label="导出资源包"
         >
-          <Archive size={15} />
+          <PackageOpen size={15} />
         </button>
 
         <div className={sep} />
