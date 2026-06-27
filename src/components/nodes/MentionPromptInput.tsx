@@ -1,5 +1,6 @@
 import {
   memo,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -297,6 +298,7 @@ const MentionPromptInput = ({
   const lastPlainInputRef = useRef<PlainInputSnapshot | null>(null);
   const compositionLeakRef = useRef<CompositionLeakSnapshot | null>(null);
   const pendingCaretRef = useRef<number | null>(null);
+  const pendingPlainInputFlushRef = useRef<number | null>(null);
   const expandShortcuts = useShortcutStore((s) => s.shortcuts['editor.expand-prompt']);
   const [isFocused, setIsFocused] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -425,7 +427,11 @@ const MentionPromptInput = ({
     const el = localRef.current;
     if (!el) return;
     if (composingRef.current) return;
-    const keepCaret = document.activeElement === el ? getCaretPlainOffset(el) : null;
+    const isActiveEditor = document.activeElement === el;
+    if (isActiveEditor && pendingCaretRef.current === null && inlineMentions.length === 0) {
+      return;
+    }
+    const keepCaret = isActiveEditor ? getCaretPlainOffset(el) : null;
     if (el.innerHTML !== editorHtml) el.innerHTML = editorHtml;
     for (const item of inlineMentions) {
       const span = Array.from(el.querySelectorAll<HTMLElement>('[data-mention-id]'))
@@ -472,7 +478,7 @@ const MentionPromptInput = ({
       }
       span.replaceChildren(content);
     }
-    if (document.activeElement === el) {
+    if (isActiveEditor) {
       const caret = pendingCaretRef.current ?? keepCaret;
       pendingCaretRef.current = null;
       if (caret !== null) setCaretPlainOffset(el, caret);
@@ -496,11 +502,20 @@ const MentionPromptInput = ({
     openFromCaret(text, caret, nextMentions);
   };
 
+  const clearPendingPlainInputFlush = () => {
+    if (pendingPlainInputFlushRef.current === null) return;
+    window.clearTimeout(pendingPlainInputFlushRef.current);
+    pendingPlainInputFlushRef.current = null;
+  };
+
+  useEffect(() => clearPendingPlainInputFlush, []);
+
   const handleEditorInput = (event?: FormEvent<HTMLDivElement>) => {
     const el = localRef.current;
     if (!el) return;
     const nativeEvent = event?.nativeEvent;
     if (isImeCompositionInput(nativeEvent) || composingRef.current) {
+      clearPendingPlainInputFlush();
       composingRef.current = true;
       return;
     }
@@ -518,7 +533,20 @@ const MentionPromptInput = ({
         data: String(inputEvent.data),
         at: typeof performance !== 'undefined' ? performance.now() : Date.now(),
       };
+      clearPendingPlainInputFlush();
+      pendingPlainInputFlushRef.current = window.setTimeout(() => {
+        pendingPlainInputFlushRef.current = null;
+        if (composingRef.current) return;
+        const currentEl = localRef.current;
+        if (!currentEl) return;
+        const nextCaret = getCaretPlainOffset(currentEl);
+        const { text, mentions: plainMentions } = readRichEditor(currentEl, mentions);
+        onChange(text, plainMentions);
+        openFromCaret(text, nextCaret, plainMentions);
+      }, 80);
+      return;
     } else {
+      clearPendingPlainInputFlush();
       lastPlainInputRef.current = null;
     }
     onChange(nextValue, nextMentions);
@@ -527,6 +555,7 @@ const MentionPromptInput = ({
   };
 
   const flushEditorToData = () => {
+    clearPendingPlainInputFlush();
     const el = localRef.current;
     if (!el) return null;
     const caret = getCaretPlainOffset(el);
@@ -699,6 +728,7 @@ const MentionPromptInput = ({
             if (isImeCompositionInput(event.nativeEvent)) composingRef.current = true;
           }}
           onCompositionStart={() => {
+            clearPendingPlainInputFlush();
             const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
             const lastPlain = lastPlainInputRef.current;
             compositionLeakRef.current =
@@ -716,6 +746,7 @@ const MentionPromptInput = ({
             setQueryState((s) => ({ ...s, open: false }));
           }}
           onCompositionEnd={() => {
+            clearPendingPlainInputFlush();
             const el = localRef.current;
             window.setTimeout(() => {
               if (!el) return;

@@ -1,0 +1,666 @@
+/*
+ * Your brand theme layer.
+ *
+ * Keep this file small and additive. It overrides the T8 shell colors without
+ * touching the canvas engine, node registry, backend routes, or storage format.
+ */
+
+:root {
+  --your-brand-accent: #a66a46;
+  --your-brand-accent-strong: #c17a4d;
+  --your-brand-ink: #f2f4f7;
+  --your-brand-panel: #14181d;
+  --your-brand-panel-elevated: #1b2026;
+  --your-brand-border: rgba(255, 255, 255, 0.10);
+}
+
+html[data-your-brand="active"] {
+  --t8-accent: var(--your-brand-accent);
+  --t8-accent-strong: var(--your-brand-accent-strong);
+  --t8-accent-hover: #b8754f;
+  --t8-accent-text: #0d0f12;
+  --t8-bg-app: #0d0f12;
+  --t8-bg-canvas: #07080a;
+  --t8-bg-panel: var(--your-brand-panel);
+  --t8-bg-panel-elevated: var(--your-brand-panel-elevated);
+  --t8-bg-panel-muted: #232a31;
+  --t8-bg-node: rgba(20, 24, 29, 0.94);
+  --t8-bg-node-header: rgba(27, 32, 38, 0.92);
+  --t8-text-main: var(--your-brand-ink);
+  --t8-text-muted: rgba(242, 244, 247, 0.62);
+  --t8-text-dim: #6e7782;
+  --t8-border: var(--your-brand-border);
+  --t8-border-strong: rgba(193, 122, 77, 0.38);
+  --t8-grid-dot: rgba(186, 194, 204, 0.18);
+  --t8-edge: rgba(186, 194, 204, 0.46);
+  --t8-edge-selected: #c17a4d;
+  --t8-selection-bg: rgba(193, 122, 77, 0.12);
+  --t8-selection-border: rgba(193, 122, 77, 0.72);
+  --t8-shadow-panel: 0 24px 72px rgba(0, 0, 0, 0.42);
+  /* 锁定深色 color-scheme，浏览器原生控件跟随深色 */
+  color-scheme: dark;
+}
+
+html[data-your-brand="active"] .t8-topbar {
+  background:
+    linear-gradient(135deg, rgba(166, 106, 70, 0.15), transparent 46%),
+    rgba(13, 15, 18, 0.94) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+html[data-your-brand="active"] .t8-app-shell {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(166, 106, 70, 0.08), transparent 30%),
+    linear-gradient(180deg, #0d0f12 0%, #090a0d 100%) !important;
+}
+
+html[data-your-brand="active"] .t8-canvas-shell {
+  background:
+    linear-gradient(180deg, rgba(13, 15, 18, 0.82), rgba(7, 8, 10, 0.96)),
+    #07080a !important;
+}
+
+html[data-your-brand="active"] .react-flow,
+html[data-your-brand="active"] .react-flow__background {
+  background-color: #07080a !important;
+}
+
+html[data-your-brand="active"] .react-flow__background-pattern circle {
+  fill: rgba(186, 194, 204, 0.18) !important;
+}
+
+html[data-your-brand="active"] .t8-topbar > div:first-child h1 {
+  color: transparent !important;
+  font-size: 0 !important;
+  letter-spacing: 0 !important;
+}
+
+html[data-your-brand="active"] .t8-topbar > div:first-child h1::after {
+  content: "ICD AI CANVAS";
+  color: rgba(242, 244, 247, 0.86);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+html[data-your-brand="active"] .t8-topbar > div:first-child h1 + span {
+  display: none !important;
+}
+
+html[data-your-brand="active"] .t8-topbar button[title="画布教程 · T8 教程合集"],
+html[data-your-brand="active"] .t8-topbar button[title="最新应用 · RunningHub 工作流"],
+html[data-your-brand="active"] .t8-topbar button[title="AIX产品 · T8公司AIX产品"],
+html[data-your-brand="active"] .t8-topbar button[title="贞贞工坊 · 海外站与 Discord"],
+html[data-your-brand="active"] .t8-topbar button[title="视频教程 · 关注 T8 获取免费版本更新"],
+html[data-your-brand="active"] .t8-topbar button[title="云端创作 · 企鹅画布(还送 10 鹅卵石)"] {
+  display: none !important;
+}
+
+/* 主题切换入口完全隐藏 — 产品锁定 ICD 深色模式 */
+html[data-your-brand="active"] .t8-topbar button[title="主题模板"] {
+  display: none !important;
+}
+html[data-your-brand="active"] .t8-topbar button[title="切换到浅色主题"],
+html[data-your-brand="active"] .t8-topbar button[title="切换到深色主题"] {
+  display: none !important;
+}
+
+.your-brand-topbar-slot,
+html[data-your-brand="active"] .t8-topbar button[title="资源库"] {
+  order: -1;
+}
+
+.your-brand-topbar-slot {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 4px 12px 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, rgba(166, 106, 70, 0.15), transparent 58%),
+    rgba(15, 16, 20, 0.76);
+  color: rgba(242, 244, 247, 0.92);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.your-brand-topbar-slot__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #050506;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(193, 122, 77, 0.22);
+}
+
+.your-brand-topbar-slot__logo img {
+  display: block;
+  width: 33px;
+  height: 25px;
+  object-fit: contain;
+}
+
+.your-brand-topbar-slot__copy {
+  display: grid;
+  gap: 2px;
+}
+
+.your-brand-topbar-slot__copy strong,
+.your-brand-topbar-slot__copy small {
+  display: block;
+  line-height: 1;
+}
+
+.your-brand-topbar-slot__copy strong {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.your-brand-topbar-slot__copy small {
+  color: rgba(242, 244, 247, 0.46);
+  font-size: 9px;
+  font-weight: 500;
+}
+
+/* 工作区状态芯片 */
+.your-brand-workspace-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--icd-text-muted, #6E7782);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  line-height: 1;
+}
+.your-brand-workspace-chip::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--icd-accent-soft, rgba(166, 106, 70, 0.5));
+  box-shadow: 0 0 0 1px rgba(193, 122, 77, 0.20);
+}
+
+.your-brand-modal-note {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 80;
+  max-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid rgba(166, 106, 70, 0.24);
+  border-radius: 8px;
+  background: rgba(20, 24, 29, 0.94);
+  color: rgba(242, 244, 247, 0.78);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.26);
+  font-size: 11px;
+  line-height: 1.45;
+  pointer-events: none;
+}
+
+.your-brand-modal-note strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #c17a4d;
+  font-size: 12px;
+}
+
+/* ============================================
+   ICD 设计令牌补充（对齐 ICD AI WORK src/styles.css）
+   ============================================ */
+
+:root {
+  --icd-text-soft:       #BAC2CC;
+  --icd-text-muted:      #6E7782;
+  --icd-text-faint:      #4F5965;
+  --icd-border:          rgba(255, 255, 255, 0.08);
+  --icd-border-strong:   rgba(255, 255, 255, 0.14);
+  --icd-accent-soft:     rgba(166, 106, 70, 0.14);
+  --icd-accent-glow:     rgba(193, 122, 77, 0.22);
+}
+
+/* ============================================
+   ICD 深色工业风格 — 左侧边栏
+   文本层级: #F2F4F7(主) → #BAC2CC(次) → #6E7782(弱) → #4F5965(微)
+   青铜色仅用于交互态(hover/active/focus)，不用于普通文字
+   ============================================ */
+
+/* --- 侧边栏面板底色 --- */
+html[data-your-brand="active"] .t8-sidebar {
+  background-color: #14181D !important;
+  border-right-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 分区边框 --- */
+html[data-your-brand="active"] .t8-sidebar > .border-b {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar > .border-t {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 分组标题 — 使用中性次文本色，不用青铜 --- */
+html[data-your-brand="active"] .t8-sidebar > .border-b button:first-of-type,
+html[data-your-brand="active"] .t8-sidebar .flex-1 > .mb-1 > button:first-child {
+  color: #BAC2CC !important;
+  letter-spacing: 0.04em;
+}
+
+html[data-your-brand="active"] .t8-sidebar > .border-b button:first-of-type:hover,
+html[data-your-brand="active"] .t8-sidebar .flex-1 > .mb-1 > button:first-child:hover {
+  color: #F2F4F7 !important;
+}
+
+/* --- 画布列表条目 --- */
+html[data-your-brand="active"] .t8-sidebar-canvas-row {
+  border-radius: 6px !important;
+}
+
+/* 非激活画布 */
+html[data-your-brand="active"] .t8-sidebar-canvas-row[class*="text-white/70"] {
+  color: #BAC2CC !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-canvas-row:hover {
+  background: rgba(166, 106, 70, 0.10) !important;
+}
+
+/* 当前激活画布 */
+html[data-your-brand="active"] .t8-sidebar-canvas-row[class*="bg-white/10"],
+html[data-your-brand="active"] .t8-sidebar-canvas-row[class*="text-white"] {
+  background: rgba(166, 106, 70, 0.14) !important;
+  color: #F2F4F7 !important;
+}
+
+/* 画布元信息 (节点数) */
+html[data-your-brand="active"] .t8-sidebar-canvas-row [class*="text-white/30"] {
+  color: #6E7782 !important;
+}
+
+/* --- 画布完成通知点 --- */
+html[data-your-brand="active"] .t8-sidebar-canvas-update-dot {
+  background: #C17A4D !important;
+  border-color: rgba(255, 255, 255, 0.55) !important;
+  box-shadow:
+    0 0 0 2px rgba(193, 122, 77, 0.22),
+    0 2px 6px rgba(166, 106, 70, 0.32) !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-canvas-update-dot::after {
+  border-color: rgba(193, 122, 77, 0.35) !important;
+}
+
+/* --- 画布操作按钮 --- */
+html[data-your-brand="active"] .t8-sidebar > .border-b button[class*="hover:bg-white/10"]:hover,
+html[data-your-brand="active"] .t8-sidebar > .border-b button[class*="hover:bg-black/10"]:hover,
+html[data-your-brand="active"] .t8-sidebar-canvas-row button[class*="hover:bg-white/10"]:hover {
+  background: rgba(166, 106, 70, 0.14) !important;
+  color: #F2F4F7 !important;
+}
+
+/* 删除确认按钮保持红色语义 */
+html[data-your-brand="active"] .t8-sidebar-canvas-row button[class*="hover:bg-red"] {
+  border-radius: 4px !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-canvas-row button[class*="hover:bg-red"]:hover {
+  background: rgba(239, 68, 68, 0.18) !important;
+}
+
+/* --- 画布重命名输入框 --- */
+html[data-your-brand="active"] .t8-sidebar-canvas-row input {
+  background: #1B2026 !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: #F2F4F7 !important;
+  border-radius: 5px !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-canvas-row input:focus {
+  border-color: rgba(193, 122, 77, 0.40) !important;
+  box-shadow: 0 0 0 2px rgba(166, 106, 70, 0.14) !important;
+}
+
+/* --- 搜索框 --- */
+html[data-your-brand="active"] .t8-sidebar-search-row {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-search-box {
+  background: #1B2026 !important;
+  border-radius: 7px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-search-box:focus-within {
+  border-color: rgba(193, 122, 77, 0.30) !important;
+  box-shadow: 0 0 0 3px rgba(166, 106, 70, 0.10) !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-search-box input {
+  color: #F2F4F7 !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-search-box input::placeholder {
+  color: #6E7782 !important;
+}
+
+/* --- 节点卡片 --- */
+html[data-your-brand="active"] .t8-sidebar-node {
+  border-radius: 6px !important;
+  color: #BAC2CC !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar-node:hover {
+  background: rgba(166, 106, 70, 0.10) !important;
+  color: #F2F4F7 !important;
+}
+
+/* --- 底部版本信息 --- */
+html[data-your-brand="active"] .t8-sidebar > .border-t {
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+  color: #4F5965 !important;
+  font-size: 9px;
+  letter-spacing: 0.03em;
+}
+
+/* --- 侧边栏滚动条 --- */
+html[data-your-brand="active"] .t8-sidebar ::-webkit-scrollbar {
+  width: 4px;
+}
+
+html[data-your-brand="active"] .t8-sidebar ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-your-brand="active"] .t8-sidebar ::-webkit-scrollbar-thumb {
+  background: rgba(166, 106, 70, 0.14);
+  border-radius: 2px;
+}
+
+html[data-your-brand="active"] .t8-sidebar ::-webkit-scrollbar-thumb:hover {
+  background: rgba(166, 106, 70, 0.28);
+}
+
+/* --- "还没有画布" 占位文字 --- */
+html[data-your-brand="active"] .t8-sidebar [class*="text-white/40"] {
+  color: #6E7782 !important;
+}
+
+/* --- 空画布时的 "新建第一个画布" 按钮 --- */
+html[data-your-brand="active"] .t8-sidebar button[class*="bg-emerald"] {
+  background: rgba(166, 106, 70, 0.14) !important;
+  color: #C17A4D !important;
+  border-radius: 5px !important;
+  border: 1px solid rgba(166, 106, 70, 0.18) !important;
+}
+
+html[data-your-brand="active"] .t8-sidebar button[class*="bg-emerald"]:hover {
+  background: rgba(166, 106, 70, 0.22) !important;
+  color: #C17A4D !important;
+}
+
+/* --- 侧边栏加载动画 --- */
+html[data-your-brand="active"] .t8-sidebar .animate-spin {
+  color: #BAC2CC !important;
+}
+
+/* ============================================
+   ICD 深色工业风格 — 画布工具栏
+   ============================================ */
+
+/* --- 工具栏面板 --- */
+html[data-your-brand="active"] .t8-toolbar-panel {
+  background: rgba(20, 24, 29, 0.94) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 工具栏按钮 --- */
+html[data-your-brand="active"] .t8-toolbar-button {
+  color: #BAC2CC !important;
+  border-radius: 7px !important;
+}
+
+html[data-your-brand="active"] .t8-toolbar-button:hover {
+  background: rgba(166, 106, 70, 0.12) !important;
+  color: #F2F4F7 !important;
+}
+
+/* 工具栏按钮：激活/开启态统一青铜色 */
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-emerald"] {
+  color: #C17A4D !important;
+  background: rgba(166, 106, 70, 0.14) !important;
+}
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-emerald"]:hover {
+  background: rgba(166, 106, 70, 0.22) !important;
+}
+
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-sky"] {
+  color: #C17A4D !important;
+  background: rgba(166, 106, 70, 0.14) !important;
+}
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-sky"]:hover {
+  background: rgba(166, 106, 70, 0.22) !important;
+}
+
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-violet"] {
+  color: #C17A4D !important;
+  background: rgba(166, 106, 70, 0.14) !important;
+}
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-violet"]:hover {
+  background: rgba(166, 106, 70, 0.22) !important;
+}
+
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-cyan"] {
+  color: #C17A4D !important;
+  background: rgba(166, 106, 70, 0.14) !important;
+}
+html[data-your-brand="active"] .t8-toolbar-button[class*="text-cyan"]:hover {
+  background: rgba(166, 106, 70, 0.22) !important;
+}
+
+/* --- 工具栏分隔线 --- */
+html[data-your-brand="active"] .t8-canvas-toolbar [class*="bg-white/10"] {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* --- 工具栏下拉面板 --- */
+html[data-your-brand="active"] .t8-canvas-toolbar .absolute[class*="bg-zinc-900"] {
+  background: #1B2026 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-your-brand="active"] .t8-canvas-toolbar .absolute [class*="bg-white/5"] {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+html[data-your-brand="active"] .t8-canvas-toolbar .absolute [class*="text-white/50"] {
+  color: #BAC2CC !important;
+}
+
+/* --- 工具栏紧凑按钮 --- */
+html[data-your-brand="active"] .t8-canvas-toolbar button[class*="bg-white/10"]:not(.t8-toolbar-button) {
+  background: rgba(166, 106, 70, 0.10) !important;
+  color: #F2F4F7 !important;
+  border-radius: 5px !important;
+}
+
+html[data-your-brand="active"] .t8-canvas-toolbar button[class*="bg-white/10"]:not(.t8-toolbar-button):hover {
+  background: rgba(166, 106, 70, 0.18) !important;
+}
+
+/* --- 工具栏危险按钮 --- */
+html[data-your-brand="active"] .t8-canvas-toolbar button[class*="text-rose"] {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+}
+
+html[data-your-brand="active"] .t8-canvas-toolbar button[class*="text-rose"]:hover {
+  background: rgba(239, 68, 68, 0.20) !important;
+}
+
+/* --- 工具栏快捷键提示 --- */
+html[data-your-brand="active"] .t8-canvas-toolbar kbd,
+html[data-your-brand="active"] .t8-canvas-toolbar [class*="bg-white/10"][class*="text-white"] {
+  background: #232A31 !important;
+  color: #BAC2CC !important;
+}
+
+/* --- 工具栏角标计数 --- */
+html[data-your-brand="active"] .t8-canvas-toolbar [class*="bg-cyan"]:not(button),
+html[data-your-brand="active"] .t8-canvas-toolbar [class*="bg-amber"]:not(button),
+html[data-your-brand="active"] .t8-canvas-toolbar [class*="bg-emerald"]:not(button) {
+  background: #C17A4D !important;
+  color: #0D0F12 !important;
+}
+
+/* --- VibeX 节点指示点 --- */
+html[data-your-brand="active"] .t8-canvas-toolbar [class*="bg-cyan-400"][class*="ring-white"] {
+  background: #C17A4D !important;
+}
+
+/* ============================================
+   ICD 深色工业风格 — 画布节点框
+   ============================================ */
+
+/* --- 节点框选中态 --- */
+html[data-your-brand="active"] .react-flow__node.selected > div:first-child {
+  border-color: rgba(193, 122, 77, 0.45) !important;
+  box-shadow:
+    0 0 0 2px rgba(166, 106, 70, 0.14),
+    var(--t8-shadow-panel, 0 24px 72px rgba(0, 0, 0, 0.42)) !important;
+}
+
+/* --- 节点框默认态微调 --- */
+html[data-your-brand="active"] .t8-node {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 节点序列号徽章已通过 --t8-* 变量自动适配 --- */
+
+/* ============================================
+   ICD 深色工业风格 — 资源库抽屉
+   ============================================ */
+
+/* --- 抽屉面板 --- */
+html[data-your-brand="active"] .resource-library-drawer {
+  background: #14181D !important;
+  color: #F2F4F7 !important;
+  border-left-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 头部和 Tab 栏边框 --- */
+html[data-your-brand="active"] .resource-library-drawer > .border-b {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 分类侧边栏 --- */
+html[data-your-brand="active"] .resource-library-drawer [class*="border-r"] {
+  border-right-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 资源卡片 --- */
+html[data-your-brand="active"] .resource-card {
+  background: #1B2026 !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 8px !important;
+}
+
+html[data-your-brand="active"] .resource-card:hover {
+  border-color: rgba(166, 106, 70, 0.22) !important;
+  background: #1E2329 !important;
+}
+
+/* --- 搜索输入框 --- */
+html[data-your-brand="active"] .resource-library-drawer input[type="text"] {
+  background: #1B2026 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #F2F4F7 !important;
+  border-radius: 6px !important;
+}
+
+html[data-your-brand="active"] .resource-library-drawer input[type="text"]:focus {
+  border-color: rgba(193, 122, 77, 0.30) !important;
+  box-shadow: 0 0 0 3px rgba(166, 106, 70, 0.10) !important;
+}
+
+html[data-your-brand="active"] .resource-library-drawer input[type="text"]::placeholder {
+  color: #6E7782 !important;
+}
+
+/* --- 分类/标签按钮 --- */
+html[data-your-brand="active"] .resource-library-drawer button[class*="rounded"][class*="text-xs"] {
+  color: #BAC2CC !important;
+}
+
+html[data-your-brand="active"] .resource-library-drawer button[class*="rounded"][class*="text-xs"]:hover {
+  background: rgba(166, 106, 70, 0.10) !important;
+  color: #F2F4F7 !important;
+}
+
+/* ============================================
+   ICD 深色工业风格 — 控制轨道 (底部浮动)
+   ============================================ */
+
+/* --- 控制轨道按钮 --- */
+html[data-your-brand="active"] .t8-control-rail-help {
+  background: rgba(20, 24, 29, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #BAC2CC !important;
+}
+
+html[data-your-brand="active"] .t8-control-rail-help:hover {
+  background: rgba(27, 32, 38, 0.94) !important;
+  border-color: rgba(166, 106, 70, 0.22) !important;
+  color: #F2F4F7 !important;
+}
+
+/* --- ReactFlow 缩放控件 --- */
+html[data-your-brand="active"] .react-flow__controls {
+  background: rgba(20, 24, 29, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32) !important;
+}
+
+html[data-your-brand="active"] .react-flow__controls-button {
+  background: transparent !important;
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+  fill: #BAC2CC !important;
+}
+
+html[data-your-brand="active"] .react-flow__controls-button:hover {
+  background: rgba(166, 106, 70, 0.12) !important;
+  fill: #F2F4F7 !important;
+}
+
+/* ============================================
+   ICD 深色工业风格 — API 设置弹窗微调
+   (大部分已通过 --t8-* 变量适配，
+   此处只处理变量未覆盖的硬编码 Tailwind 部分)
+   ============================================ */
+
+/* --- 弹窗容器（若未使用 t8-api-settings-modal class） --- */
+html[data-your-brand="active"] .t8-api-settings-modal {
+  border-radius: 14px !important;
+}
+
+/* --- 弹窗遮罩 --- */
+/* 由 App.tsx 内联或 Tailwind 类控制，此处不额外覆盖 */
