@@ -106,6 +106,12 @@ html[data-your-brand="active"] .t8-topbar button[title="切换到深色主题"] 
   display: none !important;
 }
 
+/* 隐藏 T8 彩蛋模式切换入口（龙珠/圣斗士）— ICD 产品不需要 */
+html[data-your-brand="active"] .t8-dragonball-mode-switch,
+html[data-your-brand="active"] .t8-saint-mode-switch {
+  display: none !important;
+}
+
 .your-brand-topbar-slot,
 html[data-your-brand="active"] .t8-topbar button[title="资源库"] {
   order: -1;
@@ -339,9 +345,33 @@ html[data-your-brand="active"] .t8-sidebar-canvas-row input:focus {
   box-shadow: 0 0 0 2px rgba(166, 106, 70, 0.14) !important;
 }
 
+/* --- 画布列表分组标签（纯 CSS，不改 DOM） --- */
+html[data-your-brand="active"] .t8-sidebar-search-row::after {
+  content: "画布列表";
+  display: block;
+  padding: 6px 12px 2px;
+  margin-top: 2px;
+  color: #BAC2CC;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
 /* --- 搜索框 --- */
 html[data-your-brand="active"] .t8-sidebar-search-row {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* --- 节点面板分组标签（纯 CSS，不改 DOM） --- */
+html[data-your-brand="active"] .t8-sidebar > .flex-1::before {
+  content: "节点面板";
+  display: block;
+  padding: 8px 12px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: #BAC2CC;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 html[data-your-brand="active"] .t8-sidebar-search-box {
@@ -664,3 +694,476 @@ html[data-your-brand="active"] .t8-api-settings-modal {
 
 /* --- 弹窗遮罩 --- */
 /* 由 App.tsx 内联或 Tailwind 类控制，此处不额外覆盖 */
+
+/* ============================================
+   Phase 3: ICD 节点内部 UI 统一
+   作用域：仅 text / image / video / llm / runninghub / rh-tools
+   只覆盖视觉层（表面/输入框/聚焦环/执行按钮），
+   不修改节点行为、连线、上传、运行逻辑。
+   ============================================ */
+
+/* 目标节点类型选择器（React Flow 自动为每个节点添加 react-flow__node-<type> 类） */
+/* 通过 :is() 将后续规则收窄到 6 种高频节点，不影响其他节点类型 */
+
+/* --- 节点卡片内表面 --- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) > div[class*="rounded-xl"] {
+  background: rgba(20, 24, 29, 0.96) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.34) !important;
+}
+
+/* --- 节点头部区域 --- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) > div[class*="rounded-xl"] > div[class*="border-b"] {
+  background: rgba(27, 32, 38, 0.62) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* --- 节点 body 区域背景微调 --- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) > div[class*="rounded-xl"] > div[class*="p-2.5"] {
+  background: transparent !important;
+}
+
+/* --------------------------------------------
+   输入框 / 文本域 / 下拉框 — ICD 面板底色
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[type="text"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[type="number"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) textarea,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) select {
+  background: #1B2026 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #F2F4F7 !important;
+  border-radius: 5px !important;
+}
+
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[type="text"]::placeholder,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) textarea::placeholder {
+  color: #6E7782 !important;
+}
+
+/* --------------------------------------------
+   聚焦环统一为 ICD 青铜色
+   替代原有的 sky/amber/rose/cyan/emerald 分散色
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input:focus,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) textarea:focus,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) select:focus {
+  border-color: rgba(193, 122, 77, 0.40) !important;
+  box-shadow: 0 0 0 3px rgba(166, 106, 70, 0.12) !important;
+  outline: none !important;
+}
+
+/* 覆盖 Headless UI / Tailwind focus 变体带来的颜色泄露 */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[class*="focus:border-sky"]:focus,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[class*="focus:border-amber"]:focus,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[class*="focus:border-cyan"]:focus,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) textarea[class*="focus:border-cyan"]:focus,
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[class*="focus:border-white"]:focus {
+  border-color: rgba(193, 122, 77, 0.40) !important;
+  box-shadow: 0 0 0 3px rgba(166, 106, 70, 0.12) !important;
+}
+
+/* --------------------------------------------
+   执行按钮 — 统一为 ICD 青铜色
+   原 T8 使用 emerald/sky/amber 多种颜色
+   -------------------------------------------- */
+
+/* 主运行按钮（emerald → bronze） */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) button[class*="bg-emerald"] {
+  background: rgba(166, 106, 70, 0.16) !important;
+  color: #C17A4D !important;
+  border: 1px solid rgba(166, 106, 70, 0.18) !important;
+}
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) button[class*="bg-emerald"]:hover {
+  background: rgba(166, 106, 70, 0.26) !important;
+  color: #D28B5E !important;
+}
+
+/* 辅助运行按钮（sky → bronze） */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) button[class*="bg-sky"][class*="text-sky"] {
+  background: rgba(166, 106, 70, 0.12) !important;
+  color: #C17A4D !important;
+  border: 1px solid rgba(166, 106, 70, 0.14) !important;
+}
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) button[class*="bg-sky"][class*="text-sky"]:hover {
+  background: rgba(166, 106, 70, 0.20) !important;
+}
+
+/* 停止/取消按钮保持红色语义 */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) button[class*="bg-rose"] {
+  background: rgba(239, 68, 68, 0.14) !important;
+  color: #fca5a5 !important;
+}
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) button[class*="bg-rose"]:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+}
+
+/* --------------------------------------------
+   节点头部图标区域 — 软化颜色
+   保留节点类型辨识功能，但降低与 ICD 的冲突
+   -------------------------------------------- */
+
+/* 图标容器底色统一为 ICD surface */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) > div[class*="rounded-xl"] > div[class*="border-b"] > div[class*="rounded"]:first-child {
+  background: rgba(27, 32, 38, 0.80) !important;
+}
+
+/* --------------------------------------------
+   节点内部分割/分组卡片底色
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="bg-white/5"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="bg-white\\/5"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="bg-white/[0.03]"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="bg-black/10"] {
+  background: rgba(27, 32, 38, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* --------------------------------------------
+   节点内标签文字层级微调
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) label[class*="text-white/50"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) label[class*="text-white\\/50"] {
+  color: #BAC2CC !important;
+}
+
+/* 弱提示文字 */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) span[class*="text-white/30"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="text-white/40"],
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="text-white\\/40"] {
+  color: #6E7782 !important;
+}
+
+/* --------------------------------------------
+   进度条 / 指示器 — 统一青铜色
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="bg-amber-300"] {
+  background: #C17A4D !important;
+}
+
+/* --------------------------------------------
+   checkbox / radio accent 统一
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) input[type="checkbox"] {
+  accent-color: #C17A4D !important;
+}
+
+/* --------------------------------------------
+   错误 / 警告 — 保留功能色，只调暗背景
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="bg-red"] {
+  background: rgba(239, 68, 68, 0.10) !important;
+  border-color: rgba(239, 68, 68, 0.18) !important;
+}
+
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) div[class*="bg-amber"][class*="text-amber"] {
+  background: rgba(245, 158, 11, 0.10) !important;
+  border-color: rgba(245, 158, 11, 0.18) !important;
+}
+
+/* --------------------------------------------
+   RHToolsNode — 已通过 --t8-* CSS 变量适配，
+   此处仅处理硬编码的 Tailwind 回退
+   （.t8-rh-tools-node 是 RHToolsNode 自身的类，天然已收窄）
+   -------------------------------------------- */
+html[data-your-brand="active"] .t8-rh-tools-node {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-your-brand="active"] .t8-rh-tools-node input[type="text"],
+html[data-your-brand="active"] .t8-rh-tools-node textarea,
+html[data-your-brand="active"] .t8-rh-tools-node select {
+  background: #1B2026 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #F2F4F7 !important;
+}
+
+html[data-your-brand="active"] .t8-rh-tools-node input:focus,
+html[data-your-brand="active"] .t8-rh-tools-node textarea:focus {
+  border-color: rgba(193, 122, 77, 0.40) !important;
+  box-shadow: 0 0 0 3px rgba(166, 106, 70, 0.12) !important;
+}
+
+/* --------------------------------------------
+   滚动条 — 目标节点内部
+   -------------------------------------------- */
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) ::-webkit-scrollbar {
+  width: 4px;
+}
+html[data-your-brand="active"] .react-flow__node:is(
+  .react-flow__node-text,
+  .react-flow__node-image,
+  .react-flow__node-video,
+  .react-flow__node-llm,
+  .react-flow__node-runninghub,
+  .react-flow__node-rh-tools
+) ::-webkit-scrollbar-thumb {
+  background: rgba(166, 106, 70, 0.16);
+  border-radius: 2px;
+}

@@ -2,9 +2,9 @@
 
 ## Task
 
-Pre-commit baseline audit and cleanup for the ICD customization work.
+Canvas product layout framework and menu information architecture.
 
-This is not a feature task. Do not redesign UI and do not change canvas behavior.
+This is a framework/layout task, not a detail-polish task. The user has not approved the full canvas menu layout yet, so do not continue refining node-level visual details.
 
 ## Required Reading
 
@@ -15,78 +15,102 @@ Before changing files, read:
 3. `docs/progress-log.md`
 4. `docs/local-private-deployment.md`
 
-## Background
+## Current State
 
-The ICD customization baseline now includes:
+- ICD baseline commit exists: `395b537 chore: establish ICD customization baseline`
+- Phase 3 node UI CSS has been attempted but is still uncommitted.
+- Current uncommitted files may include:
+  - `src/styles/your-brand-theme.css`
+  - `docs/progress-log.md`
+  - this task file
+- Do not commit unless the user explicitly asks.
 
-- tracked handoff docs
-- tracked ICD extension implementation
-- ignored `local-private/` adapter
-- ICD brand CSS
-- ICD logo asset
-- Chinese IME fix in `MentionPromptInput`
-- dark/tech theme lock and black/gray canvas
+## User Decision
 
-There are many untracked files. Before continuing product work, we need a clean audit of what should be committed, what should remain ignored, and whether any generated/local files leaked into the working tree.
+The user wants to pause detail polishing and first define the whole canvas framework/menu layout.
+
+Meaning:
+
+- First decide global layout structure.
+- Then decide menu grouping and hierarchy.
+- Then implement only a low-risk layout shell.
+- Fine visual details come later.
 
 ## Goal
 
-Prepare a safe commit-ready baseline report.
+Produce a clear, reviewable canvas layout framework for ICD AI Canvas.
 
-Do not create the commit unless the user explicitly asks.
+The output should make it easy for the user to approve or reject:
+
+- top bar structure
+- left menu/sidebar structure
+- canvas toolbar structure
+- right-side or bottom utility area, if needed
+- menu grouping and naming
+- which original T8 controls remain visible
+- which original T8 controls are hidden, moved, or renamed
 
 ## Scope
 
 Allowed:
 
-- documentation corrections
-- `.gitignore` corrections if needed
-- `docs/progress-log.md`
-- `docs/claude-code-next-task.md`
+- Inspect existing layout components and CSS.
+- Update `docs/claude-code-next-task.md`.
+- Update `docs/progress-log.md`.
+- Create or update a layout planning document if useful, preferably:
+  - `docs/canvas-layout-framework.md`
+- Add conservative CSS layout shell rules in `src/styles/your-brand-theme.css` only if needed to produce a visible framework preview.
 
-Avoid code edits unless you find a clear bug in the current baseline.
+Avoid:
+
+- Node card detail polishing.
+- Broad node CSS overrides.
+- Changing node behavior.
+- Changing canvas engine behavior.
+- Creating fake product features.
 
 Do not modify:
 
 - `src/components/Canvas.tsx`
+- `src/components/nodes/UploadNode.tsx`
 - `src/config/nodeRegistry.ts`
+- `src/config/portTypes.ts`
 - `backend/src/server.js`
 - `backend/src/routes/*`
 - data storage format or user data folders
-- node behavior files, unless only inspecting
+
+If a layout change seems to require modifying one of the forbidden files, stop and document the reason instead of editing it.
 
 ## Execution Steps
 
-1. Run:
+1. Inspect existing layout surfaces:
+
+```bash
+rg -n "t8-topbar|t8-sidebar|t8-canvas-shell|data-canvas-floating-ui|react-flow__controls|t8-context-menu|LocalTopbarSlot|ResourceLibrary|ThemeTemplate|ApiSettings" src local-private
+```
+
+2. Review current uncommitted diff:
 
 ```bash
 git status --short --branch
 git diff --stat
-git diff -- .gitignore src/components/nodes/MentionPromptInput.tsx src/styles/index.css
+git diff -- src/styles/your-brand-theme.css docs/progress-log.md docs/claude-code-next-task.md
 ```
 
-2. Inspect every untracked project file that should be part of the baseline:
+3. Create `docs/canvas-layout-framework.md` with:
 
-- `CLAUDE.md`
-- `docs/customization-and-upgrade-plan.md`
-- `docs/local-private-deployment.md`
-- `docs/progress-log.md`
-- `docs/claude-code-next-task.md`
-- `src/extensions/icdLocalExtensions.tsx`
-- `src/styles/your-brand-theme.css`
-- `public/assets/icd-logo.png`
+- Current layout inventory
+- Proposed ICD layout framework
+- Menu grouping proposal
+- Keep / move / hide / rename table
+- Implementation boundaries
+- Risks and approval questions
 
-3. Confirm ignored/local-only files:
+4. If making CSS changes, keep them conservative:
 
-- `local-private/extensions/frontend/index.tsx` must stay ignored.
-- `_verification/` must stay ignored.
-- `dist/`, `node_modules/`, data/input/output/thumbnails must not be committed.
-
-4. Confirm no secrets or API keys were introduced:
-
-```bash
-rg -n "api[_-]?key|secret|token|password|bearer|sk-|AIza|AKIA|PRIVATE KEY" CLAUDE.md docs src public local-private --glob '!node_modules' --glob '!dist'
-```
+- Only layout shell/menu structure selectors.
+- Avoid broad `.react-flow__node` rules unless explicitly documenting why.
+- Do not expand node detail styling.
 
 5. Run:
 
@@ -95,21 +119,23 @@ npm run type-check
 npm run build
 ```
 
-6. Append a factual entry at the top of `docs/progress-log.md` with:
+6. If possible, create a screenshot in `_verification/`, but do not commit `_verification/`.
+
+7. Update `docs/progress-log.md` with:
 
 - files inspected
+- files changed
+- layout framework summary
 - validation result
-- recommended commit set
-- files that must remain ignored
-- remaining risks
+- core files touched
+- next approval step
 
 ## Acceptance Criteria
 
-- There is a clear commit-ready baseline report.
-- No generated/local/private files are recommended for commit.
-- `local-private/` remains ignored.
-- `src/extensions/icdLocalExtensions.tsx` is confirmed as the tracked ICD extension implementation.
+- The user can review a single layout framework document before more UI polishing.
+- No canvas behavior changes.
+- No node behavior changes.
+- No forbidden core files touched.
 - `npm run type-check` passes.
 - `npm run build` passes.
-- No core T8 files were modified during this audit.
-
+- Work remains easy to revert or commit separately from the baseline.
