@@ -18,6 +18,37 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - 文档状态与 CSS 回退同步
+
+- User goal: 同步 `docs/canvas-layout-framework.md` 决策 1/2/3 状态文字，符合 CSS 已回退的现实。
+- Files changed:
+  - `docs/canvas-layout-framework.md`（§9 决策 1/2/3 状态文字更新）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 决策 1 状态：→ "CSS 预览已回退；当前恢复到 ICD baseline，顶栏仍需重新设计后再实施。"
+  - 决策 2 状态：→ "CSS 分组标签预览已回退；当前无新增分组标签。"
+  - 决策 3 状态：→ "CSS 预览已回退；推广/主题隐藏仍保留 baseline 规则，龙珠/圣斗士入口是否隐藏需在新方案中重新确认。"
+- Validation: 纯文档修改，无构建需要。
+- Core T8 files touched: 无。
+- Risks / blockers: 无。
+- Next step: 先做静态排版稿/方案图，经用户确认后再重新实施 CSS。
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - 视觉 CSS 预览回退
+
+- User goal: 视觉预览效果未通过，回退 `src/styles/your-brand-theme.css` 到 ICD baseline（395b537）。
+- Files changed:
+  - `src/styles/your-brand-theme.css`（回退到 395b537 基线，1169 → 666 行）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - CSS 回退到 baseline `chore: establish ICD customization baseline` 版本
+  - 保留 `docs/canvas-layout-framework.md`、`docs/claude-code-next-task.md` 不变
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+- Core T8 files touched: 无。
+- Risks / blockers: 视觉 CSS 预览方案需重新设计，当前只回退了 CSS，布局框架文档中决议状态文字仍反映已执行的 CSS 改动（决策 1/2/3 状态标记为"已通过 CSS…"），若需回退文档状态需单独处理。
+- Next step: 先做静态排版稿/方案图，经用户确认后再实施 CSS。不要在无设计稿参照的情况下直接写 CSS。
+
 ## 2026-06-28 - Claude Code (deepseek-v4-pro) - 文档状态同步
 
 - User goal: 同步 `docs/canvas-layout-framework.md` 第 9 节决策 1/2/3 的当前状态文字，使其反映已执行的 CSS 改动。
