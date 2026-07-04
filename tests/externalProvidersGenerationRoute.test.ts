@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
+import multer from 'multer';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -22,6 +23,7 @@ test('external provider generation routes run enabled OpenAI compatible LLM and 
 
   const upstreamApp = express();
   upstreamApp.use(express.json({ limit: '4mb' }));
+  const upload = multer();
   const upstreamCalls: any[] = [];
   upstreamApp.post('/v1/chat/completions', (req, res) => {
     upstreamCalls.push({ path: req.path, body: req.body, auth: req.header('authorization') });
@@ -30,6 +32,16 @@ test('external provider generation routes run enabled OpenAI compatible LLM and 
   upstreamApp.post('/v1/images/generations', (req, res) => {
     upstreamCalls.push({ path: req.path, body: req.body, auth: req.header('authorization') });
     res.json({ data: [{ b64_json: Buffer.from('PNGDATA').toString('base64'), mime_type: 'image/png' }] });
+  });
+  upstreamApp.post('/v1/images/edits', upload.any(), (req, res) => {
+    upstreamCalls.push({
+      path: req.path,
+      body: req.body,
+      files: req.files,
+      auth: req.header('authorization'),
+      contentType: req.header('content-type'),
+    });
+    res.json({ data: [{ b64_json: Buffer.from('EDITPNG').toString('base64'), mime_type: 'image/png' }] });
   });
   upstreamApp.post('/v1/videos/generations', (req, res) => {
     upstreamCalls.push({ path: req.path, body: req.body, auth: req.header('authorization') });
@@ -107,6 +119,22 @@ test('external provider generation routes run enabled OpenAI compatible LLM and 
   assert.match(image.data.imageUrls[0], /^\/files\/output\/external_/);
   assert.equal(fs.existsSync(path.join(config.OUTPUT_DIR, path.basename(image.data.imageUrls[0]))), true);
 
+  const imageEdit = await fetch(`${base}/api/proxy/external/image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      providerId: 'openai-compatible',
+      prompt: 'edit route',
+      size: '512x512',
+      referenceImages: ['data:image/png;base64,QUJD'],
+    }),
+  }).then((res) => res.json());
+
+  assert.equal(imageEdit.success, true);
+  assert.equal(imageEdit.data.imageUrls.length, 1);
+  assert.match(imageEdit.data.imageUrls[0], /^\/files\/output\/external_/);
+  assert.equal(fs.existsSync(path.join(config.OUTPUT_DIR, path.basename(imageEdit.data.imageUrls[0]))), true);
+
   const video = await fetch(`${base}/api/proxy/external/video`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -126,5 +154,12 @@ test('external provider generation routes run enabled OpenAI compatible LLM and 
   assert.equal(fs.existsSync(path.join(config.OUTPUT_DIR, path.basename(video.data.videoUrls[0]))), true);
   assert.equal(upstreamCalls[0].auth, 'Bearer sk-route-secret');
   assert.equal(upstreamCalls[1].auth, 'Bearer sk-route-secret');
+  assert.equal(upstreamCalls[2].path, '/v1/images/edits');
+  assert.match(upstreamCalls[2].contentType, /^multipart\/form-data; boundary=/);
   assert.equal(upstreamCalls[2].auth, 'Bearer sk-route-secret');
+  assert.equal(upstreamCalls[2].body.model, 'gpt-image-test');
+  assert.equal(upstreamCalls[2].body.prompt, 'edit route');
+  assert.equal(upstreamCalls[2].body.size, '512x512');
+  assert.equal(upstreamCalls[2].files.length, 1);
+  assert.equal(upstreamCalls[3].auth, 'Bearer sk-route-secret');
 });

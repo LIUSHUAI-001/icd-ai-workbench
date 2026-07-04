@@ -2,6 +2,7 @@ const { resolveMediaRef } = require('./mediaResolver');
 const { normalizeLlmMessageMedia } = require('./llmMedia');
 
 const DEFAULT_TIMEOUT_MS = 8000;
+const IMAGE_EDIT_REMOTE_MAX_BYTES = 20 * 1024 * 1024;
 
 function cleanBaseUrl(value) {
   return String(value || '').trim().replace(/\/+$/, '');
@@ -62,6 +63,13 @@ function bearerHeaders(provider) {
   };
 }
 
+function bearerMultipartHeaders(provider) {
+  return {
+    Accept: 'application/json',
+    Authorization: `Bearer ${provider.apiKey}`,
+  };
+}
+
 function trimBodyForError(text) {
   return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 300);
 }
@@ -113,6 +121,60 @@ function normalizeBase64Image(value, mime = 'image/png') {
   if (!text) return '';
   if (/^data:image\//i.test(text)) return text;
   return `data:${mime || 'image/png'};base64,${text}`;
+}
+
+function parseImageDataUrl(value) {
+  const match = String(value || '').trim().match(/^data:(image\/[^;,]+);base64,(.+)$/i);
+  if (!match) return null;
+  return {
+    mime: match[1].toLowerCase(),
+    buffer: Buffer.from(match[2], 'base64'),
+  };
+}
+
+function imageExtFromMime(mime) {
+  const text = String(mime || '').toLowerCase();
+  if (text.includes('jpeg') || text.includes('jpg')) return 'jpg';
+  if (text.includes('webp')) return 'webp';
+  if (text.includes('gif')) return 'gif';
+  if (text.includes('bmp')) return 'bmp';
+  if (text.includes('avif')) return 'avif';
+  return 'png';
+}
+
+function imageMimeFromUrl(value, fallback = 'image/png') {
+  try {
+    const pathname = new URL(String(value || '')).pathname.toLowerCase();
+    if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) return 'image/jpeg';
+    if (pathname.endsWith('.webp')) return 'image/webp';
+    if (pathname.endsWith('.gif')) return 'image/gif';
+    if (pathname.endsWith('.bmp')) return 'image/bmp';
+    if (pathname.endsWith('.avif')) return 'image/avif';
+    if (pathname.endsWith('.png')) return 'image/png';
+  } catch {
+    // ignore
+  }
+  return fallback;
+}
+
+async function fetchImageReference(url, options = {}) {
+  const res = await fetchWithTimeout(url, {
+    method: 'GET',
+    headers: { Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8' },
+    timeoutMs: options.timeoutMs,
+    fetchImpl: options.fetchImpl,
+  });
+  if (!res.ok) throw new Error(`参考图下载失败：HTTP ${res.status}`);
+  const contentLength = Number(res.headers?.get?.('content-length') || 0);
+  if (contentLength > IMAGE_EDIT_REMOTE_MAX_BYTES) throw new Error('参考图超过 20MB，无法提交到 OpenAI 兼容编辑接口。');
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (!buffer.length) throw new Error('参考图内容为空。');
+  if (buffer.length > IMAGE_EDIT_REMOTE_MAX_BYTES) throw new Error('参考图超过 20MB，无法提交到 OpenAI 兼容编辑接口。');
+  const mime = String(res.headers?.get?.('content-type') || '').split(';')[0].trim().toLowerCase() || imageMimeFromUrl(url);
+  return {
+    buffer,
+    mime: mime.startsWith('image/') ? mime : imageMimeFromUrl(url),
+  };
 }
 
 function collectImageUrls(value, out = []) {
@@ -195,6 +257,88 @@ async function resolveReferenceImages(refs, options = {}) {
     out.push(resolved.dataUrl || resolved.url || resolved.path || value);
   }
   return out;
+}
+
+function collectReferenceImageInputs(...values) {
+  const out = [];
+  for (const value of values) {
+    const items = Array.isArray(value) ? value : [value];
+    for (const item of items) {
+      const refValue = typeof item === 'string' ? item : item?.url || item?.imageUrl || item?.value;
+      if (String(refValue || '').trim()) out.push(item);
+    }
+  }
+  return out;
+}
+
+async function resolveImageEditFiles(refs, options = {}) {
+  const out = [];
+  for (const ref of Array.isArray(refs) ? refs : []) {
+    const value = typeof ref === 'string' ? ref : ref?.url || ref?.imageUrl || ref?.value;
+    if (!value) continue;
+
+    const inline = parseImageDataUrl(value);
+    if (inline) {
+      out.push(inline);
+      continue;
+    }
+
+    try {
+      const local = await resolveMediaRef(value, {
+        target: 'local-path',
+        baseUrl: options.baseUrl,
+      });
+      if (local?.path) {
+        const fs = require('fs');
+        out.push({
+          buffer: fs.readFileSync(local.path),
+          mime: local.mime || imageMimeFromUrl(local.path),
+        });
+        continue;
+      }
+    } catch {
+      // Fall through to data URL or remote URL handling.
+    }
+
+    const resolved = await resolveMediaRef(value, {
+      target: 'data-url',
+      baseUrl: options.baseUrl,
+    });
+    const dataUrl = parseImageDataUrl(resolved.dataUrl || resolved.url);
+    if (dataUrl) {
+      out.push(dataUrl);
+      continue;
+    }
+    if (/^https?:\/\//i.test(resolved.url || '')) {
+      out.push(await fetchImageReference(resolved.url, options));
+      continue;
+    }
+    throw new Error(`无法转换参考图：${String(value).slice(0, 120)}`);
+  }
+  return out;
+}
+
+function appendImageEditField(form, key, value) {
+  if (value == null || value === '') return;
+  form.append(key, String(value));
+}
+
+function buildImageEditFormData({ model, prompt, input, files }) {
+  const form = new FormData();
+  form.append('model', model);
+  form.append('prompt', prompt);
+  appendImageEditField(form, 'size', input.size);
+  appendImageEditField(form, 'n', input.n != null ? Number(input.n) : undefined);
+  appendImageEditField(form, 'quality', input.quality);
+  appendImageEditField(form, 'response_format', input.response_format);
+  appendImageEditField(form, 'background', input.background);
+  appendImageEditField(form, 'output_format', input.output_format);
+  files.forEach((file, index) => {
+    const mime = file.mime || 'image/png';
+    const filename = `reference-${index + 1}.${imageExtFromMime(mime)}`;
+    form.append('image', new Blob([file.buffer], { type: mime }), filename);
+  });
+  return form;
 }
 
 async function generateChat(provider, input = {}, options = {}) {
@@ -306,31 +450,49 @@ async function generateImage(provider, input = {}, options = {}) {
     return { ok: false, code: 'invalid_model', providerId: provider.id, protocol: provider.protocol, error: e.message };
   }
 
-  const body = {
-    model,
-    prompt,
-  };
-  if (input.size) body.size = String(input.size);
-  if (input.n != null) body.n = Number(input.n);
-  if (input.quality) body.quality = String(input.quality);
-  if (input.response_format) body.response_format = String(input.response_format);
+  const refsInput = collectReferenceImageInputs(input.images, input.referenceImages, input.reference_images);
+  const hasReferenceImages = refsInput.length > 0;
 
-  try {
-    const refs = await resolveReferenceImages(input.images || input.referenceImages || input.reference_images, {
-      baseUrl: options.baseUrl,
-      referenceTarget: input.referenceTarget || provider.defaults?.referenceTarget || 'data-url',
-    });
-    if (refs.length) body.image = refs;
-  } catch (e) {
-    return { ok: false, code: 'invalid_reference', providerId: provider.id, protocol: provider.protocol, error: e?.message || '参考图解析失败。' };
+  let url;
+  let requestBody;
+  let requestHeaders;
+  if (hasReferenceImages) {
+    let files;
+    try {
+      files = await resolveImageEditFiles(refsInput, {
+        baseUrl: options.baseUrl,
+        timeoutMs: options.referenceTimeoutMs || options.timeoutMs,
+        fetchImpl: options.fetchImpl,
+      });
+    } catch (e) {
+      return { ok: false, code: 'invalid_reference', providerId: provider.id, protocol: provider.protocol, error: e?.message || '参考图解析失败。' };
+    }
+    if (!files.length) {
+      return { ok: false, code: 'invalid_reference', providerId: provider.id, protocol: provider.protocol, error: '参考图解析失败。' };
+    }
+    url = providerEndpointUrl(provider, '/images/edits', ['imageEditEndpoint', 'image_edit_endpoint']);
+    requestBody = buildImageEditFormData({ model, prompt, input, files });
+    requestHeaders = bearerMultipartHeaders(provider);
+  } else {
+    const body = {
+      model,
+      prompt,
+    };
+    if (input.size) body.size = String(input.size);
+    if (input.n != null) body.n = Number(input.n);
+    if (input.quality) body.quality = String(input.quality);
+    if (input.response_format) body.response_format = String(input.response_format);
+
+    url = providerEndpointUrl(provider, '/images/generations', ['imageGenerationEndpoint', 'image_generation_endpoint']);
+    requestBody = JSON.stringify(body);
+    requestHeaders = bearerHeaders(provider);
   }
 
-  const url = providerEndpointUrl(provider, '/images/generations', ['imageGenerationEndpoint', 'image_generation_endpoint']);
   try {
     const res = await fetchWithTimeout(url, {
       method: 'POST',
-      headers: bearerHeaders(provider),
-      body: JSON.stringify(body),
+      headers: requestHeaders,
+      body: requestBody,
       timeoutMs: options.timeoutMs,
       fetchImpl: options.fetchImpl,
     });
