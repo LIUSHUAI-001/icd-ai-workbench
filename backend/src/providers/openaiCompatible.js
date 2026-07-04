@@ -250,7 +250,7 @@ async function resolveReferenceImages(refs, options = {}) {
   for (const ref of Array.isArray(refs) ? refs : []) {
     const value = typeof ref === 'string' ? ref : ref?.url || ref?.imageUrl || ref?.value;
     if (!value) continue;
-    const resolved = await resolveMediaRef(value, {
+    const resolved = await resolveMediaRef(normalizeLocalT8MediaRef(value, options.baseUrl), {
       target: options.referenceTarget || 'data-url',
       baseUrl: options.baseUrl,
     });
@@ -274,7 +274,8 @@ function collectReferenceImageInputs(...values) {
 async function resolveImageEditFiles(refs, options = {}) {
   const out = [];
   for (const ref of Array.isArray(refs) ? refs : []) {
-    const value = typeof ref === 'string' ? ref : ref?.url || ref?.imageUrl || ref?.value;
+    const rawValue = typeof ref === 'string' ? ref : ref?.url || ref?.imageUrl || ref?.value;
+    const value = normalizeLocalT8MediaRef(rawValue, options.baseUrl);
     if (!value) continue;
 
     const inline = parseImageDataUrl(value);
@@ -339,6 +340,75 @@ function buildImageEditFormData({ model, prompt, input, files }) {
     form.append('image', new Blob([file.buffer], { type: mime }), filename);
   });
   return form;
+}
+
+function normalizeLocalT8MediaRef(value, baseUrl) {
+  const text = String(value || '').trim();
+  if (!/^https?:\/\//i.test(text)) return text;
+  try {
+    const parsed = new URL(text);
+    const pathname = parsed.pathname || '';
+    if (!/^\/(?:files|api\/resources|api\/files|input|output)\//.test(pathname)) return text;
+    const base = baseUrl ? new URL(baseUrl) : null;
+    const host = parsed.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    const baseHost = base?.hostname?.replace(/^\[|\]$/g, '').toLowerCase();
+    const isSameBackend = base && parsed.protocol === base.protocol && parsed.host === base.host;
+    const isLocalBackend = ['127.0.0.1', 'localhost', '::1'].includes(host)
+      || (baseHost && host === baseHost && parsed.port === base.port);
+    return isSameBackend || isLocalBackend ? `${pathname}${parsed.search || ''}` : text;
+  } catch {
+    return text;
+  }
+}
+
+function providerLooksLikeAgnes(provider) {
+  const label = `${provider?.id || ''} ${provider?.label || ''} ${provider?.name || ''}`.toLowerCase();
+  if (label.includes('agnes')) return true;
+  try {
+    const host = new URL(cleanBaseUrl(provider?.baseUrl)).hostname.toLowerCase();
+    return host === 'agnes-ai.com' || host.endsWith('.agnes-ai.com');
+  } catch {
+    return false;
+  }
+}
+
+function modelLooksLikeAgnesImage(model) {
+  return /^agnes-image-/i.test(String(model || '').trim());
+}
+
+function useAgnesImageJson(provider, model) {
+  return modelLooksLikeAgnesImage(model) || providerLooksLikeAgnes(provider);
+}
+
+function imageResponseFormat(provider, input = {}) {
+  const params = input.providerParams && typeof input.providerParams === 'object' ? input.providerParams : {};
+  return String(
+    input.response_format ||
+    input.responseFormat ||
+    params.response_format ||
+    params.responseFormat ||
+    provider?.defaults?.responseFormat ||
+    provider?.defaults?.response_format ||
+    'url',
+  ).trim() || 'url';
+}
+
+function buildAgnesImageJsonBody(provider, input, model, prompt, refs = []) {
+  const params = input.providerParams && typeof input.providerParams === 'object' ? input.providerParams : {};
+  const responseFormat = imageResponseFormat(provider, input);
+  const body = {
+    model,
+    prompt,
+    size: String(input.size || params.size || '1024x1024'),
+    extra_body: {
+      response_format: responseFormat,
+    },
+  };
+  if (refs.length) body.extra_body.image = refs;
+  if (!refs.length && (input.return_base64 === true || responseFormat === 'b64_json')) {
+    body.return_base64 = true;
+  }
+  return body;
 }
 
 async function generateChat(provider, input = {}, options = {}) {
@@ -452,11 +522,30 @@ async function generateImage(provider, input = {}, options = {}) {
 
   const refsInput = collectReferenceImageInputs(input.images, input.referenceImages, input.reference_images);
   const hasReferenceImages = refsInput.length > 0;
+  const useAgnesJson = useAgnesImageJson(provider, model);
 
   let url;
   let requestBody;
   let requestHeaders;
-  if (hasReferenceImages) {
+  if (useAgnesJson) {
+    let refs = [];
+    if (hasReferenceImages) {
+      try {
+        refs = await resolveReferenceImages(refsInput, {
+          baseUrl: options.baseUrl,
+          referenceTarget: input.referenceTarget || provider.defaults?.imageReferenceTarget || provider.defaults?.referenceTarget || 'data-url',
+        });
+      } catch (e) {
+        return { ok: false, code: 'invalid_reference', providerId: provider.id, protocol: provider.protocol, error: e?.message || '参考图解析失败。' };
+      }
+      if (!refs.length) {
+        return { ok: false, code: 'invalid_reference', providerId: provider.id, protocol: provider.protocol, error: '参考图解析失败。' };
+      }
+    }
+    url = providerEndpointUrl(provider, '/images/generations', ['imageGenerationEndpoint', 'image_generation_endpoint']);
+    requestBody = JSON.stringify(buildAgnesImageJsonBody(provider, input, model, prompt, refs));
+    requestHeaders = bearerHeaders(provider);
+  } else if (hasReferenceImages) {
     let files;
     try {
       files = await resolveImageEditFiles(refsInput, {

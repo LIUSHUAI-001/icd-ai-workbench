@@ -1,7 +1,69 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.3.9",
-  "lastUpdated": "2026-07-04-v239-gemini-official-image-release",
+  "version": "2.4.0",
+  "lastUpdated": "2026-07-05-v240-agnes-prompt-stop-release",
+  "electronReleaseV240": {
+    "version": "2.4.0",
+    "status": "electron-release",
+    "date": "2026-07-05",
+    "description": "v2.4.0 Electron 自动更新版：修复 Agnes 在 OpenAI 兼容配置下图像编辑 503，提示词库 / 素材右键分类弹窗改为 Electron 内联表单，并给图像、视频、SD2.0 节点补齐停止生成。",
+    "highlights": [
+      "Agnes 专用适配器和 OpenAI 兼容配置 Agnes 均按官方文档走 /v1/images/generations JSON；参考图放入 extra_body.image，response_format 放入 extra_body.response_format，不再误用 /v1/images/edits multipart。",
+      "已用真实 Agnes API 验证文生图与 Data URI 图像编辑两条路径成功返回输出 URL；保留普通 OpenAI 兼容平台带参考图时的 /v1/images/edits multipart 行为。",
+      "提示词库和素材右键菜单不再调用 window.prompt()；新增模板分类、资源分类、缺失提示词补录和分类重命名均改为内联表单，避免 Electron 报 prompt() is not supported。",
+      "图像、视频、SD2.0 节点生成中显示停止按钮；停止会取消本地轮询并让旧任务回包失效，用户可立即重新发起新任务，远端已提交任务仍可能自然完成。",
+      "版本号按三段 0-9 规则从 2.3.9 进位到 2.4.0，并继续发布 NSIS 安装包、blockmap 与 latest.yml 自动更新资产。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "backend/src/providers/openaiCompatible.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.0.md",
+      "src/components/MaterialContextMenu.tsx",
+      "src/components/PromptTemplateLibraryModal.tsx",
+      "src/components/nodes/ImageNode.tsx",
+      "src/components/nodes/VideoNode.tsx",
+      "src/components/nodes/SeedanceNode.tsx",
+      "tests/openaiCompatibleProvider.test.ts",
+      "tests/promptTemplateLibrary.test.ts",
+      "tests/generationStopControls.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.0 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.0.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.0.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.0 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.0"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-05 R520 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.0。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\openaiCompatibleProvider.test.ts tests\\agnesProvider.test.ts tests\\externalProvidersGenerationRoute.test.ts tests\\advancedProviders.test.ts tests\\advancedProviderFrontend.test.ts tests\\promptTemplateLibrary.test.ts tests\\generationStopControls.test.ts",
+      "node --test --test-reporter=dot tests\\imageModelMapping.test.ts tests\\geminiOfficialImageRoute.test.ts tests\\modelUsageHelp.test.ts tests\\resourceLibraryDrawer.test.ts tests\\electronPackaging.test.ts",
+      "node -c backend\\src\\providers\\openaiCompatible.js",
+      "node -c backend\\src\\routes\\proxy.js",
+      "node -c backend\\src\\server.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.0 npm run dist:release",
+      "npm run release:verify -- v2.4.0"
+    ]
+  },
   "electronReleaseV239": {
     "version": "2.3.9",
     "status": "electron-release",
@@ -3675,11 +3737,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.3.9",
-    "semverVersion": "2.3.9",
+    "version": "2.4.0",
+    "semverVersion": "2.4.0",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.3.9，新增 Gemini 官方图像模型 generateContent 链路、OpenAI 兼容 /v1/images/edits、资源库分类本地上传，并收口完整视频剪辑台、ffprobe sidecar 与 native xfade 打包校验；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.3.9 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.3.9 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.0，修复 Agnes 在 OpenAI 兼容配置下图像编辑 503，提示词库 / 素材右键分类弹窗改为 Electron 内联表单，并给图像、视频、SD2.0 节点补齐停止生成；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.4.0 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.0 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",

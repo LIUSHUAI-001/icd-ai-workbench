@@ -175,6 +175,52 @@ test('OpenAI compatible image edit posts reference images to images/edits as mul
   assert.equal(calls[0].image.type, 'image/png');
 });
 
+test('OpenAI compatible Agnes image edit uses Agnes generations JSON shape', async () => {
+  const calls: any[] = [];
+  const provider = {
+    id: 'openai-compatible',
+    label: 'Agnes via OpenAI compatible',
+    protocol: 'openai-compatible',
+    baseUrl: 'https://apihub.agnes-ai.com/v1',
+    apiKey: 'sk-secret',
+    imageModels: ['agnes-image-2.1-flash'],
+  };
+
+  const result = await openaiCompatible.generateImage(provider, {
+    prompt: 'make the cup matte red',
+    model: 'agnes-image-2.1-flash',
+    size: '1024x768',
+    response_format: 'url',
+    referenceImages: ['data:image/png;base64,QUJD'],
+  }, {
+    fetchImpl: async (url: string, init: any) => {
+      calls.push({ url, init, body: JSON.parse(init.body) });
+      return jsonResponse({
+        data: [
+          { url: 'https://cdn.example.com/agnes-edited.png' },
+        ],
+      });
+    },
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.imageUrls, ['https://cdn.example.com/agnes-edited.png']);
+  assert.equal(calls[0].url, 'https://apihub.agnes-ai.com/v1/images/generations');
+  assert.equal(calls[0].init.headers.Authorization, 'Bearer sk-secret');
+  assert.equal(calls[0].init.headers['Content-Type'], 'application/json');
+  assert.deepEqual(calls[0].body, {
+    model: 'agnes-image-2.1-flash',
+    prompt: 'make the cup matte red',
+    size: '1024x768',
+    extra_body: {
+      image: ['data:image/png;base64,QUJD'],
+      response_format: 'url',
+    },
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(calls[0].body, 'response_format'), false);
+  assert.equal(Object.prototype.hasOwnProperty.call(calls[0].body, 'tags'), false);
+});
+
 test('OpenAI compatible video generation posts to video endpoint and normalizes returned media urls', async () => {
   const calls: any[] = [];
   const provider = {
