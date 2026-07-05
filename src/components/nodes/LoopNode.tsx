@@ -43,7 +43,7 @@ const EXEC_TYPES = new Set<string>([
   'panorama-3d',
   'frame-extractor', 'frame-pair',
   'upload',
-  'aggregate-parser', 'batch-processor',
+  'aggregate-parser', 'batch-processor', 'batch-tagger',
   'topaz-image-upscale', 'topaz-video-upscale',
 ]);
 

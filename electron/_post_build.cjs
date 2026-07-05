@@ -554,6 +554,7 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'routes', 'topaz.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'vibexBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'videoOps.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'batchTags.t8c'));
   checkNoLocalVibexRoute();
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'media.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'store.t8c'));
