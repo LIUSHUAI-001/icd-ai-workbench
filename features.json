@@ -1,7 +1,63 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.4.2",
-  "lastUpdated": "2026-07-06-v242-batch-tagger-electron-release",
+  "version": "2.4.3",
+  "lastUpdated": "2026-07-06-v243-unlimited-upload-electron-release",
+  "electronReleaseV243": {
+    "version": "2.4.3",
+    "status": "electron-release",
+    "date": "2026-07-06",
+    "description": "v2.4.3 Electron 自动更新版：上传素材节点移除 20MB 应用层上传限制，/api/files/upload 不再给 multer 设置 fileSize，上限仅受磁盘、系统和运行环境约束。",
+    "highlights": [
+      "上传素材节点支持大体积本地图片、视频、音频和通用素材，不再因超过 20MB 显示“请压缩后重试”。",
+      "后端 /api/files/upload 移除 multer limits.fileSize；config.MAX_FILE_SIZE 保留为 0，作为“不设置应用层大小上限”的明确配置语义。",
+      "上传错误处理移除 LIMIT_FILE_SIZE / file_too_large 专用分支，避免继续把大文件误判成 20MB 超限。",
+      "回归测试锁定上传接口不再包含 fileSize 限制、LIMIT_FILE_SIZE、file_too_large 和 20MB 超限文案。",
+      "已做 21MB multipart 实际上传冒烟，接口返回 200 success，并清理测试生成的 input 临时文件。",
+      "Electron 自动更新仍发布 NSIS 安装包、blockmap 与 latest.yml，安装继续使用前台向导。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "backend/src/routes/files.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.3.md",
+      "tests/imageLoadingPerformance.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.3 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.3.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.3.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.3 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.3"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-06 R523 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.3。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\imageLoadingPerformance.test.ts",
+      "node -c backend\\src\\routes\\files.js",
+      "node -c backend\\src\\config.js",
+      "node -c electron\\_post_build.cjs",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "真实后端上传冒烟：临时端口 POST /api/files/upload 上传 21MB 文件返回 200 success",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.3 npm run dist:release",
+      "npm run release:verify -- v2.4.3"
+    ]
+  },
   "electronReleaseV242": {
     "version": "2.4.2",
     "status": "electron-release",
@@ -3913,11 +3969,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.4.2",
-    "semverVersion": "2.4.2",
+    "version": "2.4.3",
+    "semverVersion": "2.4.3",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.2，新增批量打标节点，支持图像 / 视频批量导入、扩展 API 视觉打标、同名前缀 txt/json sidecar 保存与 ModelScope Qwen3-VL 235B；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.4.2 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.2 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.3，上传素材节点移除 20MB 应用层大小限制，/api/files/upload 不再给 multer 设置 fileSize，公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.4.3 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.3 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
@@ -3981,7 +4037,7 @@
     "imagePreviewPipeline": {
       "frontend": "高频节点预览统一使用 SmartImage + previewImageUrl，本地 /files/input 与 /files/output 图片接近视口后才请求 /api/files/thumbnail，原始素材 URL 保留在 data-full-src 与拖拽/下载/下游数据中。",
       "backend": "backend/src/routes/files.js 提供 GET /api/files/thumbnail?url=&size=，用 sharp 生成 webp 缩略图并缓存到 THUMBNAILS_DIR，Cache-Control=immutable；同一 target 通过 thumbnailInflight 去重，生成并发由 T8PC_THUMBNAIL_CONCURRENCY 控制，默认 2、最高 4。",
-      "upload": "POST /api/files/upload multipart 上传上限对齐到 20MB；multer 超限返回 413 JSON(code=file_too_large)，避免 10MB 以上 ComfyUI PNG 被误报为 HTTP 500。",
+      "upload": "POST /api/files/upload multipart 不设置应用层大小上限；上传素材节点可接收大体积本地素材，实际容量只受磁盘、系统和运行环境约束。",
       "exceptions": "裁剪、去水印框选、图片编辑、图片对比等依赖原图像素或细节的视图继续使用原图。"
     },
     "edgeMotion": {
