@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.4.5
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.4.6
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.4.5-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.4.6-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -37,6 +37,7 @@ My favorite girl Go YounJung
 
 - 🎨 **55 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标 / 随机路由
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
+- 🖌️ **v2.4.6 Photoshop 联动热修自动更新版**：修复 `T8 Photoshop Link` 在 Photoshop UXP Manifest v5 下访问 `http://127.0.0.1:18766` 被 `Permission denied / Manifest entry not found` 拦截的问题，插件 manifest 改为带协议和端口的本机白名单；同时支持 18766-18776 本机端口 fallback，避免旧后端占用 18766 时新版桌面端退到后续端口后插件仍连错。
 - 🖌️ **v2.4.5 Photoshop 联动自动更新版**：新增 `T8 Photoshop Link` UXP 插件与 `/api/photoshop-bridge` 本机桥接，PS 图层可发送回当前画布，画布图像素材也可排队置入当前 PS 文档；插件内支持浏览 T8 最近输出 / 上传 / 资源库图像，并复用扩展 API 图像模型做生成或参考图编辑。Electron 打包会携带 `resources\tools\photoshop-bridge\plugin` 并校验 `photoshopBridge.t8c`，同时修复随机路由透传素材时误自动生成独立输出素材节点的问题。
 - 🎲 **v2.4.4 随机路由与输入体验自动更新版**：新增“随机路由”工具节点，支持 `total_outputs` 1-100 动态输出口和 `random_pass_count` 精确随机命中，未命中分支不会进入运行队列；上传多视频合集的打散按钮保持常显；图像等节点的富文本 Prompt 针对微信输入法组合输入清理泄漏拼音，避免多出字母。
 - 📦 **v2.4.3 上传素材无限制自动更新版**：上传素材节点移除 20MB 应用层大小限制，后端 `/api/files/upload` 不再给 multer 设置 `fileSize`，大体积本地素材上传只受磁盘、系统和运行环境约束；节点不再提示“文件超过上传上限 20MB，请压缩后重试”。

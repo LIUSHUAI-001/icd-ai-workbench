@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
 import express from 'express';
 import multer from 'multer';
 import { createRequire } from 'node:module';
@@ -349,6 +350,76 @@ test('Photoshop UXP plugin has assets, generate, and settings tabs without Agent
   assert.match(app, /placeImage/);
   assert.match(app, /pollCommands/);
   assert.doesNotMatch(app, /\/api\/chat\/agent/);
+});
+
+test('Photoshop UXP manifest allows the local T8 bridge origins used by fetch', () => {
+  const manifest = JSON.parse(read('tools/photoshop-bridge/plugin/manifest.json'));
+  const domains = manifest.requiredPermissions?.network?.domains || [];
+  assert.ok(Array.isArray(domains), 'network.domains must be an explicit allowlist');
+
+  for (const host of ['127.0.0.1', 'localhost']) {
+    for (let port = 18766; port <= 18776; port += 1) {
+      const origin = `http://${host}:${port}`;
+      assert.ok(
+        domains.includes(origin),
+        `UXP fetch needs manifest requiredPermissions.network.domains to include ${origin}`,
+      );
+    }
+  }
+
+  assert.equal(domains.includes('all'), false, 'Photoshop plugin should only allow local T8 bridge origins');
+});
+
+test('Photoshop UXP net connect falls back when the default local bridge port is occupied', async () => {
+  const storage = new Map([['t8.ps.host', '127.0.0.1:18766']]);
+  const calls: string[] = [];
+  const context: any = {
+    console,
+    URL,
+    Uint8Array,
+    ArrayBuffer,
+    localStorage: {
+      getItem: (key: string) => storage.get(key) || null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+    },
+    fetch: async (url: string) => {
+      calls.push(String(url));
+      const parsed = new URL(String(url));
+      if (parsed.origin === 'http://127.0.0.1:18766') {
+        return {
+          ok: false,
+          status: 404,
+          text: async () => '<pre>Cannot GET /api/photoshop-bridge/status</pre>',
+        };
+      }
+      if (parsed.origin === 'http://127.0.0.1:18767') {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            success: true,
+            data: { service: 't8-photoshop-bridge', version: '2.4.6' },
+          }),
+        };
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  };
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(read('tools/photoshop-bridge/plugin/js/state.js'), context);
+  vm.runInContext(read('tools/photoshop-bridge/plugin/js/net.js'), context);
+
+  const data = await context.T8PS.net.connect('127.0.0.1:18766');
+
+  assert.equal(data.service, 't8-photoshop-bridge');
+  assert.equal(context.T8PS.state.connected, true);
+  assert.equal(context.T8PS.state.host, '127.0.0.1:18767');
+  assert.equal(storage.get('t8.ps.host'), '127.0.0.1:18767');
+  assert.deepEqual(calls, [
+    'http://127.0.0.1:18766/api/photoshop-bridge/status',
+    'http://127.0.0.1:18767/api/photoshop-bridge/status',
+  ]);
 });
 
 test('T8 app packages Photoshop plugin and drains Photoshop bridge messages into canvas', () => {

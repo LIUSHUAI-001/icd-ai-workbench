@@ -1,11 +1,45 @@
 (function () {
   const state = T8PS.state;
+  const DEFAULT_BRIDGE_HOST = '127.0.0.1:18766';
+  const LOCAL_BRIDGE_PORT_START = 18766;
+  const LOCAL_BRIDGE_PORT_END = 18776;
 
   function parseHost(raw) {
     let text = String(raw || '').trim();
-    if (!text) return '';
+    if (!text) return DEFAULT_BRIDGE_HOST;
     text = text.replace(/^https?:\/\//i, '').replace(/[/?#].*$/, '');
-    return text || '127.0.0.1:18766';
+    return text || DEFAULT_BRIDGE_HOST;
+  }
+
+  function localHostName(host) {
+    const match = String(host || '').match(/^([^:]+)(?::\d+)?$/);
+    if (!match) return '';
+    const name = match[1].toLowerCase();
+    return name === '127.0.0.1' || name === 'localhost' ? name : '';
+  }
+
+  function bridgeHostCandidates(rawHost) {
+    const preferred = parseHost(rawHost);
+    const candidates = [];
+    const seen = new Set();
+    const add = (host) => {
+      if (!host || seen.has(host)) return;
+      seen.add(host);
+      candidates.push(host);
+    };
+    add(preferred);
+
+    const hostName = localHostName(preferred);
+    if (hostName) {
+      for (let port = LOCAL_BRIDGE_PORT_START; port <= LOCAL_BRIDGE_PORT_END; port += 1) {
+        add(`${hostName}:${port}`);
+      }
+      const alias = hostName === 'localhost' ? '127.0.0.1' : 'localhost';
+      for (let port = LOCAL_BRIDGE_PORT_START; port <= LOCAL_BRIDGE_PORT_END; port += 1) {
+        add(`${alias}:${port}`);
+      }
+    }
+    return candidates;
   }
 
   function httpBase() {
@@ -53,11 +87,26 @@
   }
 
   async function connect(rawHost) {
-    state.host = parseHost(rawHost);
+    const preferredHost = parseHost(rawHost);
+    let lastError = null;
+    for (const host of bridgeHostCandidates(preferredHost)) {
+      state.host = host;
+      try {
+        const json = await apiGet('/api/photoshop-bridge/status');
+        if (json && json.data && json.data.service === 't8-photoshop-bridge') {
+          state.connected = true;
+          localStorage.setItem('t8.ps.host', state.host);
+          return json.data;
+        }
+        lastError = new Error('连接的服务不是 T8 Photoshop Bridge');
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    state.connected = false;
+    state.host = preferredHost;
     localStorage.setItem('t8.ps.host', state.host);
-    const json = await apiGet('/api/photoshop-bridge/status');
-    state.connected = !!json.data && json.data.service === 't8-photoshop-bridge';
-    return json.data;
+    throw lastError || new Error('无法连接 T8 后台');
   }
 
   async function fetchBytes(url) {
@@ -91,5 +140,5 @@
     });
   }
 
-  T8PS.net = { parseHost, httpBase, absUrl, apiGet, apiPost, connect, fetchBytes, toBase64, uploadPng };
+  T8PS.net = { parseHost, bridgeHostCandidates, httpBase, absUrl, apiGet, apiPost, connect, fetchBytes, toBase64, uploadPng };
 })();

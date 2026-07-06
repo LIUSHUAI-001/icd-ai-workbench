@@ -1,7 +1,67 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.4.5",
-  "lastUpdated": "2026-07-07-v245-photoshop-bridge-electron-release",
+  "version": "2.4.6",
+  "lastUpdated": "2026-07-07-v246-photoshop-uxp-link-hotfix-release",
+  "electronReleaseV246": {
+    "version": "2.4.6",
+    "status": "electron-release",
+    "date": "2026-07-07",
+    "description": "v2.4.6 Electron 自动更新热修版：修复 T8 Photoshop Link 在 Photoshop UXP Manifest v5 下访问本机 T8 后台被 Permission denied / Manifest entry not found 拦截的问题；插件网络白名单改为带协议和端口的本机 origin，并增加 18766-18776 本机端口 fallback。",
+    "highlights": [
+      "修复 T8 Photoshop Link 连接 http://127.0.0.1:18766/api/photoshop-bridge/status 时被 UXP manifest 网络权限预检拦截的问题。",
+      "Photoshop 插件 manifest 的 requiredPermissions.network.domains 改为显式允许 http://127.0.0.1:18766-18776 与 http://localhost:18766-18776，并继续禁止 all 权限和远端网络白名单。",
+      "插件连接 T8 后台时会在本机端口范围内 fallback：如果 18766 被旧 node src/server.js 或其他旧后端占用返回 404，会自动尝试后续端口并保存成功端口。",
+      "Photoshop 插件 mock UI QA 增加 UXP manifest fetch 权限门禁模拟，避免浏览器环境误放过真实 Photoshop UXP 才会出现的 Manifest entry not found。",
+      "回归测试新增 manifest 本机端口白名单和 net.connect fallback 断言，锁定用户安装插件后无法连接的真实场景。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.6.md",
+      "tests/photoshopBridge.test.ts",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/js/net.js"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.6 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.6.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.6.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.6 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.6",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；v2.4.6 后置与发布校验需要确认 plugin/manifest.json 带本机端口白名单、js/net.js 带 fallback 逻辑。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 继续允许公开提交；它只连接本机 localhost / 127.0.0.1 的有限端口范围，不包含用户密钥、Cookie、私有计费或远端中转配置。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "TDD 红灯：node --test --test-reporter=dot tests\\photoshopBridge.test.ts 先失败于 manifest 缺 http://127.0.0.1:18767 与 net.connect 未 fallback。",
+      "node --test --test-reporter=dot tests\\photoshopBridge.test.ts",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "当前源码临时后端端口 18991 冒烟：/api/photoshop-bridge/status 返回 service=t8-photoshop-bridge，/api/photoshop-bridge/image-providers 返回脱敏 provider 列表。",
+      "Playwright Photoshop 插件 mock UI QA 带 UXP manifest fetch 权限门禁，确认连接、资产 / 生成 / 设置页、生成结果展示、置入命令完成和无 Agent 页。",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.6 npm run dist:release",
+      "npm run release:verify -- v2.4.6"
+    ]
+  },
   "electronReleaseV245": {
     "version": "2.4.5",
     "status": "electron-release",
@@ -4155,11 +4215,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.4.5",
-    "semverVersion": "2.4.5",
+    "version": "2.4.6",
+    "semverVersion": "2.4.6",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.5，新增 Photoshop UXP 联动插件与 /api/photoshop-bridge 本机桥接，并修复随机路由透传素材误自动输出，公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.4.5 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.5 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.6，热修 Photoshop UXP 联动插件 manifest 本机网络权限与端口 fallback，公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.4.6 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.6 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
