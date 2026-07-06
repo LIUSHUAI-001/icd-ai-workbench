@@ -84,6 +84,7 @@ export const NODE_DEFAULT_SIZE: Record<string, { w: number; h: number }> = {
   'pose-master': { w: 900, h: 720 },
   'aggregate-parser': { w: 620, h: 680 },
   'batch-processor': { w: 640, h: 560 },
+  'batch-tagger': { w: 720, h: 620 },
   'topaz-image-upscale': { w: 390, h: 620 },
   'topaz-video-upscale': { w: 420, h: 720 },
   'panorama-3d': { w: 1180, h: 760 },

@@ -1067,6 +1067,7 @@ const PoseMasterNode = lazyCanvasNode(() => import('./nodes/PoseMasterNode'), 'P
 const Panorama3DNode = lazyCanvasNode(() => import('./nodes/Panorama3DNode'), 'Panorama3DNode');
 const AggregateParserNode = lazyCanvasNode(() => import('./nodes/AggregateParserNode'), 'AggregateParserNode');
 const BatchProcessorNode = lazyCanvasNode(() => import('./nodes/BatchProcessorNode'), 'BatchProcessorNode');
+const BatchTaggerNode = lazyCanvasNode(() => import('./nodes/BatchTaggerNode'), 'BatchTaggerNode');
 const TopazImageUpscaleNode = lazyCanvasNode(() => import('./nodes/TopazImageUpscaleNode'), 'TopazImageUpscaleNode');
 const TopazVideoUpscaleNode = lazyCanvasNode(() => import('./nodes/TopazVideoUpscaleNode'), 'TopazVideoUpscaleNode');
 const IdeaNode = lazyCanvasNode(() => import('./nodes/IdeaNode'), 'IdeaNode');
@@ -1168,6 +1169,7 @@ const SPECIFIC_NODES: Record<string, any> = {
   'pose-master': PoseMasterNode,
   'aggregate-parser': AggregateParserNode,
   'batch-processor': BatchProcessorNode,
+  'batch-tagger': BatchTaggerNode,
   'topaz-image-upscale': TopazImageUpscaleNode,
   'topaz-video-upscale': TopazVideoUpscaleNode,
   'panorama-3d': Panorama3DNode,
@@ -1406,6 +1408,28 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     batchProcessorRetryCount: 1,
     batchProcessorContinueOnError: true,
     batchProcessorQuality: 90,
+    status: 'idle',
+    error: '',
+  },
+  'batch-tagger': {
+    batchTagItems: [],
+    batchTagResults: [],
+    batchTagProgress: { total: 0, done: 0, ok: 0, fail: 0, running: 0, pending: 0, percent: 0, status: 'idle' },
+    batchTagMode: 'tags',
+    batchTagProviderSource: 'zhenzhen',
+    batchTagProviderId: '',
+    batchTagProviderModel: 'gpt-4o-mini',
+    batchTagVideoMode: 'frames',
+    batchTagFrameCount: 8,
+    batchTagMaxTags: 30,
+    batchTagFormats: ['txt', 'json'],
+    batchTagConcurrency: 2,
+    batchTagRetryCount: 1,
+    batchTagContinueOnError: true,
+    batchTagOverwrite: false,
+    batchTagPrompt: '',
+    outputText: '',
+    metadata: null,
     status: 'idle',
     error: '',
   },
@@ -1882,7 +1906,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   // v1.2.8 工具节点 (循环器 / 从合集获取)
   'loop', 'pick-from-set',
   // v1.4.8: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
-  'cinematic', 'video-motion', 'multi-angle-visual', 'portrait-master', 'pose-master', 'aggregate-parser', 'batch-processor',
+  'cinematic', 'video-motion', 'multi-angle-visual', 'portrait-master', 'pose-master', 'aggregate-parser', 'batch-processor', 'batch-tagger',
   'topaz-image-upscale', 'topaz-video-upscale',
   'remove-ai-watermark',
 ]);

@@ -68,6 +68,7 @@ export type NodeType =
   | 'pose-master'
   | 'aggregate-parser'
   | 'batch-processor'
+  | 'batch-tagger'
   | 'topaz-image-upscale'
   | 'topaz-video-upscale'
   // 3D (1)
