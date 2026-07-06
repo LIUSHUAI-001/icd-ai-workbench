@@ -1,7 +1,68 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.4.6",
-  "lastUpdated": "2026-07-07-v246-photoshop-uxp-link-hotfix-release",
+  "version": "2.4.7",
+  "lastUpdated": "2026-07-07-v247-photoshop-link-ui-hotfix-release",
+  "electronReleaseV247": {
+    "version": "2.4.7",
+    "status": "electron-release",
+    "date": "2026-07-07",
+    "description": "v2.4.7 Electron 自动更新热修版：继续收口 Photoshop 联动体验，修复 T8 Photoshop Link 面板紧凑宽度下刷新 / 连接按钮文字竖排的问题，并补强插件 UI 自动化覆盖资产库、生成、设置、PS 当前画面上传回 T8 与画布发送到 PS。",
+    "highlights": [
+      "修复 Photoshop 插件资产页刷新按钮、设置页连接按钮在 430px 宽面板下被挤成竖排的问题。",
+      "插件按钮增加 white-space nowrap、稳定最小宽度和 flex 固定宽度，输入框 / 下拉框允许在同一行内收缩，窄面板下关键操作保持可读。",
+      "Playwright Photoshop 插件 QA 扩展到资产库加载、资产置入 PS、设置页、PS 当前画面上传回 T8、生成 provider/model、生成结果展示、生成后置入 PS 和画布命令队列置入 PS。",
+      "单元测试新增插件中文按钮不换行和紧凑按钮最小宽度护栏。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.7.md",
+      "tests/photoshopBridge.test.ts",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/style.css"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.7 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.7.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.7.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.7 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.7",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；v2.4.7 后置与发布校验需要确认 plugin/style.css 带按钮不换行护栏。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 继续允许公开提交；它只连接本机 localhost / 127.0.0.1 的有限端口范围，不包含用户密钥、Cookie、私有计费或远端中转配置。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\photoshopBridge.test.ts",
+      "node -c backend\\src\\routes\\photoshopBridge.js",
+      "node -c backend\\src\\server.js",
+      "node -c backend\\src\\config.js",
+      "node -c electron\\_post_build.cjs",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "Playwright Photoshop 插件 mock UI QA 带 UXP manifest fetch 权限门禁，确认连接、资产 / 生成 / 设置页、PS 当前画面上传、生成结果展示、置入命令完成和无 Agent 页。",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.7 npm run dist:release",
+      "npm run release:verify -- v2.4.7"
+    ]
+  },
   "electronReleaseV246": {
     "version": "2.4.6",
     "status": "electron-release",
@@ -4215,11 +4276,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.4.6",
-    "semverVersion": "2.4.6",
+    "version": "2.4.7",
+    "semverVersion": "2.4.7",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.6，热修 Photoshop UXP 联动插件 manifest 本机网络权限与端口 fallback，公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.4.6 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.6 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.7，热修 Photoshop UXP 联动插件紧凑面板按钮换行与 UI QA 覆盖，公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.4.7 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.7 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",

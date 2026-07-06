@@ -335,11 +335,14 @@ test('Photoshop UXP plugin has assets, generate, and settings tabs without Agent
   assert.match(manifest.name, /T8|Photoshop|PS/i);
 
   const html = read('tools/photoshop-bridge/plugin/index.html');
+  const css = read('tools/photoshop-bridge/plugin/style.css');
   assert.match(html, /data-tab=["']assets["']/);
   assert.match(html, /data-tab=["']generate["']/);
   assert.match(html, /data-tab=["']settings["']/);
   assert.doesNotMatch(html, /data-tab=["']agent["']/i);
   assert.doesNotMatch(html, /Agent/i);
+  assert.match(css, /white-space:\s*nowrap/, 'plugin action buttons should not wrap Chinese labels vertically');
+  assert.match(css, /min-width:\s*(?:5[6-9]|[6-9]\d)px/, 'compact action buttons need a stable minimum width');
 
   const app = read('tools/photoshop-bridge/plugin/js/app.js');
   assert.match(app, /\/api\/photoshop-bridge\/library/);
@@ -398,7 +401,7 @@ test('Photoshop UXP net connect falls back when the default local bridge port is
           status: 200,
           text: async () => JSON.stringify({
             success: true,
-            data: { service: 't8-photoshop-bridge', version: '2.4.6' },
+            data: { service: 't8-photoshop-bridge', version: '2.4.7' },
           }),
         };
       }
