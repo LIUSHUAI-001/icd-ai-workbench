@@ -116,6 +116,26 @@ test('outer canvas execution lets random route own its downstream branch nodes',
   assert.deepEqual(pruned.edges, []);
 });
 
+test('random route is a pass-through router and does not auto-output input materials', () => {
+  const canvas = read('src/components/Canvas.tsx');
+
+  assert.match(
+    canvas,
+    /const SKIP_TYPES = new Set\(\[[^\]]*'random-route'[^\]]*\]\);/,
+    'random-route should be skipped by the generic auto-output material effect',
+  );
+});
+
+test('random route removes stale auto-output nodes created by older builds', () => {
+  const canvas = read('src/components/Canvas.tsx');
+
+  assert.match(canvas, /source\?\.type === 'random-route'/);
+  assert.match(canvas, /target\?\.type === 'output'/);
+  assert.match(canvas, /target\.id\.startsWith\('output-auto-'\)/);
+  assert.match(canvas, /edge\.id\.startsWith\('e-auto-'\)/);
+  assert.match(canvas, /td\.userMoved !== true/);
+});
+
 test('random route node is registered as a dynamic utility node with run support', () => {
   const registry = read('src/config/nodeRegistry.ts');
   const ports = read('src/config/portTypes.ts');
