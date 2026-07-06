@@ -126,6 +126,8 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   // 循环器 (v1.2.8): 接受 4 类素材集合 → 按 kind 输出下游驱动 (串联/并联)
   // 输出默认按 kind 递多类型 (any 允许接任意下游执行节点)
   loop: { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
+  // 随机路由: 任意上游素材透传到 N 个动态输出口，运行时只触发命中的分支。
+  'random-route': { inputs: ['any'], outputs: ['any'] },
   // 从合集获取 (v1.2.8): 从上游集合中选中单一素材 → 输出按 kind 变化
   'pick-from-set': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
   // 文本分割: 长文本/上游文本 → 多段 textSegments, 下游按多文本集合消费

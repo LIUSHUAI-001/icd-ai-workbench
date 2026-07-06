@@ -34,6 +34,7 @@ import { useRunBusStore } from '../stores/runBus';
 import { useGroupBusStore, GROUP_COLORS, DEFAULT_GROUP_NAME } from '../stores/groupBus';
 import { useRadialMenuStore } from '../stores/radialMenu';
 import { topologicalSort } from '../utils/topologicalSort';
+import { excludeRandomRouteBranchDescendants } from '../utils/randomRoute';
 import { installGlobalWheelBlockObserver } from '../utils/wheelBlock';
 // v1.2.10.5: 节点落点防重叠解析器 (单节点/整组双模式 + 兜底+toast+飞镜)
 import {
@@ -1083,6 +1084,7 @@ const BrowserNode = lazyCanvasNode(() => import('./nodes/BrowserNode'), 'Browser
 const FrameExtractorNode = lazyCanvasNode(() => import('./nodes/FrameExtractorNode'), 'FrameExtractorNode');
 const FramePairNode = lazyCanvasNode(() => import('./nodes/FramePairNode'), 'FramePairNode');
 const LoopNode = lazyCanvasNode(() => import('./nodes/LoopNode'), 'LoopNode');
+const RandomRouteNode = lazyCanvasNode(() => import('./nodes/RandomRouteNode'), 'RandomRouteNode');
 const PickFromSetNode = lazyCanvasNode(() => import('./nodes/PickFromSetNode'), 'PickFromSetNode');
 const TextSplitNode = lazyCanvasNode(() => import('./nodes/TextSplitNode'), 'TextSplitNode');
 const MaterialSetNode = lazyCanvasNode(() => import('./nodes/MaterialSetNode'), 'MaterialSetNode');
@@ -1144,6 +1146,7 @@ const SPECIFIC_NODES: Record<string, any> = {
   'frame-extractor': FrameExtractorNode,
   'frame-pair': FramePairNode,
   loop: LoopNode,
+  'random-route': RandomRouteNode,
   'pick-from-set': PickFromSetNode,
   'text-split': TextSplitNode,
   'material-set': MaterialSetNode,
@@ -1769,6 +1772,17 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   } : {}),
   // 循环器: 默认串联 + image kind
   loop: { mode: 'serial', kind: 'image', outputs: [], progress: { done: 0, total: 0, ok: 0, fail: 0 } },
+  // 随机路由: 默认 10 个输出口，每次随机放行 1 个分支。
+  'random-route': {
+    randomRouteTotalOutputs: 10,
+    randomRoutePassCount: 1,
+    randomRouteActiveHandles: [],
+    randomRouteLastOrder: [],
+    randomRouteLastOkCount: 0,
+    randomRouteLastFailCount: 0,
+    status: 'idle',
+    error: '',
+  },
   // 从合集获取: 默认 image + 第 1 个
   'pick-from-set': { pickKind: 'image', pickIndex: 1 },
   'image-compare': { mode: 'slider', align: 'contain', split: 50, opacity: 50, threshold: 24 },
@@ -1904,7 +1918,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'frame-extractor', 'frame-pair',
   'upload',
   // v1.2.8 工具节点 (循环器 / 从合集获取)
-  'loop', 'pick-from-set',
+  'loop', 'random-route', 'pick-from-set',
   // v1.4.8: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
   'cinematic', 'video-motion', 'multi-angle-visual', 'portrait-master', 'pose-master', 'aggregate-parser', 'batch-processor', 'batch-tagger',
   'topaz-image-upscale', 'topaz-video-upscale',
@@ -6191,7 +6205,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   // 通用: 在指定节点子集上拓扑排序 + 串行调 runBus
   const runNodesByOrder = useCallback(
     async (subNodes: Node[], subEdges: Edge[]) => {
-      const order = topologicalSort(subNodes, subEdges, EXECUTABLE_NODE_TYPES);
+      const plannedSubgraph = excludeRandomRouteBranchDescendants(subNodes, subEdges);
+      const order = topologicalSort(plannedSubgraph.nodes, plannedSubgraph.edges, EXECUTABLE_NODE_TYPES);
       if (order.length === 0) return 0;
       cancelRunRef.current = false;
       setIsRunning(true);
@@ -6232,7 +6247,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
 
   const handleRunAll = useCallback(async () => {
     if (isRunning) return;
-    const order = topologicalSort(nodes, edges, EXECUTABLE_NODE_TYPES);
+    const plannedSubgraph = excludeRandomRouteBranchDescendants(nodes, edges);
+    const order = topologicalSort(plannedSubgraph.nodes, plannedSubgraph.edges, EXECUTABLE_NODE_TYPES);
     if (order.length === 0) {
       alert('画布上没有可执行节点');
       return;

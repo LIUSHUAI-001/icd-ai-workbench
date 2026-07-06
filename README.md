@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.4.3
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.4.4
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.4.3-brightgreen) ![node](https://img.shields.io/badge/node-54-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.4.4-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -35,8 +35,9 @@ My favorite girl Go YounJung
 
 ## ✨ 功能亮点
 
-- 🎨 **54 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标
+- 🎨 **55 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标 / 随机路由
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
+- 🎲 **v2.4.4 随机路由与输入体验自动更新版**：新增“随机路由”工具节点，支持 `total_outputs` 1-100 动态输出口和 `random_pass_count` 精确随机命中，未命中分支不会进入运行队列；上传多视频合集的打散按钮保持常显；图像等节点的富文本 Prompt 针对微信输入法组合输入清理泄漏拼音，避免多出字母。
 - 📦 **v2.4.3 上传素材无限制自动更新版**：上传素材节点移除 20MB 应用层大小限制，后端 `/api/files/upload` 不再给 multer 设置 `fileSize`，大体积本地素材上传只受磁盘、系统和运行环境约束；节点不再提示“文件超过上传上限 20MB，请压缩后重试”。
 - 👁️ **上传 / 输出图像原图悬停预览**（v1.8.7）：上传素材与输出素材的图像卡片在 hover 时显示小眼睛按钮，鼠标停在按钮上可按 100% 原尺寸预览，超出视口时自动等比收进可见区域，输出素材入口位于图像对比按钮下方
 - 🧾 **提示词模板库媒体套件**（v2.1.2）：图像 / 视频 / 音频 / 文本素材可从节点右键直接保存到提示词模板库，连同原 Prompt、标题、标签和配套媒体一起沉淀；右键保存时可选择或新建模板分类，模板库支持分类新增 / 删除 / 重命名，预览采用懒加载并支持图像 100% 查看
