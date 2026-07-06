@@ -1,7 +1,74 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.4.3",
-  "lastUpdated": "2026-07-06-v243-unlimited-upload-electron-release",
+  "version": "2.4.4",
+  "lastUpdated": "2026-07-06-v244-random-route-electron-release",
+  "electronReleaseV244": {
+    "version": "2.4.4",
+    "status": "electron-release",
+    "date": "2026-07-06",
+    "description": "v2.4.4 Electron 自动更新版：新增随机路由节点，支持 1-100 动态输出口与精确随机命中分支执行；补齐上传多素材打散按钮常显，并修复微信输入法组合输入时 Prompt 多出拼音字母的问题。",
+    "highlights": [
+      "工具节点新增“随机路由”，左侧接受任意上游素材，右侧按 total_outputs 动态生成 1-100 个输出口。",
+      "random_pass_count 每次运行都会精确随机命中不重复输出口，未命中分支不进入运行队列；支持单节点 RUN、批量运行、组运行和循环器下游链路。",
+      "随机路由会透传文本、图像、视频、音频和 3D 素材字段，命中输出口在节点 UI 内高亮，并记录上次路由结果。",
+      "上传素材节点的合集打散按钮改为常显，上传多个视频、图片或音频后无需悬停也能直接拆成独立素材节点。",
+      "富文本 Prompt 输入框抽出 IME 组合输入保护工具，微信输入法提交中文时会清理前置泄漏拼音，避免图像节点输入框多出英文字母。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.4.md",
+      "src/components/Canvas.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/nodes/LoopNode.tsx",
+      "src/components/nodes/MentionPromptInput.tsx",
+      "src/components/nodes/RandomRouteNode.tsx",
+      "src/components/nodes/UploadNode.tsx",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/types/canvas.ts",
+      "src/utils/imeComposition.ts",
+      "src/utils/nodePlacement.ts",
+      "src/utils/randomRoute.ts",
+      "tests/imeComposition.test.ts",
+      "tests/mediaCollection.test.ts",
+      "tests/randomRoute.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.4 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.4.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.4.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.4 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.4"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-06 R524 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.4。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\randomRoute.test.ts tests\\imeComposition.test.ts tests\\mediaCollection.test.ts",
+      "node -c backend\\src\\config.js",
+      "node -c electron\\_post_build.cjs",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "Playwright 截图检查随机路由 10 输出口 RUN 命中 2 个与 100 输出口布局",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.4 npm run dist:release",
+      "npm run release:verify -- v2.4.4"
+    ]
+  },
   "electronReleaseV243": {
     "version": "2.4.3",
     "status": "electron-release",
@@ -2488,6 +2555,47 @@
       "Playwright 截图检查批量打标节点布局"
     ]
   },
+  "randomRouteNode": {
+    "status": "electron-release-v2.4.4",
+    "date": "2026-07-06",
+    "releaseVersion": "2.4.4",
+    "nodeType": "random-route",
+    "category": "utility",
+    "description": "工具节点新增“随机路由”：左侧接受任意数量、任意类型上游素材，右侧动态生成 1-100 个输出口；每次运行按 random_pass_count 精确随机命中不重复输出口，只继续执行命中口后面的下游分支，未命中分支保持不运行。",
+    "ports": {
+      "inputs": [
+        "any"
+      ],
+      "outputs": [
+        "any"
+      ]
+    },
+    "capabilities": [
+      "total_outputs 默认 10，支持 1-100；random_pass_count 默认 1，并自动限制在 1-total_outputs。",
+      "所有输出口透传同一份上游聚合素材，支持文本、图像、视频、音频和 3D 模型字段。",
+      "每次 RUN 都重新随机，命中输出口在节点 UI 中高亮，并记录上次路由和下游执行节点数。",
+      "Canvas 批量运行、组运行和节点浮动 RUN 都会先触发随机路由节点本身，再由随机路由按本轮命中结果调度下游子图，避免未命中分支误执行。",
+      "随机路由可出现在循环器下游；循环器内部排序会让随机路由节点接管自己的分支。"
+    ],
+    "sourceFiles": [
+      "src/components/nodes/RandomRouteNode.tsx",
+      "src/utils/randomRoute.ts",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/types/canvas.ts",
+      "src/components/Canvas.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/nodes/LoopNode.tsx",
+      "src/utils/nodePlacement.ts",
+      "tests/randomRoute.test.ts"
+    ],
+    "verification": [
+      "node --test tests\\randomRoute.test.ts",
+      "npm run type-check",
+      "npm run build",
+      "Playwright 截图和 DOM 检查随机路由节点布局与 10/100 输出口状态"
+    ]
+  },
   "codexCliCreatorAgent": {
     "status": "implemented",
     "date": "2026-06-12",
@@ -3969,11 +4077,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.4.3",
-    "semverVersion": "2.4.3",
+    "version": "2.4.4",
+    "semverVersion": "2.4.4",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.3，上传素材节点移除 20MB 应用层大小限制，/api/files/upload 不再给 multer 设置 fileSize，公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.4.3 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.3 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.4.4，新增随机路由节点并修复上传合集打散按钮与 IME 组合输入体验，公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.4.4 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.4.4 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
@@ -6793,7 +6901,7 @@
     },
     "utility": {
       "label": "工具节点",
-      "count": 14,
+      "count": 15,
       "nodes": [
         {
           "type": "drawing-board",
@@ -6826,6 +6934,11 @@
           "type": "loop",
           "label": "循环器",
           "description": "v1.2.8 新增。接多个同类型素材(text/image/video/audio)，两种模式: 串联逐个注入自身进发下游可执行子图 / 并联克隆 (N-1) 份子图并发跱发。采集输出位序位填 null，永久保留克隆节点，克隆块垂直堆叠(yOffset = i × blockH)，使用 runBus.runningIds + triggerRunMany 多节点并发触发。双主题 violet 调"
+        },
+        {
+          "type": "random-route",
+          "label": "随机路由",
+          "description": "v2.4.4 新增。接受任意上游素材，动态提供 1-100 个输出口；每次运行按 random_pass_count 随机命中不重复输出口，仅继续执行命中口后面的下游分支，未命中分支不进入运行队列"
         },
         {
           "type": "pick-from-set",
@@ -7586,6 +7699,7 @@
     "frame-pair",
     "upload",
     "loop",
+    "random-route",
     "pick-from-set",
     "drawing-board",
     "panorama-3d",

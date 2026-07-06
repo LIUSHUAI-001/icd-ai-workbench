@@ -45,6 +45,7 @@ export type NodeType =
   | 'frame-extractor'
   | 'frame-pair'
   | 'loop'
+  | 'random-route'
   | 'pick-from-set'
   | 'text-split'
   | 'resize'

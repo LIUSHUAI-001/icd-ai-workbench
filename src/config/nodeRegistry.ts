@@ -77,6 +77,7 @@ export const NODE_REGISTRY: NodeMeta[] = [
   { type: 'frame-pair', label: '首尾帧获取', category: 'utility', description: '从视频抽取首帧与尾帧，双输出可分别接下游', icon: 'Film', color: 'orange' },
   // 循环器 (v1.2.8): 上游多素材 → 串联/并联驱动下游执行链
   { type: 'loop', label: '循环器', category: 'utility', description: '接多个同类型素材，串联逐个驱动或并联克隆子图同时跱发下游生成节点', icon: 'Repeat', color: 'orange' },
+  { type: 'random-route', label: '随机路由', category: 'utility', description: '接收任意上游素材，按运行时随机命中的输出口继续执行指定数量下游分支', icon: 'Shuffle', color: 'orange' },
   // 从合集获取 (v1.2.8): 多素材 → 按序号取单个传给下游
   { type: 'pick-from-set', label: '从合集获取', category: 'utility', description: '从上游多素材中按序号取出单一素材，kind 可在节点内切换', icon: 'Filter', color: 'orange' },
   { type: 'text-split', label: '文本分割', category: 'utility', description: '将长提示词/分镜按段落、行、智能分镜、正则、自定义分隔符或字数切成多段文本，支持收藏与循环器链路', icon: 'SplitSquareVertical', color: 'orange' },

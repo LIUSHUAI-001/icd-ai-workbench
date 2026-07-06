@@ -816,7 +816,7 @@ const UploadNode = ({ id, data, selected, type }: NodeProps) => {
                 count={mediaItems.length}
                 kindLabel={meta.label}
                 onSplit={splitUploadCollection}
-                className="opacity-100 transition sm:opacity-0 sm:group-hover/upload-section:opacity-100 sm:focus-within:opacity-100"
+                className="opacity-100 transition"
               />
             </div>
 
