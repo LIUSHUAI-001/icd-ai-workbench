@@ -467,14 +467,16 @@ const MentionPromptInput = ({
         inputEvent?.inputType === 'insertText' &&
         /^[A-Za-z]$/.test(String(inputEvent.data || ''))
       ) {
+        const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
         const caret = getCaretPlainOffset(el);
         const { text: composingText } = readRichEditor(el, mentions);
         lastPlainInputRef.current = createPlainInputRunSnapshot({
           text: composingText,
           caret,
           data: String(inputEvent.data),
-          now: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+          now,
         });
+        compositionLeakRef.current = createCompositionLeakSnapshot(lastPlainInputRef.current, now) || compositionLeakRef.current;
       }
       composingRef.current = true;
       return;
@@ -788,12 +790,14 @@ const MentionPromptInput = ({
             caretColor: 'currentColor',
             cursor: 'text',
             paddingRight: expandable ? (templateEnabled ? 64 : 34) : style?.paddingRight,
+            paddingLeft: style?.paddingLeft ?? 10,
           }}
         />
         {!value && !isFocused && placeholder && (
           <div
             className="pointer-events-none absolute left-2 top-1 text-[11px]"
             style={{
+              left: style?.paddingLeft ?? 10,
               color: isPixel
                 ? 'var(--px-ink-soft, rgba(26,20,16,.62))'
                 : isDark

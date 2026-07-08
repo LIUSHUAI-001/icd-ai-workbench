@@ -26,6 +26,15 @@ export interface BatchTagSidecarNameInput {
   formats?: BatchTagSidecarFormat[];
 }
 
+export interface BatchTagSidecarDestinationItem {
+  sourcePath?: string;
+  outputFiles?: Array<{
+    path?: string;
+    directory?: string;
+    url?: string;
+  }>;
+}
+
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.avif']);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov', '.m4v', '.avi', '.mkv']);
 const MODELSCOPE_QWEN3_VL_235B = 'Qwen/Qwen3-VL-235B-A22B-Instruct';
@@ -86,6 +95,38 @@ export function buildBatchTagSidecarNames(input: BatchTagSidecarNameInput): Part
   return out;
 }
 
+function normalizePathLike(value: string): string {
+  return String(value || '').replace(/\\/g, '/');
+}
+
+function isBrowserSidecarOutput(file: { path?: string; directory?: string; url?: string }): boolean {
+  return String(file.path || '').startsWith('browser-fs://') || String(file.directory || '').includes('浏览器授权');
+}
+
+function isUploadCopyOutput(file: { path?: string; directory?: string; url?: string }): boolean {
+  const pathLike = normalizePathLike(`${file.directory || ''}/${file.path || ''}`);
+  const url = normalizePathLike(file.url || '');
+  return url.startsWith('/files/input/')
+    || /(^|\/)T8-penguin-canvas\/input(\/|$)/i.test(pathLike)
+    || /(^|\/)input(\/|$)/i.test(normalizePathLike(file.directory || ''));
+}
+
+export function summarizeBatchTagSidecarDestination(items: BatchTagSidecarDestinationItem[]): string {
+  const completed = Array.isArray(items) ? items : [];
+  const outputs = completed.flatMap((item) => (Array.isArray(item.outputFiles) ? item.outputFiles.map((file) => ({ item, file })) : []));
+  if (!outputs.length) return '批量打标完成';
+
+  const hasBrowserSidecar = outputs.some(({ file }) => isBrowserSidecarOutput(file));
+  const hasUploadCopyFallback = outputs.some(({ item, file }) => !String(item.sourcePath || '').trim() && !isBrowserSidecarOutput(file) && isUploadCopyOutput(file));
+  if (hasUploadCopyFallback) {
+    return '批量打标完成，但有结果仅保存到上传副本目录（input）；请授权原素材目录后重试';
+  }
+  if (hasBrowserSidecar) {
+    return '批量打标完成，结果已写回浏览器授权的原素材目录';
+  }
+  return '批量打标完成，结果已保存到原素材目录';
+}
+
 function modeLabel(mode: BatchTagMode): string {
   if (mode === 'caption') return '自然语言描述';
   if (mode === 'short') return '短句 caption';
@@ -94,10 +135,35 @@ function modeLabel(mode: BatchTagMode): string {
   return 'TAG 标签';
 }
 
+const DIRECT_OUTPUT_RULES = [
+  'Only output the final caption/tag result. Do not include greetings, explanations, suggestions, follow-up questions, or markdown.',
+  '不要包含任何开场白、反问、解释、建议或结束语；不要提出任何后续问题。',
+];
+
+function buildIdeogram4JsonPrompt(options: BatchTagPromptOptions, fileLine: string): string {
+  const mediaText = options.mediaKind === 'video' ? 'video frames' : 'image';
+  const aspectRatioHint = options.mediaKind === 'video'
+    ? 'Use the visible frame composition to estimate bboxes.'
+    : 'If the exact aspect ratio is unknown, infer it from the provided image.';
+  return [
+    'You are an Ideogram-4 structured captioner. Analyze the provided visual material and emit one JSON object for image-training captions.',
+    fileLine,
+    'Observe-only rule: describe only what is actually visible. Do not invent subjects, props, brands, text, background details, atmosphere, identity, or off-frame content.',
+    'OUTPUT CONTRACT: exactly three top-level keys in this order: "high_level_description", "style_description", "compositional_deconstruction".',
+    '"high_level_description": one concise observational sentence, under 50 words, starting directly with the subject. Do not start with "this image shows".',
+    '"style_description": required object. For photographs use keys "aesthetics", "lighting", "photo", "medium", "color_palette". For illustration/3D/painting/graphic design use "aesthetics", "lighting", "medium", "art_style", "color_palette".',
+    '"medium" must be one of: "photograph", "illustration", "3d_render", "painting", "graphic_design". "color_palette" uses dominant uppercase #RRGGBB colors, up to 16.',
+    '"compositional_deconstruction": required object with "background" and "elements". Background describes the scene shell only. Elements are one item per distinct visible subject.',
+    'Element shapes: {"type":"obj","bbox":[y1,x1,y2,x2],"desc":"..."} or {"type":"text","bbox":[y1,x1,y2,x2],"text":"VISIBLE TEXT","desc":"..."}.',
+    'Bboxes are optional, normalized 0-1000, top-left origin, stored as [y1,x1,y2,x2]. Include bboxes only when the visible extent is clear.',
+    'For visible text, preserve the exact characters in the "text" field. Prose fields stay in English.',
+    `${aspectRatioHint} The current input is ${mediaText}.`,
+    'Emit valid JSON only. No markdown fences. No commentary. No questions.',
+    ...DIRECT_OUTPUT_RULES,
+  ].filter(Boolean).join('\n');
+}
+
 export function buildBatchTagPrompt(options: BatchTagPromptOptions): string {
-  if (String(options.customPrompt || '').trim()) {
-    return String(options.customPrompt || '').trim();
-  }
   const mode = options.mode || 'tags';
   const mediaText = options.mediaKind === 'video' ? '视频' : '图像';
   const fileLine = options.fileName ? `素材文件名：${options.fileName}` : '';
@@ -105,41 +171,38 @@ export function buildBatchTagPrompt(options: BatchTagPromptOptions): string {
     ? 'Output language: English.'
     : '输出语言：中文，必要的训练标签可保留英文通用 tag。';
   const maxTags = Math.max(1, Math.min(200, Math.round(Number(options.maxTags) || 30)));
+
+  if (mode === 'json') {
+    return buildIdeogram4JsonPrompt(options, fileLine);
+  }
+
   const base = [
     `你是训练素材批量打标助手。请严格根据当前${mediaText}可见内容输出${modeLabel(mode)}。`,
     fileLine,
     languageLine,
     '不要编造不可见主体、人物身份、品牌或文字；不要输出 Markdown 解释。',
+    ...DIRECT_OUTPUT_RULES,
   ].filter(Boolean);
 
   if (mode === 'caption') {
     return [
       ...base,
-      '输出一段自然语言描述，覆盖主体、场景、构图、光线、材质、色彩和风格。',
+      'Generate a detailed paragraph that combines the subject, actions, environment, lighting, and mood into 2-3 cohesive sentences. Focus on accurate visual details rather than speculation.',
+      'Output the description directly.',
       '只输出描述正文。',
     ].join('\n');
   }
   if (mode === 'short') {
     return [
       ...base,
-      '输出一句 8-30 字的短句 caption，适合作为训练集 sidecar 文本。',
+      'Analyze the image and write a single concise sentence that describes the main subject and setting. Keep it grounded in visible details only.',
       '只输出短句正文。',
-    ].join('\n');
-  }
-  if (mode === 'json') {
-    const videoFields = options.mediaKind === 'video'
-      ? '视频必须包含 "segments" 数组，元素可含 start、end、caption、tags；如果无法理解音轨，设置 "audioUnsupported": true。'
-      : '图像的 "segments" 使用空数组。';
-    return [
-      ...base,
-      `输出严格 JSON，不要 Markdown。字段：{"tags":[],"caption":"","shortCaption":"","segments":[],"confidence":0,"audioUnsupported":false}。tags 最多 ${maxTags} 个。`,
-      videoFields,
     ].join('\n');
   }
   return [
     ...base,
-    `输出逗号分隔 TAG，最多 ${maxTags} 个。`,
-    '优先输出主体、动作、场景、构图、光线、材质、色彩、风格；不要加编号。',
+    `Your task is to generate a clean list of comma-separated tags based only on the visual information in the image. 输出逗号分隔 TAG，最多 ${maxTags} 个。`,
+    'Strictly describe visual elements like subject, clothing, environment, colors, lighting, and composition. Avoid repeating tags. 不要加编号。',
   ].join('\n');
 }
 
@@ -194,7 +257,7 @@ export function parseBatchTagOutput(rawText: string, mode: BatchTagMode): BatchT
     }
   }
   const tags = normalizeBatchTags(metadata?.tags ?? (mode === 'tags' ? clean : []));
-  const caption = String(metadata?.caption || (mode === 'caption' ? clean : '')).trim();
+  const caption = String(metadata?.high_level_description || metadata?.caption || (mode === 'caption' ? clean : '')).trim();
   const shortCaption = String(metadata?.shortCaption || metadata?.short_caption || (mode === 'short' ? clean : '')).trim();
   const text = mode === 'tags'
     ? tags.join(', ')
@@ -202,7 +265,9 @@ export function parseBatchTagOutput(rawText: string, mode: BatchTagMode): BatchT
       ? shortCaption
       : mode === 'caption'
         ? caption
-        : clean;
+        : metadata
+          ? JSON.stringify(metadata, null, 2)
+          : clean;
   return {
     text,
     tags,

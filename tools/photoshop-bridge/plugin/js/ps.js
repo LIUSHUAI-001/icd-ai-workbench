@@ -1,16 +1,21 @@
 (function () {
+  function report(error) {
+    if (window.T8PS_REPORT_BOOT_ERROR) window.T8PS_REPORT_BOOT_ERROR(error, 'ps.js');
+  }
+
+  try {
   const photoshop = require('photoshop');
   const uxp = require('uxp');
-  const app = photoshop.app;
-  const core = photoshop.core;
-  const action = photoshop.action;
-  const fs = uxp.storage.localFileSystem;
-  const formats = uxp.storage.formats;
+  const app = photoshop.app || {};
+  const core = photoshop.core || {};
+  const action = photoshop.action || {};
+  const fs = uxp.storage && uxp.storage.localFileSystem;
+  const formats = uxp.storage && uxp.storage.formats;
   const shell = uxp.shell;
   const net = T8PS.net;
 
   function hasDocument() {
-    return app.documents.length > 0;
+    return !!(app.documents && app.documents.length > 0);
   }
 
   async function downloadToTemp(item) {
@@ -104,11 +109,26 @@
 
   function onDocChange(cb) {
     try {
-      action.addNotificationListener(['open', 'close', 'select', 'newDocument'], cb);
+      if (action && typeof action.addNotificationListener === 'function') {
+        action.addNotificationListener(['open', 'close', 'select', 'newDocument'], cb);
+      }
     } catch (e) {
       // Older Photoshop versions may not expose every notification.
     }
   }
 
   T8PS.ps = { hasDocument, placeImage, exportCurrentPng, openUrl, onDocChange };
+  } catch (error) {
+    report(error);
+    const unavailable = async () => {
+      throw new Error(`Photoshop API 初始化失败：${error && error.message ? error.message : String(error)}`);
+    };
+    T8PS.ps = {
+      hasDocument: () => false,
+      placeImage: unavailable,
+      exportCurrentPng: unavailable,
+      openUrl: unavailable,
+      onDocChange: () => {},
+    };
+  }
 })();

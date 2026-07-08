@@ -26,8 +26,13 @@
         <select id="assetSection" class="select"></select>
         <button id="refreshAssets" class="icon-btn" type="button" title="刷新">刷新</button>
       </div>
-      <input id="assetSearch" class="input" type="search" placeholder="搜索素材名称、分类">
+      <input id="assetSearch" class="input search-input" type="text" inputmode="search" autocomplete="off" spellcheck="false" placeholder="搜索素材名称、分类">
       <div id="assetGrid" class="grid empty">连接 T8 后会显示最近输出、上传素材和资源库图像。</div>
+      <div id="assetPager" class="pager" hidden>
+        <button id="prevAssetPage" class="secondary compact" type="button">上一页</button>
+        <span id="assetPageInfo" class="pager-info">1 / 1</span>
+        <button id="nextAssetPage" class="secondary compact" type="button">下一页</button>
+      </div>
       <div class="footer">
         <button id="placeAsset" class="primary" type="button" disabled>置入 PS</button>
         <button id="uploadCurrent" class="secondary" type="button" disabled>上传当前画面</button>
@@ -81,6 +86,7 @@
     </section>
   </main>
 
+  <script src="js/boot.js"></script>
   <script src="js/state.js"></script>
   <script src="js/net.js"></script>
   <script src="js/ps.js"></script>

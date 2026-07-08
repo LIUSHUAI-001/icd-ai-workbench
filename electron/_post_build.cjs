@@ -360,6 +360,7 @@ function checkPhotoshopBridgeResources() {
   checkFile(path.join(root, 'manifest.json'));
   checkFile(path.join(root, 'index.html'));
   checkFile(path.join(root, 'style.css'));
+  checkFile(path.join(root, 'js', 'boot.js'));
   checkFile(path.join(root, 'js', 'state.js'));
   checkFile(path.join(root, 'js', 'net.js'));
   checkFile(path.join(root, 'js', 'ps.js'));

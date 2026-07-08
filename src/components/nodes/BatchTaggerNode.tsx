@@ -13,13 +13,15 @@ import {
   RotateCcw,
   Square,
   Tags,
+  Trash2,
   Upload,
   X,
 } from 'lucide-react';
+import { LLM_MODELS } from '../../providers/models';
 import { PORT_COLOR } from '../../config/portTypes';
 import { useApiKeysStore } from '../../stores/apiKeys';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
-import { openOutputFolder } from '../../services/imageOps';
+import { openLocalPath, openOutputFolder } from '../../services/imageOps';
 import {
   advancedProviderModelOptions,
   advancedProvidersForNode,
@@ -30,6 +32,7 @@ import {
   buildBatchTagSidecarNames,
   classifyBatchTagFile,
   recommendedBatchTagModel,
+  summarizeBatchTagSidecarDestination,
   type BatchTagMediaKind,
   type BatchTagMode,
   type BatchTagSidecarFormat,
@@ -52,6 +55,7 @@ interface BatchTagItem {
   url: string;
   name: string;
   relativePath?: string;
+  sourcePath?: string;
   size?: number;
   mime?: string;
   status: BatchTagStatus;
@@ -60,7 +64,34 @@ interface BatchTagItem {
   tags?: string[];
   caption?: string;
   shortCaption?: string;
-  outputFiles?: Array<{ format: string; name: string; url: string }>;
+  outputFiles?: Array<{ format: string; name: string; url?: string; path?: string; directory?: string }>;
+}
+
+interface PickedLocalBatchTagFile {
+  path: string;
+  name?: string;
+  kind?: BatchTagMediaKind;
+  size?: number;
+  mime?: string;
+  relativePath?: string;
+}
+
+type BrowserDirectoryHandle = {
+  values?: () => AsyncIterable<any>;
+  getDirectoryHandle: (name: string, options?: { create?: boolean }) => Promise<BrowserDirectoryHandle>;
+  getFileHandle: (name: string, options?: { create?: boolean }) => Promise<{
+    getFile?: () => Promise<File>;
+    createWritable: () => Promise<{ write: (value: string) => Promise<void>; close: () => Promise<void> }>;
+  }>;
+};
+
+interface BrowserDirectoryFileEntry {
+  file: File;
+  relativePath: string;
+}
+
+interface BrowserSidecarTarget {
+  root: BrowserDirectoryHandle;
 }
 
 const MODE_OPTIONS: Array<{ value: BatchTagMode; label: string; icon: any }> = [
@@ -80,6 +111,9 @@ const KIND_LABEL: Record<BatchTagMediaKind, string> = {
   image: '图像',
   video: '视频',
 };
+
+const BATCH_TAGGER_CUSTOM_MODEL_VALUE = '__custom__';
+const BATCH_TAGGER_ZHENZHEN_MODELS = LLM_MODELS.filter((model) => model.vision && !model.imageOutput);
 
 function statusMeta(status: BatchTagStatus) {
   if (status === 'running') return { label: '打标中', color: '#f59e0b', glow: 'rgba(245,158,11,.24)' };
@@ -123,6 +157,7 @@ function createItem(input: {
   url: string;
   name?: string;
   relativePath?: string;
+  sourcePath?: string;
   size?: number;
   mime?: string;
   index?: number;
@@ -134,15 +169,27 @@ function createItem(input: {
     url: input.url,
     name: fallback,
     relativePath: input.relativePath,
+    sourcePath: input.sourcePath,
     size: input.size,
     mime: input.mime,
     status: 'pending',
   };
 }
 
+function nativePathForFile(file: File): string {
+  try {
+    const fromBridge = typeof window !== 'undefined' ? window.t8pc?.getPathForFile?.(file) : '';
+    if (fromBridge) return String(fromBridge);
+  } catch {
+    /* ignore */
+  }
+  return String((file as any).path || '').trim();
+}
+
 async function uploadBatchTagFile(file: File, index: number): Promise<BatchTagItem | null> {
   const kind = classifyBatchTagFile(file.name, file.type);
   if (!kind) return null;
+  const nativeSourcePath = nativePathForFile(file);
   const fd = new FormData();
   fd.append('file', file);
   const response = await fetch('/api/files/upload', { method: 'POST', body: fd });
@@ -155,10 +202,81 @@ async function uploadBatchTagFile(file: File, index: number): Promise<BatchTagIt
     url: json.data.url,
     name: file.name,
     relativePath: String((file as any).webkitRelativePath || file.name || '').replace(/\\/g, '/'),
+    sourcePath: nativeSourcePath,
     size: json.data.size || file.size,
     mime: json.data.mime || file.type,
     index,
   });
+}
+
+async function importLocalBatchTagPath(file: PickedLocalBatchTagFile, index: number): Promise<BatchTagItem | null> {
+  const sourcePath = String(file.path || '').trim();
+  const fallbackName = file.name || sourcePath.split(/[\\/]/).pop() || `素材-${index + 1}`;
+  const kind = file.kind || classifyBatchTagFile(fallbackName, file.mime || '');
+  if (!sourcePath || !kind) return null;
+  const response = await fetch('/api/files/import-local', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sourcePath }),
+  });
+  const json = await response.json().catch(() => null);
+  if (!response.ok || !json?.success || !json.data?.url) {
+    throw new Error(json?.error || `导入本地素材失败 HTTP ${response.status}`);
+  }
+  const originalName = json.data.originalName || fallbackName;
+  return createItem({
+    kind,
+    url: json.data.url,
+    name: originalName,
+    relativePath: String(file.relativePath || originalName || '').replace(/\\/g, '/'),
+    sourcePath: json.data.sourcePath || sourcePath,
+    size: json.data.size || file.size,
+    mime: json.data.mime || file.mime,
+    index,
+  });
+}
+
+function browserDirectoryPickerAvailable(): boolean {
+  return typeof window !== 'undefined' && typeof (window as any).showDirectoryPicker === 'function';
+}
+
+async function pickBrowserSidecarDirectory(): Promise<BrowserDirectoryHandle | null> {
+  if (!browserDirectoryPickerAvailable()) return null;
+  try {
+    return await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+  } catch {
+    return null;
+  }
+}
+
+async function writeBrowserDirectoryText(root: BrowserDirectoryHandle, relativeName: string, text: string): Promise<string> {
+  const parts = String(relativeName || 'batch-tag.txt').replace(/\\/g, '/').split('/').filter(Boolean);
+  const fileName = parts.pop() || 'batch-tag.txt';
+  let dir = root;
+  for (const part of parts) {
+    dir = await dir.getDirectoryHandle(part, { create: true });
+  }
+  const file = await dir.getFileHandle(fileName, { create: true });
+  const writable = await file.createWritable();
+  await writable.write(text);
+  await writable.close();
+  return [parts.join('/'), fileName].filter(Boolean).join('/');
+}
+
+async function collectBrowserDirectoryFiles(root: BrowserDirectoryHandle, prefix = ''): Promise<BrowserDirectoryFileEntry[]> {
+  const out: BrowserDirectoryFileEntry[] = [];
+  if (typeof root.values !== 'function') return out;
+  for await (const entry of root.values()) {
+    if (entry?.kind === 'directory') {
+      out.push(...await collectBrowserDirectoryFiles(entry, `${prefix}${entry.name}/`));
+      continue;
+    }
+    if (entry?.kind !== 'file' || typeof entry.getFile !== 'function') continue;
+    const file = await entry.getFile();
+    if (!classifyBatchTagFile(file.name, file.type)) continue;
+    out.push({ file, relativePath: `${prefix}${file.name}` });
+  }
+  return out;
 }
 
 function FieldLabel({ children }: { children: ReactNode }) {
@@ -172,6 +290,7 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const cancelRef = useRef(false);
+  const browserSidecarTargetsRef = useRef<Map<string, BrowserSidecarTarget>>(new Map());
   const [dragActive, setDragActive] = useState(false);
   const [busy, setBusy] = useState(false);
   const [folderBusy, setFolderBusy] = useState(false);
@@ -198,19 +317,22 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
   const progress = summarizeBatchProgress(allItems as any);
   const running = d.status === 'running' || progress.status === 'running';
   const mode: BatchTagMode = ['tags', 'caption', 'short', 'json'].includes(d.batchTagMode) ? d.batchTagMode : 'tags';
-  const upstreamPrompt = useMemo(
+  const upstreamTrigger = useMemo(
     () => upstream.texts.map((item) => item.url).filter(Boolean).join('\n\n').slice(0, 8000),
     [upstream.texts],
   );
-  const effectivePrompt = String(d.batchTagPrompt || upstreamPrompt || '').trim();
+  const triggerInputValue = String(d.batchTagTrigger ?? d.batchTagPrompt ?? '');
+  const effectiveTrigger = String(triggerInputValue || upstreamTrigger || '').trim();
   const videoMode = ['url', 'compressed-base64', 'native-base64'].includes(d.batchTagVideoMode)
     ? d.batchTagVideoMode
     : 'frames';
   const frameCount = Math.max(1, Math.min(60, Number(d.batchTagFrameCount || 8)));
   const maxTags = Math.max(1, Math.min(200, Number(d.batchTagMaxTags || 30)));
-  const formats = Array.isArray(d.batchTagFormats) && d.batchTagFormats.length
+  const requestedFormats = Array.isArray(d.batchTagFormats)
     ? d.batchTagFormats.filter((item: string) => item === 'txt' || item === 'json') as BatchTagSidecarFormat[]
-    : ['txt', 'json'] as BatchTagSidecarFormat[];
+    : [];
+  const selectedFormat: BatchTagSidecarFormat = requestedFormats.includes('json') && !requestedFormats.includes('txt') ? 'json' : 'txt';
+  const formats = [selectedFormat] as BatchTagSidecarFormat[];
   const concurrency = normalizeBatchConcurrency(d.batchTagConcurrency, 2, 1, 4);
   const { retryCount, continueOnError } = normalizeBatchRetrySettings({
     retryCount: d.batchTagRetryCount,
@@ -231,6 +353,9 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
   const externalModelOptions = providerSelection.provider
     ? advancedProviderModelOptions(providerSelection.provider, 'llm')
     : [];
+  const storedZhenzhenModel = String(d.batchTagProviderModel || '').trim();
+  const storedZhenzhenModelIsPreset = BATCH_TAGGER_ZHENZHEN_MODELS.some((model) => model.id === storedZhenzhenModel);
+  const isZhenzhenCustomModel = d.batchTagUseCustomModel === true || (Boolean(storedZhenzhenModel) && !storedZhenzhenModelIsPreset);
   const activeModel = isExternal
     ? recommendedBatchTagModel({
       providerSource: providerSelection.providerSource,
@@ -238,10 +363,11 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
       mediaKind: allItems.some((item) => item.kind === 'video') ? 'video' : 'image',
       chatModels: externalModelOptions,
     })
-    : (d.batchTagProviderModel || BATCH_TAGGER_DEFAULT_MODEL.zhenzhen);
+    : (storedZhenzhenModel || BATCH_TAGGER_DEFAULT_MODEL.zhenzhen);
+  const zhenzhenModelPresetValue = isZhenzhenCustomModel || !BATCH_TAGGER_ZHENZHEN_MODELS.some((model) => model.id === activeModel) ? BATCH_TAGGER_CUSTOM_MODEL_VALUE : activeModel;
   const modelscopeHint = isExternal && providerSelection.providerSource === 'modelscope'
     ? 'ModelScope 推荐 Qwen/Qwen3-VL-235B-A22B-Instruct；文本 Qwen3 会自动切到 VL。'
-    : '贞贞默认走 LLM 独立 Key；视频默认关键帧，便于更多模型兼容。';
+    : '贞贞默认走 LLM 独立 Key；可选 LLM/Vision 预设或 Custom 自定义模型。';
 
   const patchItems = (items: BatchTagItem[]) => {
     const summary = summarizeBatchProgress(items as any);
@@ -259,7 +385,12 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
     });
   };
 
-  const appendFiles = async (files: File[]) => {
+  const appendFiles = async (
+    files: File[],
+    browserSidecarRoot?: BrowserDirectoryHandle | null,
+    relativePathByName?: Map<string, string>,
+    noticeSuffix = '',
+  ) => {
     if (!files.length) return;
     setBusy(true);
     setLocalError('');
@@ -268,13 +399,18 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
       let skipped = 0;
       for (let i = 0; i < files.length; i += 1) {
         const item = await uploadBatchTagFile(files[i], storedItems.length + uploaded.length + i);
-        if (item) uploaded.push(item);
-        else skipped += 1;
+        if (item) {
+          const relativePath = relativePathByName?.get(files[i].name) || item.relativePath;
+          const nextItem = relativePath ? { ...item, relativePath } : item;
+          uploaded.push(nextItem);
+          if (browserSidecarRoot) browserSidecarTargetsRef.current.set(nextItem.id, { root: browserSidecarRoot });
+        } else skipped += 1;
       }
       const next = dedupeItems([...storedItems, ...uploaded]);
+      const baseNotice = skipped ? `已加入 ${uploaded.length} 项，跳过 ${skipped} 个` : `已加入 ${uploaded.length} 项`;
       update({
         batchTagItems: next,
-        batchTagNotice: skipped ? `已加入 ${uploaded.length} 项，跳过 ${skipped} 个` : `已加入 ${uploaded.length} 项`,
+        batchTagNotice: `${baseNotice}${noticeSuffix}`,
       });
     } catch (error: any) {
       setLocalError(error?.message || '上传失败');
@@ -283,12 +419,108 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
     }
   };
 
+  const appendPickedLocalFiles = async (files: PickedLocalBatchTagFile[]) => {
+    if (!files.length) return;
+    setBusy(true);
+    setLocalError('');
+    try {
+      const uploaded: BatchTagItem[] = [];
+      let skipped = 0;
+      for (let i = 0; i < files.length; i += 1) {
+        const item = await importLocalBatchTagPath(files[i], storedItems.length + uploaded.length + i);
+        if (item) uploaded.push(item);
+        else skipped += 1;
+      }
+      const next = dedupeItems([...storedItems, ...uploaded]);
+      update({
+        batchTagItems: next,
+        batchTagNotice: skipped ? `已导入 ${uploaded.length} 项，跳过 ${skipped} 个` : `已导入 ${uploaded.length} 项`,
+      });
+    } catch (error: any) {
+      setLocalError(error?.message || '导入本地素材失败');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openFilePicker = async () => {
+    const picker = typeof window !== 'undefined' ? window.t8pc?.pickMediaFiles : undefined;
+    if (!picker) {
+      fileInputRef.current?.click();
+      return;
+    }
+    try {
+      update({ batchTagNotice: '正在选择本地素材...' });
+      const result = await picker({ multiple: true, kinds: ['image', 'video'] });
+      if (!result?.success) throw new Error(result?.message || '选择本地素材失败');
+      if (result.cancelled || !result.files?.length) {
+        update({ batchTagNotice: '未选择素材' });
+        return;
+      }
+      update({ batchTagNotice: `正在导入 ${result.files.length} 个本地素材...` });
+      await appendPickedLocalFiles(result.files as PickedLocalBatchTagFile[]);
+    } catch (error: any) {
+      setLocalError(error?.message || '选择本地素材失败');
+    }
+  };
+
+  const openFolderPicker = async () => {
+    const picker = typeof window !== 'undefined' ? window.t8pc?.pickMediaFiles : undefined;
+    if (!picker) {
+      if (browserDirectoryPickerAvailable()) {
+        try {
+          update({ batchTagNotice: '正在选择本地文件夹...' });
+          const root = await pickBrowserSidecarDirectory();
+          if (!root) {
+            update({ batchTagNotice: '未选择素材' });
+            return;
+          }
+          const entries = await collectBrowserDirectoryFiles(root);
+          if (!entries.length) {
+            update({ batchTagNotice: '文件夹内没有可打标的图像/视频' });
+            return;
+          }
+          const relativePathByName = new Map(entries.map((entry) => [entry.file.name, entry.relativePath]));
+          update({ batchTagNotice: `正在导入 ${entries.length} 个本地素材...` });
+          await appendFiles(entries.map((entry) => entry.file), root, relativePathByName);
+          return;
+        } catch (error: any) {
+          setLocalError(error?.message || '选择本地文件夹失败');
+          return;
+        }
+      }
+      folderInputRef.current?.click();
+      return;
+    }
+    try {
+      update({ batchTagNotice: '正在选择本地文件夹...' });
+      const result = await picker({ directory: true, multiple: true, kinds: ['image', 'video'] });
+      if (!result?.success) throw new Error(result?.message || '选择本地文件夹失败');
+      if (result.cancelled || !result.files?.length) {
+        update({ batchTagNotice: '未选择素材' });
+        return;
+      }
+      update({ batchTagNotice: `正在导入 ${result.files.length} 个本地素材${result.truncated ? '（已截断）' : ''}...` });
+      await appendPickedLocalFiles(result.files as PickedLocalBatchTagFile[]);
+    } catch (error: any) {
+      setLocalError(error?.message || '选择本地文件夹失败');
+    }
+  };
+
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     event.target.value = '';
     if (!files.length) return;
-    update({ batchTagNotice: `正在上传 ${files.length} 个文件...` });
-    void appendFiles(files);
+    void (async () => {
+      const browserFileUploadWithoutNativePath = !window.t8pc?.pickMediaFiles && files.every((file) => !nativePathForFile(file));
+      update({ batchTagNotice: `正在上传 ${files.length} 个文件...` });
+      await appendFiles(
+        files,
+        null,
+        undefined,
+        browserFileUploadWithoutNativePath ? '；浏览器文件上传无法获取原始目录，打标文件会保存到 input，需写回原目录请用“文件夹”导入' : '',
+      );
+    })();
   };
 
   const handleDrop = (event: DragEvent<HTMLDivElement>) => {
@@ -299,6 +531,53 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
   };
 
   type WorkEntry = { item: BatchTagItem; index: number };
+
+  const needsBrowserSidecarTarget = (item: BatchTagItem) => {
+    return !String(item.sourcePath || '').trim() && !browserSidecarTargetsRef.current.has(item.id);
+  };
+
+  const ensureBrowserSidecarTargetsForRun = async (items: BatchTagItem[]) => {
+    if (typeof window === 'undefined' || window.t8pc?.pickMediaFiles || !browserDirectoryPickerAvailable()) return true;
+    const missing = items.filter(needsBrowserSidecarTarget);
+    if (!missing.length) return true;
+    update({
+      batchTagNotice: '浏览器文件上传无法自动写回原目录，本次会保存到上传副本目录；需写回原目录请用“文件夹”导入素材目录',
+    });
+    return true;
+  };
+
+  const mirrorBrowserSidecars = async (item: BatchTagItem, outputFiles: BatchTagItem['outputFiles'] = []) => {
+    const target = browserSidecarTargetsRef.current.get(item.id);
+    if (!target || !outputFiles.length) return outputFiles;
+    const mirrored: NonNullable<BatchTagItem['outputFiles']> = [];
+    for (const outputFile of outputFiles) {
+      const url = String(outputFile.url || '').trim();
+      if (!url) {
+        mirrored.push(outputFile);
+        continue;
+      }
+      const response = await fetch(url);
+      if (!response.ok) {
+        mirrored.push(outputFile);
+        continue;
+      }
+      const text = await response.text();
+      const format = outputFile.format === 'json' ? 'json' : 'txt';
+      const desiredNames = buildBatchTagSidecarNames({
+        name: item.name,
+        relativePath: item.relativePath,
+        formats: [format],
+      });
+      const writtenName = await writeBrowserDirectoryText(target.root, desiredNames[format] || outputFile.name || `${item.name}.${format}`, text);
+      mirrored.push({
+        ...outputFile,
+        name: writtenName,
+        path: `browser-fs://${writtenName}`,
+        directory: '浏览器授权的原素材目录',
+      });
+    }
+    return mirrored;
+  };
 
   const tagOne = async (entry: WorkEntry, signal: AbortSignal): Promise<BatchTagItem> => {
     const response = await fetch('/api/batch-tags/tag', {
@@ -316,7 +595,7 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
         maxTags,
         formats,
         overwrite: d.batchTagOverwrite === true,
-        customPrompt: effectivePrompt,
+        triggerText: effectiveTrigger,
         temperature: 0.2,
       }),
     });
@@ -325,6 +604,7 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
       throw new Error(json?.error || `打标失败 HTTP ${response.status}`);
     }
     const result = json.data || {};
+    const outputFiles = Array.isArray(result.outputFiles) ? await mirrorBrowserSidecars(entry.item, result.outputFiles) : [];
     return {
       ...entry.item,
       status: 'success',
@@ -333,7 +613,7 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
       tags: Array.isArray(result.tags) ? result.tags : [],
       caption: result.caption || '',
       shortCaption: result.shortCaption || '',
-      outputFiles: Array.isArray(result.outputFiles) ? result.outputFiles : [],
+      outputFiles,
     };
   };
 
@@ -356,6 +636,15 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
     const workEntries = baseItems
       .map((item, index) => ({ item, index }))
       .filter((entry) => targetKeys.has(itemKey(entry.item)));
+
+    if (!await ensureBrowserSidecarTargetsForRun(workEntries.map((entry) => entry.item))) {
+      update({
+        status: 'idle',
+        batchTagItems: baseItems,
+        batchTagProgress: summarizeBatchProgress(baseItems as any),
+      });
+      return;
+    }
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -408,7 +697,7 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
     }
     update({
       status: controller.signal.aborted || cancelRef.current ? 'idle' : 'success',
-      batchTagNotice: controller.signal.aborted || cancelRef.current ? '批量打标已停止' : '批量打标完成，结果已保存到 output/batch-tags',
+      batchTagNotice: controller.signal.aborted || cancelRef.current ? '批量打标已停止' : summarizeBatchTagSidecarDestination(nextItems),
     });
     abortRef.current = null;
   };
@@ -423,9 +712,36 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
     if (!running) await runBatch(false);
   }, 'batch-tagger');
 
+  const resultItems = allItems.filter((item) => item.status === 'success' || item.status === 'error');
+  const previewItem = [...allItems].reverse().find((item) => item.status === 'success') || resultItems[0] || allItems[0];
+  const sampleNames = previewItem ? buildBatchTagSidecarNames({
+    name: previewItem.name,
+    relativePath: previewItem.relativePath,
+    formats,
+  }) : {};
+  const latestOutputDir = [...allItems]
+    .reverse()
+    .flatMap((item) => item.outputFiles || [])
+    .map((file) => String(file.directory || '').trim())
+    .find(Boolean) || '';
+
   const openBatchTagOutput = async () => {
     setFolderBusy(true);
     try {
+      if (latestOutputDir) {
+        if (latestOutputDir.includes('浏览器授权')) {
+          update({ batchTagNotice: '结果已写回浏览器授权的原素材目录，请在系统文件夹中查看' });
+          return;
+        }
+        const normalizedDir = latestOutputDir.replace(/\\/g, '/');
+        if (/(^|\/)T8-penguin-canvas\/input$/i.test(normalizedDir) && allItems.some((item) => !String(item.sourcePath || '').trim())) {
+          update({ batchTagNotice: '当前结果只在上传副本目录；需写回原目录请用“文件夹”导入素材目录' });
+          return;
+        }
+        await openLocalPath(latestOutputDir);
+        update({ batchTagNotice: '已打开最近打标目录' });
+        return;
+      }
       await openOutputFolder('batch-tags');
       update({ batchTagNotice: '已打开 output/batch-tags' });
     } catch (error: any) {
@@ -451,20 +767,28 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
     setLocalError('');
   };
 
-  const toggleFormat = (format: BatchTagSidecarFormat, checked: boolean) => {
-    const next = checked
-      ? Array.from(new Set([...formats, format]))
-      : formats.filter((item) => item !== format);
-    update({ batchTagFormats: next.length ? next : ['txt'] });
+  const removeItem = (index: number) => {
+    if (running) return;
+    const nextItems = allItems.filter((_, itemIndex) => itemIndex !== index);
+    const successItems = nextItems.filter((item) => item.status === 'success');
+    update({
+      batchTagItems: nextItems,
+      batchTagResults: nextItems.filter((item) => item.status === 'success' || item.status === 'error'),
+      batchTagProgress: summarizeBatchProgress(nextItems as any),
+      outputText: successItems.map((item) => item.text || item.caption || item.tags?.join(', ')).filter(Boolean).join('\n'),
+      metadata: successItems.length ? {
+        schema: 't8-batch-tags-v1',
+        items: successItems,
+        updatedAt: new Date().toISOString(),
+      } : null,
+      batchTagNotice: `已删除素材 ${index + 1}`,
+    });
+    setLocalError('');
   };
 
-  const resultItems = allItems.filter((item) => item.status === 'success' || item.status === 'error');
-  const previewItem = [...allItems].reverse().find((item) => item.status === 'success') || resultItems[0] || allItems[0];
-  const sampleNames = previewItem ? buildBatchTagSidecarNames({
-    name: previewItem.name,
-    relativePath: previewItem.relativePath,
-    formats,
-  }) : {};
+  const selectFormat = (format: BatchTagSidecarFormat) => {
+    update({ batchTagFormats: [format] });
+  };
 
   return (
     <div
@@ -523,11 +847,11 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
               {...({ webkitdirectory: '', directory: '' } as any)}
             />
             <div className="flex items-center gap-2">
-              <button type="button" className="t8-btn px-2 py-1.5 text-xs" onClick={() => fileInputRef.current?.click()} disabled={busy || running}>
+              <button type="button" className="t8-btn px-2 py-1.5 text-xs" onClick={() => void openFilePicker()} disabled={busy || running}>
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                 文件
               </button>
-              <button type="button" className="t8-btn px-2 py-1.5 text-xs" onClick={() => folderInputRef.current?.click()} disabled={busy || running}>
+              <button type="button" className="t8-btn px-2 py-1.5 text-xs" onClick={() => void openFolderPicker()} disabled={busy || running}>
                 <FolderOpen size={13} />
                 文件夹
               </button>
@@ -552,14 +876,14 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
                 <div className="rounded border border-dashed px-2 py-5 text-center text-[11px]" style={{ borderColor: 'var(--t8-border)', color: 'var(--t8-text-dim)' }}>
                   等待图像/视频素材
                 </div>
-              ) : allItems.map((item) => {
+              ) : allItems.map((item, index) => {
                 const meta = statusMeta(item.status);
                 return (
                   <div
                     key={itemKey(item)}
                     className="grid min-h-[38px] items-center gap-2 rounded px-2 py-1"
                     data-batch-tag-status={item.status}
-                    style={{ background: 'var(--t8-bg-soft)', gridTemplateColumns: '14px 38px minmax(0, 1fr) 64px' }}
+                    style={{ background: 'var(--t8-bg-soft)', gridTemplateColumns: '14px 38px minmax(0, 1fr) 64px 28px' }}
                   >
                     <span className="inline-flex h-3 w-3 items-center justify-center rounded-full border" title={meta.label} style={{ borderColor: meta.color, boxShadow: `0 0 0 3px ${meta.glow}` }}>
                       <span className={`h-1.5 w-1.5 rounded-full ${item.status === 'running' ? 'animate-pulse' : ''}`} style={{ background: meta.color }} />
@@ -567,6 +891,18 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
                     <span className="rounded px-1 py-0.5 text-center text-[10px] font-bold" style={{ background: 'var(--t8-bg-node)', color: 'var(--t8-text-main)' }}>{KIND_LABEL[item.kind]}</span>
                     <span className="min-w-0 truncate text-[11px]" style={{ color: 'var(--t8-text-main)' }} title={`${item.relativePath || item.name}\n${item.error || item.text || ''}`}>{item.relativePath || item.name}</span>
                     <span className="truncate text-right text-[10px]" style={{ color: item.status === 'error' ? '#ef4444' : 'var(--t8-text-dim)' }}>{item.status === 'success' ? '已保存' : item.error || formatMediaSize(item.size)}</span>
+                    <button
+                      type="button"
+                      className="nodrag nowheel inline-flex h-7 w-7 items-center justify-center rounded"
+                      data-batch-tag-item-action="delete"
+                      aria-label={`删除素材 ${index + 1}`}
+                      title="删除素材"
+                      onClick={(event) => { event.stopPropagation(); removeItem(index); }}
+                      disabled={running}
+                      style={{ color: running ? 'var(--t8-text-dim)' : '#ef4444', opacity: running ? 0.45 : 1 }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 );
               })}
@@ -589,7 +925,7 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
               <RotateCcw size={14} />
               重试失败
             </button>
-            <button type="button" className="t8-btn justify-center px-2 py-2" onClick={openBatchTagOutput} disabled={folderBusy} title="打开 output/batch-tags">
+            <button type="button" className="t8-btn justify-center px-2 py-2" onClick={openBatchTagOutput} disabled={folderBusy} title={latestOutputDir ? '打开最近打标目录' : '打开 output/batch-tags'}>
               {folderBusy ? <Loader2 size={14} className="animate-spin" /> : <FolderOpen size={14} />}
             </button>
           </div>
@@ -637,7 +973,7 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
                   onChange={(event) => {
                     const nextId = event.target.value;
                     if (nextId === 'zhenzhen') {
-                      update({ batchTagProviderSource: 'zhenzhen', batchTagProviderId: '', batchTagProviderModel: BATCH_TAGGER_DEFAULT_MODEL.zhenzhen });
+                      update({ batchTagProviderSource: 'zhenzhen', batchTagProviderId: '', batchTagProviderModel: BATCH_TAGGER_DEFAULT_MODEL.zhenzhen, batchTagUseCustomModel: false });
                       return;
                     }
                     const provider = llmProviders.find((item) => item.id === nextId);
@@ -678,10 +1014,34 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
                   </select>
                 </label>
               ) : (
-                <label className="block">
-                  <FieldLabel>贞贞模型</FieldLabel>
-                  <input className="t8-input w-full px-2 py-1.5 text-xs" value={activeModel} onChange={(event) => update({ batchTagProviderModel: event.target.value })} disabled={running} />
-                </label>
+                <div className="space-y-1.5">
+                  <label className="block">
+                    <FieldLabel>贞贞模型</FieldLabel>
+                    <select
+                      className="t8-select w-full px-2 py-1.5 text-xs"
+                      value={zhenzhenModelPresetValue}
+                      onChange={(event) => {
+                        if (event.target.value === BATCH_TAGGER_CUSTOM_MODEL_VALUE) {
+                          update({ batchTagUseCustomModel: true, batchTagProviderModel: activeModel });
+                          return;
+                        }
+                        update({ batchTagUseCustomModel: false, batchTagProviderModel: event.target.value });
+                      }}
+                      disabled={running}
+                    >
+                      {BATCH_TAGGER_ZHENZHEN_MODELS.map((model) => (
+                        <option key={model.id} value={model.id}>{model.label}</option>
+                      ))}
+                      <option value="__custom__">Custom / 自定义</option>
+                    </select>
+                  </label>
+                  {zhenzhenModelPresetValue === '__custom__' && (
+                    <label className="block">
+                      <FieldLabel>Custom 模型</FieldLabel>
+                      <input className="t8-input w-full px-2 py-1.5 text-xs" value={activeModel} onChange={(event) => update({ batchTagProviderModel: event.target.value })} disabled={running} />
+                    </label>
+                  )}
+                </div>
               )}
             </div>
             <div className="mt-1 text-[10px] leading-snug" style={{ color: 'var(--t8-text-dim)' }}>{modelscopeHint}</div>
@@ -730,35 +1090,35 @@ function BatchTaggerNode({ id, data, selected }: NodeProps) {
           <div className="rounded-md border p-2" style={{ borderColor: 'var(--t8-border)' }}>
             <div className="mb-1 flex items-center justify-between">
               <FieldLabel>保存</FieldLabel>
-              <span className="text-[10px]" style={{ color: 'var(--t8-text-dim)' }}>output/batch-tags</span>
+              <span className="text-[10px]" style={{ color: 'var(--t8-text-dim)' }}>原素材目录</span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-[11px]" style={{ color: 'var(--t8-text-main)' }}>
               <label className="flex items-center gap-1 rounded border px-2 py-1" style={{ borderColor: 'var(--t8-border)' }}>
-                <input type="checkbox" checked={formats.includes('txt')} onChange={(event) => toggleFormat('txt', event.target.checked)} disabled={running} />
+                <input type="radio" name={`batch-tag-format-${id}`} checked={selectedFormat === 'txt'} onChange={() => selectFormat('txt')} disabled={running} />
                 TXT
               </label>
               <label className="flex items-center gap-1 rounded border px-2 py-1" style={{ borderColor: 'var(--t8-border)' }}>
-                <input type="checkbox" checked={formats.includes('json')} onChange={(event) => toggleFormat('json', event.target.checked)} disabled={running} />
+                <input type="radio" name={`batch-tag-format-${id}`} checked={selectedFormat === 'json'} onChange={() => selectFormat('json')} disabled={running} />
                 JSON
               </label>
             </div>
             <div className="mt-1 truncate text-[10px]" style={{ color: 'var(--t8-text-dim)' }}>
-              {sampleNames.txt || sampleNames.json || 'foo.png -> foo.txt / foo.json'}
+              {sampleNames.txt || sampleNames.json || 'foo.png -> foo.txt'}
             </div>
           </div>
 
           <label className="block">
-            <FieldLabel>自定义 Prompt</FieldLabel>
+            <FieldLabel>统一触发词</FieldLabel>
             <textarea
               className="t8-input h-16 w-full resize-none px-2 py-1.5 text-xs"
-              value={d.batchTagPrompt || ''}
-              onChange={(event) => update({ batchTagPrompt: event.target.value })}
+              value={triggerInputValue}
+              onChange={(event) => update({ batchTagTrigger: event.target.value, batchTagPrompt: '' })}
               disabled={running}
-              placeholder={upstreamPrompt ? '已接入上游文本；输入可覆盖' : '留空使用内置模板'}
+              placeholder={upstreamTrigger ? '已接入上游触发词；输入可覆盖' : '例如 zhenzhen'}
             />
-            {upstream.texts.length > 0 && !String(d.batchTagPrompt || '').trim() && (
+            {upstream.texts.length > 0 && !String(triggerInputValue).trim() && (
               <div className="mt-1 truncate text-[10px]" style={{ color: 'var(--t8-text-dim)' }}>
-                已使用上游文本 {upstream.texts.length} 条作为 Prompt
+                已使用上游触发词 {upstream.texts.length} 条
               </div>
             )}
           </label>

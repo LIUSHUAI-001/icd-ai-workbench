@@ -18,6 +18,9 @@ export interface CompositionLeakSnapshot {
   data: string;
 }
 
+const PINYIN_LEAK_RUN = /[A-Za-z](?:[A-Za-z']{0,46}[A-Za-z])?$/;
+const LOWER_PINYIN_LEAK = /^[a-z]+(?:'[a-z]+)*$/;
+
 export function isImeCompositionInput(event: Event | null | undefined) {
   const native = event as (InputEvent & { isComposing?: boolean }) | null | undefined;
   return !!native?.isComposing || /Composition/i.test(String(native?.inputType || ''));
@@ -42,7 +45,7 @@ export function createPlainInputRunSnapshot({
   if (!/^[A-Za-z]$/.test(data) || caret <= 0) return null;
   const insertedStart = caret - data.length;
   if (insertedStart < 0 || text.slice(insertedStart, caret) !== data) return null;
-  const match = text.slice(0, caret).match(/[A-Za-z]{1,32}$/);
+  const match = text.slice(0, caret).match(PINYIN_LEAK_RUN);
   if (!match) return null;
   const run = match[0];
   return {
@@ -61,7 +64,7 @@ export function createCompositionLeakSnapshot(
   maxAgeMs = 650,
 ): CompositionLeakSnapshot | null {
   if (!plain || now - plain.at > maxAgeMs) return null;
-  if (!/^[a-z]{1,32}$/.test(plain.data)) return null;
+  if (plain.data.length > 48 || !LOWER_PINYIN_LEAK.test(plain.data)) return null;
   if (plain.text.slice(plain.start, plain.end) !== plain.data) return null;
   return { start: plain.start, end: plain.end, data: plain.data };
 }

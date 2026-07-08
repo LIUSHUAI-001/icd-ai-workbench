@@ -25,6 +25,25 @@ test('IME cleanup removes the full leaked pinyin run before committed Chinese te
   assert.equal(fixed.caretDelta, -'zhiqian'.length);
 });
 
+test('IME cleanup removes WeChat pinyin leaked while composing after clearing an editor', () => {
+  const plain = createPlainInputRunSnapshot({
+    text: "jjian'hu",
+    caret: "jjian'hu".length,
+    data: 'u',
+    now: 1000,
+  });
+
+  assert.equal(plain?.data, "jjian'hu");
+  const leak = createCompositionLeakSnapshot(plain, 1040);
+  assert.deepEqual(leak, { start: 0, end: "jjian'hu".length, data: "jjian'hu" });
+
+  const fixed = stripCompositionLeak("jjian'hu看护", [], leak);
+
+  assert.equal(fixed.changed, true);
+  assert.equal(fixed.text, '看护');
+  assert.equal(fixed.caretDelta, -"jjian'hu".length);
+});
+
 test('IME cleanup shifts mention ranges after removing leaked pinyin', () => {
   const text = 'abc zhiqian之前 @image1 ';
   const expectedText = 'abc 之前 @image1 ';

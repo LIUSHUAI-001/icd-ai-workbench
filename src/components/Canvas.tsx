@@ -1430,7 +1430,7 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     batchTagVideoMode: 'frames',
     batchTagFrameCount: 8,
     batchTagMaxTags: 30,
-    batchTagFormats: ['txt', 'json'],
+    batchTagFormats: ['txt'],
     batchTagConcurrency: 2,
     batchTagRetryCount: 1,
     batchTagContinueOnError: true,

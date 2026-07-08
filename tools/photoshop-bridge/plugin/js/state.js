@@ -8,6 +8,8 @@
       assetSections: [],
       activeSection: 'outputs',
       assets: [],
+      assetPage: 1,
+      assetPageSize: 24,
       selectedAssetId: '',
       providers: [],
       providerId: '',
