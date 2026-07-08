@@ -324,6 +324,7 @@ test('Photoshop UXP plugin has assets, generate, and settings tabs without Agent
   assert.ok(exists('tools/photoshop-bridge/plugin/manifest.json'), 'missing Photoshop plugin manifest');
   assert.ok(exists('tools/photoshop-bridge/plugin/index.html'), 'missing Photoshop plugin index');
   assert.ok(exists('tools/photoshop-bridge/plugin/style.css'), 'missing Photoshop plugin styles');
+  assert.ok(exists('tools/photoshop-bridge/plugin/js/boot.js'), 'missing Photoshop plugin boot diagnostics');
   assert.ok(exists('tools/photoshop-bridge/plugin/js/state.js'), 'missing Photoshop plugin state');
   assert.ok(exists('tools/photoshop-bridge/plugin/js/net.js'), 'missing Photoshop plugin net');
   assert.ok(exists('tools/photoshop-bridge/plugin/js/ps.js'), 'missing Photoshop plugin ps helpers');
@@ -333,18 +334,39 @@ test('Photoshop UXP plugin has assets, generate, and settings tabs without Agent
   assert.equal(manifest.manifestVersion, 5);
   assert.equal(manifest.host.app, 'PS');
   assert.match(manifest.name, /T8|Photoshop|PS/i);
+  assert.deepEqual(
+    manifest.entrypoints?.[0]?.label,
+    { default: 'T8 Photoshop Link' },
+    'Manifest v5 panel labels should use the localized string object form used by Adobe examples',
+  );
 
   const html = read('tools/photoshop-bridge/plugin/index.html');
   const css = read('tools/photoshop-bridge/plugin/style.css');
   assert.match(html, /data-tab=["']assets["']/);
   assert.match(html, /data-tab=["']generate["']/);
   assert.match(html, /data-tab=["']settings["']/);
+  assert.match(html, /id=["']assetPager["']/, 'asset library needs pagination in Photoshop panels');
+  assert.match(html, /id=["']prevAssetPage["']/, 'asset library needs a previous page control');
+  assert.match(html, /id=["']nextAssetPage["']/, 'asset library needs a next page control');
+  assert.match(html, /js\/boot\.js/, 'plugin should install boot diagnostics before app scripts');
+  assert.match(html, /id=["']assetSearch["'][^>]+type=["']text["']/, 'UXP search fields should use a stable text input');
+  assert.match(html, /id=["']assetSearch["'][^>]+inputmode=["']search["']/, 'asset search should still hint search keyboard behavior');
   assert.doesNotMatch(html, /data-tab=["']agent["']/i);
   assert.doesNotMatch(html, /Agent/i);
   assert.match(css, /white-space:\s*nowrap/, 'plugin action buttons should not wrap Chinese labels vertically');
   assert.match(css, /min-width:\s*(?:5[6-9]|[6-9]\d)px/, 'compact action buttons need a stable minimum width');
+  assert.match(css, /height:\s*36px/, 'plugin inputs need a fixed readable height in Photoshop UXP');
+  assert.match(css, /height:\s*100vh/, 'plugin shell should be bounded to the Photoshop panel viewport');
+  assert.match(css, /overflow:\s*hidden/, 'plugin shell should prevent asset lists from growing the panel');
+  assert.match(css, /-webkit-appearance:\s*none/, 'native search/input appearance can collapse in Photoshop UXP');
+  assert.match(css, /flex-wrap:\s*wrap/, 'asset cards should use a UXP-safe wrapping layout');
+  assert.doesNotMatch(css, /repeat\(auto-fill/, 'auto-fill CSS grids can render blank in Photoshop UXP panels');
 
   const app = read('tools/photoshop-bridge/plugin/js/app.js');
+  const boot = read('tools/photoshop-bridge/plugin/js/boot.js');
+  const ps = read('tools/photoshop-bridge/plugin/js/ps.js');
+  assert.match(boot, /T8PS_REPORT_BOOT_ERROR/);
+  assert.match(ps, /Photoshop API 初始化失败/);
   assert.match(app, /\/api\/photoshop-bridge\/library/);
   assert.match(app, /\/api\/photoshop-bridge\/image-providers/);
   assert.match(app, /\/api\/photoshop-bridge\/image/);
@@ -352,6 +374,10 @@ test('Photoshop UXP plugin has assets, generate, and settings tabs without Agent
   assert.match(app, /exportCurrentPng/);
   assert.match(app, /placeImage/);
   assert.match(app, /pollCommands/);
+  assert.match(app, /document\.createElement\(['"]div['"]\)/, 'asset cards should be created with DOM APIs for UXP');
+  assert.match(app, /assetPageSize:\s*24|assetPageSize\)\s*\|\|\s*24|state\.assetPageSize/, 'asset cards should be paged in UXP panels');
+  assert.match(app, /renderAssetPager/, 'asset pagination controls should be rendered');
+  assert.doesNotMatch(app, /assetGrid\.innerHTML\s*=\s*items\.map/, 'large asset lists should not be rendered with one innerHTML blob in UXP');
   assert.doesNotMatch(app, /\/api\/chat\/agent/);
 });
 
@@ -371,6 +397,8 @@ test('Photoshop UXP manifest allows the local T8 bridge origins used by fetch', 
   }
 
   assert.equal(domains.includes('all'), false, 'Photoshop plugin should only allow local T8 bridge origins');
+  assert.equal(domains.includes('127.0.0.1'), false, 'UXP v5 network domains should not include bare host entries');
+  assert.equal(domains.includes('localhost'), false, 'UXP v5 network domains should not include bare host entries');
 });
 
 test('Photoshop UXP net connect falls back when the default local bridge port is occupied', async () => {

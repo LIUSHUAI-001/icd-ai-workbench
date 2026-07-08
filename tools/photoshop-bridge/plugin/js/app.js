@@ -1,4 +1,5 @@
 (function () {
+  try {
   const state = T8PS.state;
   const net = T8PS.net;
   const ps = T8PS.ps;
@@ -17,6 +18,10 @@
     assetSearch: $('assetSearch'),
     refreshAssets: $('refreshAssets'),
     assetGrid: $('assetGrid'),
+    assetPager: $('assetPager'),
+    prevAssetPage: $('prevAssetPage'),
+    nextAssetPage: $('nextAssetPage'),
+    assetPageInfo: $('assetPageInfo'),
     placeAsset: $('placeAsset'),
     uploadCurrent: $('uploadCurrent'),
     assetMsg: $('assetMsg'),
@@ -86,6 +91,32 @@
     return state.assets.find((item) => item.id === id) || null;
   }
 
+  function assetPageInfo(total) {
+    const size = Math.max(1, Number(state.assetPageSize) || 24);
+    const totalPages = Math.max(1, Math.ceil(total / size));
+    let page = Math.max(1, Number(state.assetPage) || 1);
+    if (page > totalPages) page = totalPages;
+    state.assetPage = page;
+    const start = (page - 1) * size;
+    return {
+      page,
+      size,
+      totalPages,
+      start,
+      end: Math.min(start + size, total),
+    };
+  }
+
+  function renderAssetPager(info, total) {
+    if (!els.assetPager) return;
+    els.assetPager.hidden = total <= 0;
+    if (total <= 0) return;
+    els.prevAssetPage.disabled = info.page <= 1;
+    els.nextAssetPage.disabled = info.page >= info.totalPages;
+    const from = total ? info.start + 1 : 0;
+    els.assetPageInfo.textContent = `${info.page} / ${info.totalPages} · ${from}-${info.end} / ${total}`;
+  }
+
   function renderSections() {
     els.assetSection.innerHTML = state.assetSections.map((section) =>
       `<option value="${escapeHtml(section.id)}">${escapeHtml(section.label)} (${(section.items || []).length})</option>`,
@@ -95,28 +126,64 @@
 
   function renderAssets() {
     const items = filteredAssets();
+    const pageInfo = assetPageInfo(items.length);
+    const pageItems = items.slice(pageInfo.start, pageInfo.end);
     state.assets = allSectionItems();
+    els.assetGrid.textContent = '';
     if (!items.length) {
       els.assetGrid.className = 'grid empty';
       els.assetGrid.textContent = state.connected ? '没有匹配的图像素材。' : '连接 T8 后会显示素材。';
+      renderAssetPager(pageInfo, 0);
       els.placeAsset.disabled = true;
       return;
     }
     els.assetGrid.className = 'grid';
-    els.assetGrid.innerHTML = items.map((item) => {
+    renderAssetPager(pageInfo, items.length);
+    pageItems.forEach((item) => {
       const selected = item.id === state.selectedAssetId ? ' selected' : '';
       const thumb = net.absUrl(item.thumbUrl || item.url);
-      return `<article class="card${selected}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(item.name || '')}">
-        <div class="thumb"><img src="${escapeHtml(thumb)}" alt=""></div>
-        <div class="meta">${escapeHtml(item.name || '图像')}</div>
-      </article>`;
-    }).join('');
-    els.assetGrid.querySelectorAll('.card').forEach((card) => {
+      const card = document.createElement('div');
+      card.className = `card${selected}`;
+      card.setAttribute('data-id', String(item.id || ''));
+      card.setAttribute('title', String(item.name || ''));
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+
+      const thumbBox = document.createElement('div');
+      thumbBox.className = 'thumb';
+      if (thumb) {
+        const img = document.createElement('img');
+        img.alt = '';
+        img.src = thumb;
+        img.addEventListener('error', () => {
+          thumbBox.classList.add('thumb-broken');
+          thumbBox.textContent = '预览失败';
+        });
+        thumbBox.appendChild(img);
+      } else {
+        thumbBox.classList.add('thumb-broken');
+        thumbBox.textContent = '无预览';
+      }
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = item.name || '图像';
+
+      card.appendChild(thumbBox);
+      card.appendChild(meta);
       card.addEventListener('click', () => {
         state.selectedAssetId = card.getAttribute('data-id') || '';
         renderAssets();
       });
       card.addEventListener('dblclick', () => placeSelectedAsset());
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          state.selectedAssetId = card.getAttribute('data-id') || '';
+          renderAssets();
+        }
+      });
+      els.assetGrid.appendChild(card);
     });
     els.placeAsset.disabled = !selectedAsset();
   }
@@ -154,17 +221,37 @@
       return;
     }
     els.generateResults.className = 'result-grid';
-    els.generateResults.innerHTML = items.map((item, index) =>
-      `<article class="card" data-index="${index}" title="${escapeHtml(item.name || item.url)}">
-        <div class="thumb"><img src="${escapeHtml(net.absUrl(item.url))}" alt=""></div>
-        <div class="meta">结果 ${index + 1}</div>
-      </article>`,
-    ).join('');
-    els.generateResults.querySelectorAll('.card').forEach((card) => {
+    els.generateResults.textContent = '';
+    items.forEach((item, index) => {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.setAttribute('data-index', String(index));
+      card.setAttribute('title', String(item.name || item.url || ''));
+      card.setAttribute('role', 'button');
+      card.tabIndex = 0;
+
+      const thumbBox = document.createElement('div');
+      thumbBox.className = 'thumb';
+      const img = document.createElement('img');
+      img.alt = '';
+      img.src = net.absUrl(item.url);
+      img.addEventListener('error', () => {
+        thumbBox.classList.add('thumb-broken');
+        thumbBox.textContent = '预览失败';
+      });
+      thumbBox.appendChild(img);
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = `结果 ${index + 1}`;
+
+      card.appendChild(thumbBox);
+      card.appendChild(meta);
       card.addEventListener('dblclick', async () => {
         const item = state.results[Number(card.getAttribute('data-index'))];
         if (item) await ps.placeImage(item);
       });
+      els.generateResults.appendChild(card);
     });
   }
 
@@ -296,6 +383,7 @@
       setMsg(els.assetMsg, '正在导出并上传 …');
       const result = await uploadCurrentToT8({ queue: true });
       setMsg(els.assetMsg, `已上传到 T8: ${result.upload.url}`, 'ok');
+      state.assetPage = 1;
       await loadAssets();
     } catch (err) {
       setMsg(els.assetMsg, err.message || String(err), 'err');
@@ -368,9 +456,21 @@
   els.assetSection.addEventListener('change', () => {
     state.activeSection = els.assetSection.value;
     state.selectedAssetId = '';
+    state.assetPage = 1;
     renderAssets();
   });
-  els.assetSearch.addEventListener('input', renderAssets);
+  els.assetSearch.addEventListener('input', () => {
+    state.assetPage = 1;
+    renderAssets();
+  });
+  els.prevAssetPage.addEventListener('click', () => {
+    state.assetPage = Math.max(1, (Number(state.assetPage) || 1) - 1);
+    renderAssets();
+  });
+  els.nextAssetPage.addEventListener('click', () => {
+    state.assetPage = (Number(state.assetPage) || 1) + 1;
+    renderAssets();
+  });
   els.placeAsset.addEventListener('click', placeSelectedAsset);
   els.uploadCurrent.addEventListener('click', uploadCurrent);
   els.providerSelect.addEventListener('change', () => {
@@ -386,4 +486,8 @@
   ps.onDocChange(() => setConnected(state.connected));
 
   connect();
+  } catch (error) {
+    if (window.T8PS_REPORT_BOOT_ERROR) window.T8PS_REPORT_BOOT_ERROR(error, 'app.js');
+    else throw error;
+  }
 })();
