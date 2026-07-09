@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.4.8
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.4.9
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.4.8-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.4.9-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -37,6 +37,7 @@ My favorite girl Go YounJung
 
 - 🎨 **55 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标 / 随机路由
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
+- 🎬 **v2.4.9 视频剪辑音频与导演分镜 mini 自动更新版**：视频剪辑合成在拖动片段并加入转场后，源视频音频会跟随 xfade / acrossfade 时间线压缩，不再按旧位置二次混音导致声音重叠、位移或最后一段无声；独立音频仍会叠加到保留的原声上。导演分镜台同步补齐 `seedance-2.0-mini` 模型选项，和 SD2.0 节点保持一致；本版继续校验 Photoshop 插件随 Electron 安装包分发。
 - 🧩 **v2.4.8 插件安装与素材工作流自动更新版**：顶部在“画布教程”左侧新增独立“插件安装”入口，集中说明 Photoshop UXP、Figma Bridge 和网页图片反推插件安装路径；批量打标补齐单项删除、LLM/Vision 预设、自定义模型、TXT/JSON 互斥、原素材目录保存和 Ideogram-4 JSON；上传 / 输出视频素材新增首尾帧获取、英伟达极速超分和 FlashVsr 质量超分；PS 插件升级到 0.1.3，增加启动诊断、资产分页和 UXP 面板尺寸护栏，并随 Electron 包一并校验打包。
 - 🖌️ **v2.4.7 Photoshop 联动 UI 热修自动更新版**：修复 `T8 Photoshop Link` 面板紧凑宽度下 `刷新 / 连接` 按钮文字被挤成竖排的问题，并补强插件 UI 自动化，覆盖资产库、生成、设置、PS 当前画面上传回 T8、画布发送到 PS 命令置入和生成后置入 PS。
 - 🖌️ **v2.4.6 Photoshop 联动热修自动更新版**：修复 `T8 Photoshop Link` 在 Photoshop UXP Manifest v5 下访问 `http://127.0.0.1:18766` 被 `Permission denied / Manifest entry not found` 拦截的问题，插件 manifest 改为带协议和端口的本机白名单；同时支持 18766-18776 本机端口 fallback，避免旧后端占用 18766 时新版桌面端退到后续端口后插件仍连错。
