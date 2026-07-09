@@ -193,6 +193,8 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const providerParams = (d?.providerParams && typeof d.providerParams === 'object') ? d.providerParams : {};
   const isModelScopeExternal = isExternalSelected && providerSelection.provider?.protocol === 'modelscope';
   const isComfyExternal = isExternalSelected && providerSelection.provider?.protocol === 'comfyui';
+  const isJimengCliImageSelected = isExternalSelected && providerSelection.provider?.protocol === 'jimeng-cli';
+  const externalImageCountLimit = isJimengCliImageSelected ? 10 : 4;
   const comfyWorkflow = isComfyExternal
     ? providerSelection.provider?.comfyuiConfig?.workflows?.find((workflow) => workflow.id === externalProviderModel || workflow.name === externalProviderModel)
     : undefined;
@@ -636,7 +638,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           images: allRefs,
           negativePrompt: externalNegativePrompt || undefined,
           negative: externalNegativePrompt || undefined,
-          n: Math.max(1, Math.min(4, Number(d?.providerParams?.n || 1))),
+          n: Math.max(1, Math.min(externalImageCountLimit, Number(d?.providerParams?.n || 1))),
           providerParams: externalProviderParams,
         });
         if (!isCurrentGenerationRun(runId)) return;
@@ -1069,6 +1071,21 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                       ))}
                     </select>
                   </div>
+                )}
+                {isJimengCliImageSelected && (
+                  <label className="block space-y-1">
+                    <span className="text-[10px] text-white/50">生成数量</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={String(providerParams.n ?? 1)}
+                      onChange={(e) => patchProviderParams({ n: Math.max(1, Math.min(10, Number(e.target.value) || 1)) })}
+                      style={{ background: '#18181b', color: '#ffffff' }}
+                      className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                    />
+                    <span className="block text-[10px] text-white/40">即梦 CLI v1.4.10 起支持 text2image / image2image 一次生成 1-10 张。</span>
+                  </label>
                 )}
                 {isModelScopeExternal && (
                   <div className="rounded border border-white/10 bg-white/[0.03] p-2 space-y-2">
