@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.5.1
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.5.2
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.5.1-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.5.2-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -37,6 +37,7 @@ My favorite girl Go YounJung
 
 - 🎨 **55 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标 / 随机路由
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
+- 🌻 **v2.5.2 庭院守卫沉浸大屏自动更新版**：植物大战僵尸主题的庭院守卫新增类似俄罗斯方块主题的沉浸大屏按钮，战局不重载、按视口自适应放大并支持 Esc 退出；顶部“画布教程”同步新增教程第十五弹 Bilibili / YouTube 链接。
 - 🌻 **v2.5.1 庭院守卫 + Seedream 自动更新版**：新增第 14 套庭院守卫主题和按需加载的 Phaser 塔防面板，支持阳光、植物冷却、15 关、升级、局面恢复、鼠标离开自动暂停与主题默认音乐；图像节点新增 Seedream V5 Pro，支持文生图、多图编辑、PNG/JPEG、预设及自定义尺寸和最多 10 张参考图。
 - 🧭 **v2.5.0 随机路由 / 即梦 CLI / PS 与打标自动更新版**：随机路由新增“并发生成 / 顺序生成”模式，默认并发触发本次随机命中的多路下游；即梦 CLI 适配 v1.4.10，图像生成支持 `generate_num` 1-10，视频补齐 `seedance2.0mini`、`seedance2.0_vip` 4K 和 Seedance 1.x 新命名兼容；批量打标补齐图图打标器入口、最近打标文件定位和全部绝对路径查看；画布发送到 Photoshop 改为带状态确认的队列，PS 插件可正确打开前端地址并渲染资产缩略图。
 - 🌻 **庭院守卫主题 + 大画布塔防**：新增第 14 套强识别主题，使用原创植物、入侵者、战场和木质藤蔓 UI 覆盖顶栏、侧栏、节点、连线、MiniMap 与上下文菜单；1280×720 Phaser 战场直接位于无限画布世界坐标中，包含 5×9 草坪、阳光、8 种植物、8 种入侵者、15 关、清道器、昼夜波次、叶章升级、图鉴、局面恢复和原创音效。Phaser 按主题懒加载，普通主题不承担运行时体积。
