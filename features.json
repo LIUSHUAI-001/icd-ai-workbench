@@ -1,7 +1,129 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.5.0",
-  "lastUpdated": "2026-07-10-v250-route-jimeng-ps-batch-release",
+  "version": "2.5.1",
+  "lastUpdated": "2026-07-10-v251-garden-seedream-release",
+  "electronReleaseV251": {
+    "version": "2.5.1",
+    "status": "electron-release",
+    "date": "2026-07-10",
+    "description": "v2.5.1 Electron 自动更新版：新增完整庭院守卫主题与按需加载的 Phaser 塔防面板，并为图像节点接入独立 Seedream V5 Pro 文生图 / 多图编辑协议。",
+    "highlights": [
+      "新增第 14 套植物大战僵尸主题 · 庭院守卫，覆盖顶栏、侧栏、节点、端口、连线、MiniMap、上下文菜单、浅色与深色模式。",
+      "庭院守卫内置 5×9 草坪、阳光经济、8 种植物、8 种入侵者、15 关、昼夜波次、清道器、升级、图鉴、长期档案和每画布战局恢复。",
+      "Phaser 3 仅在进入庭院守卫主题后按需加载；游戏面板位于右上任务栏下方，可独立隐藏，并在鼠标离开、窗口失焦或画布拖动时自动暂停。",
+      "庭院守卫主题默认启用 Grasswalk 音乐，保留 garden-march 合成备选；主题切换手势和浏览器自动播放限制均有恢复逻辑。",
+      "庭院守卫画布背景采用低对比草坪路径与羊皮纸规划线方案，减轻大面积亮绿和重复网格对工作流节点的干扰。",
+      "图像节点新增 Seedream 标签与 seedream-v5-pro 模型，支持文生图、图像编辑、多图编辑、PNG / JPEG 和最多 10 张参考图。",
+      "Seedream 提供 1024×1024、1536×1024、1024×1536、2048×2048、4096×4096 及 Custom，自定义尺寸以 WIDTHxHEIGHT 传给上游并在前后端校验。",
+      "Seedream 使用独立 JSON /v1/images/generations 分支，不改动 GPT2、香蕉、Grok 与 MJ 的既有统一 / 官方协议。",
+      "Electron 后置打包新增 garden-defense-grasswalk 前端资源校验，并继续校验 Photoshop UXP 插件源码完整随包分发。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "electron/_post_build.cjs",
+      "backend/src/config.js",
+      "backend/src/routes/proxy.js",
+      "backend/src/routes/themes.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.5.1.md",
+      "docs/theme-design-guide.md",
+      "src/assets/garden-defense/**",
+      "src/assets/theme-music/garden-defense-grasswalk.mp3",
+      "src/components/Canvas.tsx",
+      "src/components/ThemeMusicToggle.tsx",
+      "src/components/ThemeTemplateManager.tsx",
+      "src/components/nodes/ImageNode.tsx",
+      "src/features/garden-defense/**",
+      "src/providers/models.ts",
+      "src/services/generation.ts",
+      "src/styles/index.css",
+      "src/styles/theme-garden-defense.css",
+      "src/theme/defaultTemplates.ts",
+      "src/theme/musicAutoplay.ts",
+      "src/theme/types.ts",
+      "tests/gardenDefenseEngine.test.ts",
+      "tests/gardenDefenseTheme.test.ts",
+      "tests/imageModelMapping.test.ts",
+      "tests/seedreamImageRoute.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.5.1 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.5.1.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.5.1.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.5.1 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.1",
+      "photoshopPlugin": "Electron extraResources 继续复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；后置与发布校验检查 plugin/manifest.json、index.html、style.css 及 boot/state/net/ps/app 脚本。",
+      "gardenAssets": "生产前端必须包含 garden-defense 战场、植物、入侵者、HUD 和 garden-defense-grasswalk 音乐散列资源。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、nodemap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "飞书多维表格仍是规划 / 实验内容，不纳入 v2.5.1；backend/src/routes/feishuBitable.js、src/components/nodes/FeishuBitable*、tests/feishuBitable.test.ts 不得进入发布提交。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地缓存和维护者工具继续不提交。",
+      "tools/ffmpeg-runtime/*.exe 与 runtime archives 仅作为本地 Electron sidecar 打包，不进入公开 Git；Photoshop UXP 插件源码继续允许公开并随安装包分发。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test --test-reporter=spec tests/imageModelMapping.test.ts tests/seedreamImageRoute.test.ts tests/gardenDefenseEngine.test.ts tests/gardenDefenseTheme.test.ts",
+      "node -c backend/src/routes/proxy.js",
+      "node -c backend/src/routes/themes.js",
+      "node -c electron/_post_build.cjs",
+      "node -c electron/main.cjs",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.5.1 npm run dist:release",
+      "npm run release:verify -- v2.5.1"
+    ]
+  },
+  "gardenDefenseCanvasTheme": {
+    "status": "released-v2.5.1",
+    "date": "2026-07-10",
+    "description": "第 14 套庭院守卫主题：原创植物防线美术、木质藤蔓 UI、低对比草坪规划画布和右上任务栏下的完整横向塔防面板。",
+    "protocol": {
+      "visualStyle": "garden-defense",
+      "iconPack": "garden-guard",
+      "canvasPattern": "defense-lawn",
+      "nodeFrame": "garden-card",
+      "musicPreset": "garden-march",
+      "renderer": "Phaser 3.90.0（按主题懒加载）"
+    },
+    "gameplay": {
+      "board": "5 行 × 9 列，内部 1280×720，右上角任务栏下响应式缩放",
+      "campaign": "15 关，包含昼夜、特殊波次和无尽关",
+      "plants": 8,
+      "zombies": 8,
+      "systems": [
+        "阳光收集、种植消耗、冷却、占位、移栽与清道器",
+        "普通、冰冻、范围、连锁、治疗和时间减速能力",
+        "奔跑、护盾、地道、指挥、首领、分波与胜负结算",
+        "叶章升级、图鉴、关卡解锁、长期档案和战局恢复"
+      ]
+    },
+    "interaction": [
+      "任务栏独立开关默认展开并持久化显隐，折叠不销毁 Phaser 场景。",
+      "鼠标离开、窗口失焦、画布移动、节点拖动或隐藏面板时自动暂停；手动暂停不会被自动恢复。",
+      "阳光拾取、攻击、命中、升级、波次和清道器提供动效与限频 WebAudio 反馈。"
+    ],
+    "files": [
+      "src/features/garden-defense/**",
+      "src/assets/garden-defense/**",
+      "src/assets/theme-music/garden-defense-grasswalk.mp3",
+      "src/styles/theme-garden-defense.css",
+      "src/theme/defaultTemplates.ts",
+      "src/components/Canvas.tsx",
+      "tests/gardenDefenseEngine.test.ts",
+      "tests/gardenDefenseTheme.test.ts"
+    ],
+    "releaseBoundary": "v2.5.1 已纳入公开源码、Electron 自动更新包和 GitHub Release；不包含原作截图、角色素材或第三方游戏代码。"
+  },
   "electronReleaseV250": {
     "version": "2.5.0",
     "status": "electron-release",
@@ -4571,11 +4693,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.5.0",
-    "semverVersion": "2.5.0",
+    "version": "2.5.1",
+    "semverVersion": "2.5.1",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.5.0，收口随机路由并发执行、即梦 CLI v1.4.10 图像批量与 Seedance 新模型/分辨率、批量打标图图入口与输出路径查看、以及 Photoshop 画布发送队列和插件资产渲染；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.5.0 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.5.0 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.5.1，新增庭院守卫完整主题 / 塔防面板与 Seedream V5 Pro 文生图和多图编辑；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.5.1 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.5.1 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",

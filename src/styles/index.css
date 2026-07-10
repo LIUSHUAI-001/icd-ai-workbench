@@ -13,6 +13,7 @@
 @import './theme-saintseiya.css';
 @import './theme-tetris.css';
 @import './theme-farm-story.css';
+@import './theme-garden-defense.css';
 
 @tailwind base;
 @tailwind components;
