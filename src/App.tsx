@@ -185,6 +185,11 @@ const CANVAS_TUTORIALS = [
     bilibili: 'https://www.bilibili.com/video/BV1mj7h6CEYx/',
     youtube: 'https://www.youtube.com/watch?v=wCOoTtuxQPM',
   },
+  {
+    title: '教程第十五弹（新增植物大战僵尸主题，新增PS插件支持Photoshop和画布发送及生成，图像节点新增seedream模块，修复agnes图像编辑报错，新增即梦cli，导演台，SD2.0节点的sd2.0mini和原生4K，新增随机路由节点，新增批量打标节点，新增视频剪辑节点，优化提示库模板功能，视频类素材左侧新增首尾帧，极速放大及质量放大功能）',
+    bilibili: 'https://www.bilibili.com/video/BV1RoN76RE9m/',
+    youtube: 'https://www.youtube.com/watch?v=K65BqvSTfh4',
+  },
 ];
 
 const CANVAS_PLUGIN_INSTALL_GUIDES = [

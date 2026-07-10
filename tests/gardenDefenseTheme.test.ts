@@ -97,7 +97,7 @@ test('garden defense battle is mounted under the top-right toolbar with Phaser a
   assert.match(experience, /GARDEN_PANEL_COLLAPSED_STORAGE_KEY/);
   assert.match(experience, /t8-garden-defense-panel__toggle/);
   assert.match(experience, /data-garden-panel-state/);
-  assert.match(experience, /hidden=\{collapsed\}/);
+  assert.match(experience, /hidden=\{collapsed && !isStageMode\}/);
   assert.match(experience, /target instanceof Element/);
   assert.match(experience, /onMouseLeave=\{\(\) => setHovered\(false\)\}/);
   assert.match(experience, /activeAutoPauseReason/);
@@ -106,6 +106,16 @@ test('garden defense battle is mounted under the top-right toolbar with Phaser a
   assert.doesNotMatch(experience, /ViewportPortal/);
   assert.doesNotMatch(experience, /setCenter\(/);
   assert.match(experience, /lazy\(\(\) => import\('\.\/GardenDefenseStage\.tsx'\)\)/);
+  assert.match(experience, /Maximize2/);
+  assert.match(experience, /Minimize2/);
+  assert.match(experience, /isStageMode/);
+  assert.match(experience, /t8-garden-defense-stage-open/);
+  assert.match(experience, /event\.key !== 'Escape'/);
+  assert.match(experience, /createPortal\(panelMarkup, document\.body\)/);
+  assert.match(experience, /t8-garden-defense-stage-toggle/);
+  assert.match(experience, /沉浸大屏游玩/);
+  assert.match(experience, /\(window\.innerWidth - horizontalPadding\) \/ GAME_WIDTH/);
+  assert.match(experience, /\(window\.innerHeight - verticalPadding\) \/ GAME_HEIGHT/);
   assert.match(experience, /t8-garden-defense-stage-map/);
   assert.match(experience, /t8-garden-defense-upgrade-grid/);
   assert.match(experience, /t8-garden-defense-almanac/);
@@ -131,6 +141,11 @@ test('garden defense battle is mounted under the top-right toolbar with Phaser a
   assert.match(themeCss, /right: 0;/);
   assert.match(themeCss, /top: calc\(100% \+ 8px\);/);
   assert.match(themeCss, /transform: scale\(var\(--garden-panel-scale\)\)/);
+  assert.match(themeCss, /body\.t8-garden-defense-stage-open/);
+  assert.match(themeCss, /\.t8-garden-defense-panel\.is-stage-mode \{/);
+  assert.match(themeCss, /position: fixed !important/);
+  assert.match(themeCss, /--garden-panel-scale: var\(--garden-stage-scale\)/);
+  assert.match(themeCss, /\.t8-garden-defense-stage-toggle\[aria-pressed="true"\]/);
   assert.match(themeCss, /garden-defense-sun-medallion-pop/);
   assert.match(themeCss, /is-garden-node-running/);
   assert.match(themeCss, /is-garden-node-success/);

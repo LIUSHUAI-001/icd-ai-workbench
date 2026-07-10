@@ -9,6 +9,7 @@ import {
   type CSSProperties,
   type SyntheticEvent,
 } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BookOpen,
   ChevronRight,
@@ -18,6 +19,8 @@ import {
   Leaf,
   LockKeyhole,
   Map,
+  Maximize2,
+  Minimize2,
   RotateCcw,
   Shield,
   Sparkles,
@@ -85,11 +88,12 @@ function formatCooldown(value: number | undefined, total: number) {
   return Math.max(0, Math.min(1, value / Math.max(1, total)));
 }
 
-function gardenPanelStyle(): CSSProperties & Record<'--garden-hud-texture' | '--garden-seed-texture' | '--garden-progress-texture', string> {
+function gardenPanelStyle(stageScale: number): CSSProperties & Record<'--garden-hud-texture' | '--garden-seed-texture' | '--garden-progress-texture' | '--garden-stage-scale', string> {
   return {
     '--garden-hud-texture': `url(${GARDEN_UI_ASSETS.hudBanner})`,
     '--garden-seed-texture': `url(${GARDEN_UI_ASSETS.seedPacket})`,
     '--garden-progress-texture': `url(${GARDEN_UI_ASSETS.progressFrame})`,
+    '--garden-stage-scale': String(stageScale),
   };
 }
 
@@ -130,6 +134,8 @@ export default function GardenDefenseExperience({
   const [feedback, setFeedback] = useState('选择植物，再点击草坪格子部署。');
   const [sunPulseKey, setSunPulseKey] = useState(0);
   const [hovered, setHovered] = useState(false);
+  const [isStageMode, setIsStageMode] = useState(false);
+  const [stageScale, setStageScale] = useState(1);
   const [windowReady, setWindowReady] = useState(() => (
     typeof document === 'undefined' || (document.visibilityState === 'visible' && document.hasFocus())
   ));
@@ -140,7 +146,8 @@ export default function GardenDefenseExperience({
   const processedCombatEffectIdsRef = useRef(new Set(run.effects.map((effect) => effect.id)));
   const processedCombatRunIdRef = useRef(run.runId);
   const previousCanvasIdRef = useRef(canvasId);
-  const activeAutoPauseReason = collapsed
+  const panelRootRef = useRef<HTMLDivElement | null>(null);
+  const activeAutoPauseReason = collapsed && !isStageMode
     ? '游戏已隐藏，战斗自动暂停'
     : !windowReady
       ? '窗口失焦，战斗自动暂停'
@@ -164,6 +171,52 @@ export default function GardenDefenseExperience({
     if (!active || typeof window === 'undefined') return;
     window.localStorage.setItem(GARDEN_PANEL_COLLAPSED_STORAGE_KEY, collapsed ? '1' : '0');
   }, [active, collapsed]);
+
+  useEffect(() => {
+    if (active || !isStageMode) return;
+    setIsStageMode(false);
+    setHovered(false);
+  }, [active, isStageMode]);
+
+  useEffect(() => {
+    if (!active || !isStageMode || typeof document === 'undefined' || typeof window === 'undefined') return;
+    const updateStageScale = () => {
+      const horizontalPadding = window.innerWidth <= 640 ? 24 : 48;
+      const verticalPadding = window.innerHeight <= 640 ? 24 : 48;
+      const nextScale = Math.max(0.25, Math.min(
+        (window.innerWidth - horizontalPadding) / GAME_WIDTH,
+        (window.innerHeight - verticalPadding) / GAME_HEIGHT,
+        1.45,
+      ));
+      setStageScale(Math.round(nextScale * 10000) / 10000);
+    };
+    document.body.classList.add('t8-garden-defense-stage-open');
+    updateStageScale();
+    window.addEventListener('resize', updateStageScale);
+    const focusFrame = window.requestAnimationFrame(() => panelRootRef.current?.focus({ preventScroll: true }));
+    return () => {
+      document.body.classList.remove('t8-garden-defense-stage-open');
+      window.removeEventListener('resize', updateStageScale);
+      window.cancelAnimationFrame(focusFrame);
+    };
+  }, [active, isStageMode]);
+
+  useEffect(() => {
+    if (!active || !isStageMode || typeof window === 'undefined') return;
+    const handleStageKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (overlay !== 'none') {
+        setOverlay('none');
+        return;
+      }
+      setIsStageMode(false);
+      setHovered(false);
+    };
+    window.addEventListener('keydown', handleStageKeyDown, true);
+    return () => window.removeEventListener('keydown', handleStageKeyDown, true);
+  }, [active, isStageMode, overlay]);
 
   useEffect(() => {
     if (!collapsed) setHasOpenedPanel(true);
@@ -365,14 +418,23 @@ export default function GardenDefenseExperience({
     });
   }, []);
 
+  const handleToggleStageMode = useCallback(() => {
+    setCollapsed(false);
+    setHasOpenedPanel(true);
+    setHovered(!isStageMode);
+    setIsStageMode(!isStageMode);
+  }, [isStageMode]);
+
   if (!active) return null;
 
-  return (
+  const panelMarkup = (
     <div
-      className={`t8-garden-defense-panel nodrag nopan${collapsed ? ' is-collapsed' : ' is-expanded'}${hovered ? ' is-hovered' : ''}`}
-      style={gardenPanelStyle()}
+      ref={panelRootRef}
+      className={`t8-garden-defense-panel nodrag nopan${collapsed ? ' is-collapsed' : ' is-expanded'}${hovered ? ' is-hovered' : ''}${isStageMode ? ' is-stage-mode' : ''}`}
+      style={gardenPanelStyle(stageScale)}
       data-canvas-floating-ui="garden-defense-panel"
-      data-garden-panel-state={collapsed ? 'hidden' : 'visible'}
+      data-garden-panel-state={collapsed && !isStageMode ? 'hidden' : isStageMode ? 'stage' : 'visible'}
+      data-garden-stage-mode={isStageMode ? 'true' : 'false'}
       onPointerDownCapture={stopGardenCanvasGesture}
       onPointerMoveCapture={stopGardenCanvasGesture}
       onPointerUpCapture={stopGardenCanvasGesture}
@@ -386,6 +448,7 @@ export default function GardenDefenseExperience({
       onContextMenuCapture={stopGardenCanvasGesture}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      tabIndex={isStageMode ? 0 : -1}
     >
       <button
         type="button"
@@ -401,12 +464,12 @@ export default function GardenDefenseExperience({
         <small>{collapsed ? '显示' : run.status === 'running' ? '战斗中' : run.status === 'paused' ? '已暂停' : `第${stage.number}关`}</small>
       </button>
 
-      {hasOpenedPanel && (
+      {(hasOpenedPanel || isStageMode) && (
         <div
           id="t8-garden-defense-battle-panel"
           className="t8-garden-defense-panel__popover"
-          hidden={collapsed}
-          aria-hidden={collapsed}
+          hidden={collapsed && !isStageMode}
+          aria-hidden={collapsed && !isStageMode}
         >
           <div className="t8-garden-defense-panel__viewport">
         <section
@@ -479,6 +542,15 @@ export default function GardenDefenseExperience({
                 title={profile.soundEnabled ? '关闭游戏音效' : '开启游戏音效'}
               >
                 {profile.soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+              </button>
+              <button
+                type="button"
+                className="t8-garden-defense-stage-toggle"
+                aria-pressed={isStageMode}
+                onClick={handleToggleStageMode}
+                title={isStageMode ? '退出沉浸大屏' : '沉浸大屏游玩'}
+              >
+                {isStageMode ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
               </button>
             </nav>
           </header>
@@ -638,4 +710,8 @@ export default function GardenDefenseExperience({
       )}
     </div>
   );
+
+  return isStageMode && typeof document !== 'undefined'
+    ? createPortal(panelMarkup, document.body)
+    : panelMarkup;
 }

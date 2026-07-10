@@ -1,7 +1,65 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.5.1",
-  "lastUpdated": "2026-07-10-v251-garden-seedream-release",
+  "version": "2.5.2",
+  "lastUpdated": "2026-07-10-v252-garden-stage-tutorial-release",
+  "electronReleaseV252": {
+    "version": "2.5.2",
+    "status": "electron-release",
+    "date": "2026-07-10",
+    "description": "v2.5.2 Electron 自动更新版：庭院守卫新增沉浸大屏游玩模式，并同步顶部画布教程第十五弹公告链接。",
+    "highlights": [
+      "植物大战僵尸主题的庭院守卫 HUD 新增沉浸大屏按钮，体验对齐俄罗斯方块主题的大屏玩法入口。",
+      "沉浸大屏使用 React Portal 挂到 document.body，固定覆盖视口，不调用浏览器原生 Fullscreen API。",
+      "大屏按照 1280×720 战场和当前窗口尺寸自动计算缩放，保留安全边距，宽屏和紧凑窗口都避免裁切。",
+      "进入大屏不会重载 Phaser 场景或重置当前战局；退出后回到右上任务栏下方原面板。",
+      "Esc 在关卡 / 升级 / 图鉴面板开启时先关闭面板，再次按下才退出沉浸大屏。",
+      "大屏状态会锁定页面滚动并在离开主题或卸载组件时清理 body class，避免影响其他主题。",
+      "顶部“画布教程”新增教程第十五弹，包含 Bilibili 与 YouTube 链接。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.5.2.md",
+      "src/App.tsx",
+      "src/features/garden-defense/GardenDefenseExperience.tsx",
+      "src/styles/theme-garden-defense.css",
+      "tests/gardenDefenseTheme.test.ts",
+      "tests/updateMdRegressions.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.5.2 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.5.2.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.5.2.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.5.2 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.2",
+      "photoshopPlugin": "Electron extraResources 继续复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge，并由后置检查确认 manifest、HTML、CSS 与 boot/state/net/ps/app 脚本存在。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、nodemap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "飞书多维表格、VibeX、本地维护者工具和本地缓存仍不纳入 v2.5.2 公开提交。",
+      "tools/ffmpeg-runtime/*.exe 与 runtime archives 只作为本地 Electron sidecar 打包，不进入公开提交；Photoshop UXP 插件源码继续允许公开并随安装包分发。"
+    ],
+    "verification": [
+      "node --test --test-reporter=spec tests/gardenDefenseEngine.test.ts tests/gardenDefenseTheme.test.ts tests/themeRoutes.test.ts tests/updateMdRegressions.test.ts",
+      "node -c electron/_post_build.cjs",
+      "node -c electron/main.cjs",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.5.2 npm run dist:release",
+      "npm run release:verify -- v2.5.2"
+    ]
+  },
   "electronReleaseV251": {
     "version": "2.5.1",
     "status": "electron-release",
@@ -3845,7 +3903,7 @@
   "canvasTutorialTopbarPanel": {
     "status": "implemented",
     "date": "2026-06-14",
-    "description": "顶部栏在“最新应用”左侧新增“画布教程”入口，按第一弹到第十四弹整理 T8 画布教程 Bilibili / Youtube 链接；“最新应用 · RunningHub”弹窗移除“获取 RH ApiKey”快捷入口，只保留 RunningHub 国内/海外站和邀请码提示。",
+    "description": "顶部栏在“最新应用”左侧新增“画布教程”入口，按第一弹到第十五弹整理 T8 画布教程 Bilibili / Youtube 链接；“最新应用 · RunningHub”弹窗移除“获取 RH ApiKey”快捷入口，只保留 RunningHub 国内/海外站和邀请码提示。",
     "paths": [
       "src/App.tsx",
       "tests/updateMdRegressions.test.ts",
@@ -3922,6 +3980,11 @@
         "title": "教程第十四弹（新增VibeX联动发送功能及节点，增强chrome反推插件（需更新安装，支持vibex以及修复反推发送问题），修复ID连线方式，新增区域连线方式，新增目标框节点，重写画布底层大幅度优化节点太多卡顿问题，图像编辑模式画板新增标签改图功能，全局去掉字体模糊效果，批量素材节点完善扩图，高清放大，抠图等功能（需填写RH APIKEY））",
         "bilibili": "https://www.bilibili.com/video/BV1mj7h6CEYx/",
         "youtube": "https://www.youtube.com/watch?v=wCOoTtuxQPM"
+      },
+      {
+        "title": "教程第十五弹（新增植物大战僵尸主题，新增PS插件支持Photoshop和画布发送及生成，图像节点新增seedream模块，修复agnes图像编辑报错，新增即梦cli，导演台，SD2.0节点的sd2.0mini和原生4K，新增随机路由节点，新增批量打标节点，新增视频剪辑节点，优化提示库模板功能，视频类素材左侧新增首尾帧，极速放大及质量放大功能）",
+        "bilibili": "https://www.bilibili.com/video/BV1RoN76RE9m/",
+        "youtube": "https://www.youtube.com/watch?v=K65BqvSTfh4"
       }
     ],
     "verification": [
@@ -4693,11 +4756,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.5.1",
-    "semverVersion": "2.5.1",
+    "version": "2.5.2",
+    "semverVersion": "2.5.2",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.5.1，新增庭院守卫完整主题 / 塔防面板与 Seedream V5 Pro 文生图和多图编辑；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.5.1 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.5.1 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.5.2，新增庭院守卫沉浸大屏和教程第十五弹公告链接；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.5.2 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.5.2 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
