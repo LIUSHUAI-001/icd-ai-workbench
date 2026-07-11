@@ -34,8 +34,8 @@ test('video generation stop invalidates old polling before a new task can update
 test('SD2.0 generation stop invalidates old polling before a new task can update state', () => {
   assert.match(seedanceNode, /generationRunRef = useRef\(0\)/);
   assert.match(seedanceNode, /const runId = nextGenerationRun\(\)/);
-  assert.match(seedanceNode, /const startPolling = \(tid: string, runId: number\): Promise<void> =>/);
-  assert.match(seedanceNode, /await startPolling\(r\.taskId, runId\)/);
+  assert.match(seedanceNode, /const startPolling = \([\s\S]*tid: string,[\s\S]*runId: number,[\s\S]*\): Promise<void> =>/);
+  assert.match(seedanceNode, /await startPolling\(r\.taskId, runId, submittedProvider\)/);
   assert.match(seedanceNode, /generationRunRef\.current \+= 1/);
   assert.match(seedanceNode, /taskId: null/);
 });

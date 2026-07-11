@@ -1313,6 +1313,8 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   edit: { mode: 'edit', model: 'gpt-image-2', aspectRatio: '1:1', sizeLevel: '1K', referenceImages: [] },
   'video-edit': { ...DEFAULT_VIDEO_EDIT_DATA, clips: [], settings: { ...DEFAULT_VIDEO_EDIT_DATA.settings }, job: { ...DEFAULT_VIDEO_EDIT_DATA.job } },
   seedance: {
+    seedanceApiSource: 'auto',
+    seedanceNzModel: 'fast',
     model: 'doubao-seedance-2-0-fast-260128',
     duration: 5,
     ratio: '16:9',
@@ -1327,6 +1329,8 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     frameMode: 'auto',
   },
   'director-storyboard': {
+    seedanceApiSource: 'auto',
+    seedanceNzModel: 'fast',
     model: 'doubao-seedance-2-0-fast-260128',
     ratio: '16:9',
     resolution: '480p',
@@ -1716,9 +1720,14 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     taskId: '',
     imageUrl: '',
     imageUrls: [],
+    videoUrl: '',
     videoUrls: [],
+    audioUrl: '',
     audioUrls: [],
     outputText: '',
+    outputKinds: [],
+    primaryKind: '',
+    outputSaveErrors: [],
     error: '',
   },
   'comfyui-app-maker': {
@@ -1956,25 +1965,26 @@ const WEB_IMAGE_EXTENSION_MESSAGE_CONTRACT = {
   source: 't8-web-image-extension',
 } as const;
 
-type WebImageExtensionSendMode = 'prompt' | 'image' | 'both';
+type WebImageExtensionSendMode = 'prompt' | 'image' | 'both' | 'reference';
 
 interface WebImageExtensionPayload {
   messageId?: string;
   mode?: WebImageExtensionSendMode | string;
   prompt?: string;
-  images?: Array<string | { url?: string; imageUrl?: string; name?: string; mime?: string; size?: number }>;
+  images?: Array<string | { url?: string; imageUrl?: string; name?: string; mime?: string; size?: number; width?: number; height?: number; sourceUrl?: string; pageUrl?: string }>;
   imageUrls?: string[];
   sourceImageUrl?: string;
   pageUrl?: string;
   pageTitle?: string;
   source?: string;
+  webAssetItems?: Array<{ url?: string; imageUrl?: string; name?: string; mime?: string; size?: number; width?: number; height?: number; sourceUrl?: string; pageUrl?: string }>;
 }
 
 type BasicMediaKind = Exclude<MediaKind, 'model3d'>;
 
 function normalizeWebImageSendMode(value: unknown): WebImageExtensionSendMode {
   const mode = String(value || '').trim();
-  return mode === 'prompt' || mode === 'image' || mode === 'both' ? mode : 'both';
+  return mode === 'prompt' || mode === 'image' || mode === 'both' || mode === 'reference' ? mode : 'both';
 }
 
 function cleanWebImageText(value: unknown, maxLen = 8000): string {
@@ -1982,7 +1992,7 @@ function cleanWebImageText(value: unknown, maxLen = 8000): string {
 }
 
 function webImagePayloadImages(payload: WebImageExtensionPayload): MediaItem[] {
-  const raw = Array.isArray(payload.images) ? payload.images : payload.imageUrls;
+  const raw = Array.isArray(payload.images) ? payload.images : Array.isArray(payload.webAssetItems) ? payload.webAssetItems : payload.imageUrls;
   const seen = new Set<string>();
   const out: MediaItem[] = [];
   for (const item of Array.isArray(raw) ? raw : []) {
@@ -1998,7 +2008,24 @@ function webImagePayloadImages(payload: WebImageExtensionPayload): MediaItem[] {
       size: typeof item === 'string' ? 0 : item.size || 0,
     });
   }
-  return out.slice(0, 12);
+  return out.slice(0, 50);
+}
+
+function webAssetPayloadMetadata(payload: WebImageExtensionPayload) {
+  const raw = Array.isArray(payload.webAssetItems) ? payload.webAssetItems : Array.isArray(payload.images) ? payload.images : [];
+  return raw
+    .filter((item) => !!item && typeof item === 'object')
+    .map((item: any) => ({
+      url: String(item.url || item.imageUrl || '').slice(0, 4096),
+      name: String(item.name || '').slice(0, 200),
+      mime: String(item.mime || '').slice(0, 120),
+      size: Math.max(0, Number(item.size) || 0),
+      width: Math.max(0, Number(item.width) || 0),
+      height: Math.max(0, Number(item.height) || 0),
+      sourceUrl: String(item.sourceUrl || '').slice(0, 4096),
+      pageUrl: String(item.pageUrl || payload.pageUrl || '').slice(0, 2048),
+    }))
+    .slice(0, 50);
 }
 
 function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNodeSpec[] {
@@ -2009,6 +2036,23 @@ function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNode
   const pageUrl = cleanWebImageText(payload.pageUrl, 2048);
   const pageTitle = cleanWebImageText(payload.pageTitle, 200);
   const specs: SendNodeSpec[] = [];
+  const imageItems = webImagePayloadImages(payload);
+  if (mode === 'reference' && imageItems.length > 0) {
+    specs.push({
+      type: 'upload',
+      data: {
+        ...createUploadDataFromItems('image', imageItems),
+        label: `网页采集 · ${imageItems.length} 张`,
+        sendSource: 'web-asset-importer',
+        source: 'web-asset-importer',
+        webAssetImporter: true,
+        webAssetItems: webAssetPayloadMetadata(payload),
+        webAssetPageUrl: pageUrl,
+        webAssetPageTitle: pageTitle,
+      },
+    });
+    return specs;
+  }
   if (mode === 'prompt' && prompt) {
     specs.push({
       type: 'text',
@@ -2024,7 +2068,6 @@ function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNode
       },
     });
   }
-  const imageItems = webImagePayloadImages(payload);
   if ((mode === 'image' || mode === 'both') && imageItems.length > 0) {
     specs.push({
       type: 'output',
@@ -4697,9 +4740,12 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         return false;
       }
 
-      const selectedTarget = nodesRef.current.find((node) => node.selected && node.type === CREATIVE_TARGET_NODE_TYPE);
+      const incomingMode = normalizeWebImageSendMode(payload.mode);
+      const selectedTarget = incomingMode === 'reference'
+        ? undefined
+        : nodesRef.current.find((node) => node.selected && node.type === CREATIVE_TARGET_NODE_TYPE);
       if (selectedTarget) {
-        const mode = normalizeWebImageSendMode(payload.mode);
+        const mode = incomingMode;
         const prompt = cleanWebImageText(payload.prompt);
         const imageItems = webImagePayloadImages(payload);
         if ((mode === 'image' || mode === 'both') && imageItems.length > 0) {
@@ -8750,6 +8796,67 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       }
 
       if (items.length === 0) {
+        newSigPatches.push([n.id, outputSig]);
+        continue;
+      }
+
+      // ComfyUI 应用可以在一次运行中同时返回多种媒体。自动输出保持一个聚合节点，
+      // 让图片 / 视频 / 音频 / 文本继续作为同一组工作流结果传递；用户手动连接的
+      // 其他 OutputNode 不做删除或拆分。
+      if (t === 'comfyui-store') {
+        const downstream = edges
+          .filter((edge) => edge.source === n.id)
+          .map((edge) => {
+            const target = nodes.find((node) => node.id === edge.target);
+            if (!target || target.type !== 'output') return null;
+            const incoming = edges.filter((candidate) => candidate.target === target.id).length;
+            const hasOutgoing = edges.some((candidate) => candidate.source === target.id);
+            const auto = target.id.startsWith('output-auto-') && edge.id.startsWith('e-auto-');
+            return { target, edge, auto, removable: auto && incoming === 1 && !hasOutgoing && (target.data as any)?.userMoved !== true };
+          })
+          .filter(Boolean) as Array<{ target: Node; edge: Edge; auto: boolean; removable: boolean }>;
+        const keeper = downstream.find((item) => !item.auto) || downstream[0];
+        const aggregateData = {
+          pickKind: undefined,
+          pickIndex: undefined,
+          aggregateSource: 'comfyui-store',
+          imageUrl: imgs[0] || '',
+          imageUrls: imgs,
+          videoUrl: vids[0] || '',
+          videoUrls: vids,
+          audioUrl: auds[0] || '',
+          audioUrls: auds,
+          outputText: texts.join('\n'),
+          text: texts.join('\n'),
+          outputKinds: Array.isArray(d.outputKinds) ? d.outputKinds : [],
+          primaryKind: d.primaryKind || items[0]?.kind || 'image',
+        };
+        if (keeper) {
+          setNodes((prev) => prev.map((node) => node.id === keeper.target.id
+            ? { ...node, data: { ...(node.data as any), ...aggregateData } }
+            : node));
+        } else {
+          const sourceRect = rectOf(n);
+          const outputSize = defaultSizeOf('output');
+          const desired = [{
+            x: (n.position?.x ?? 0) + sourceRect.w + 80,
+            y: (n.position?.y ?? 0) + sourceRect.h / 2 - outputSize.h / 2,
+            w: outputSize.w,
+            h: outputSize.h,
+          }];
+          const offset = placeBatchNodes(desired, [...nodes, ...pendingPlacedNodes], { source: 'placement:auto-comfyui-output', gap: 0 });
+          const newId = `output-auto-${n.id}-${Date.now()}-aggregate-${Math.random().toString(36).slice(2, 6)}`;
+          const aggregateNode: Node = {
+            id: newId,
+            type: 'output',
+            position: { x: desired[0].x + offset.dx, y: desired[0].y + offset.dy },
+            data: aggregateData,
+            selected: false,
+          } as Node;
+          toAddNodes.push(aggregateNode);
+          pendingPlacedNodes.push(aggregateNode);
+          toAddEdges.push({ id: `e-auto-${newId}`, source: n.id, target: newId, type: 'deletable' } as Edge);
+        }
         newSigPatches.push([n.id, outputSig]);
         continue;
       }

@@ -763,6 +763,19 @@ function viewUrl(baseUrl, item, defaultType = 'output') {
   return `${baseUrl}/view?filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}`;
 }
 
+function outputItems(value) {
+  if (Array.isArray(value)) return value;
+  return value && typeof value === 'object' ? [value] : [];
+}
+
+function comfyOutputMediaKind(item, fallback = 'image') {
+  const filename = String(item?.filename || item?.file || item?.name || '').toLowerCase();
+  const format = String(item?.format || item?.mime || item?.content_type || '').toLowerCase();
+  if (/\.(mp4|webm|mov|m4v|mkv)(?:$|\?)/i.test(filename) || format.startsWith('video/')) return 'video';
+  if (/\.(mp3|wav|ogg|m4a|flac|aac)(?:$|\?)/i.test(filename) || format.startsWith('audio/')) return 'audio';
+  return fallback;
+}
+
 function collectComfyOutputs(raw, promptId, baseUrl) {
   const source = raw?.[promptId] || raw?.data?.[promptId] || raw?.data || raw;
   const outputs = source?.outputs || source?.output || {};
@@ -770,20 +783,22 @@ function collectComfyOutputs(raw, promptId, baseUrl) {
   const videoUrls = [];
   const audioUrls = [];
   const texts = [];
+  const pushMedia = (item, fallback) => {
+    const url = viewUrl(baseUrl, item, 'output');
+    if (!url) return;
+    const kind = comfyOutputMediaKind(item, fallback);
+    const target = kind === 'video' ? videoUrls : kind === 'audio' ? audioUrls : imageUrls;
+    if (!target.includes(url)) target.push(url);
+  };
   for (const output of Object.values(outputs || {})) {
     if (!output || typeof output !== 'object') continue;
-    for (const item of Array.isArray(output.images) ? output.images : []) {
-      const url = viewUrl(baseUrl, item, 'output');
-      if (url && !imageUrls.includes(url)) imageUrls.push(url);
-    }
-    for (const item of Array.isArray(output.videos) ? output.videos : []) {
-      const url = viewUrl(baseUrl, item, 'output');
-      if (url && !videoUrls.includes(url)) videoUrls.push(url);
-    }
-    for (const item of Array.isArray(output.audio) ? output.audio : []) {
-      const url = viewUrl(baseUrl, item, 'output');
-      if (url && !audioUrls.includes(url)) audioUrls.push(url);
-    }
+    for (const item of outputItems(output.images)) pushMedia(item, 'image');
+    for (const item of outputItems(output.videos)) pushMedia(item, 'video');
+    for (const item of outputItems(output.video)) pushMedia(item, 'video');
+    // VHS_VideoCombine commonly returns MP4/WebM through the historical `gifs` key.
+    for (const item of outputItems(output.gifs)) pushMedia(item, 'image');
+    for (const item of outputItems(output.audio)) pushMedia(item, 'audio');
+    for (const item of outputItems(output.audios)) pushMedia(item, 'audio');
     for (const key of ['text', 'texts', 'string', 'strings']) {
       const value = output[key];
       if (typeof value === 'string') texts.push(value);
@@ -791,6 +806,15 @@ function collectComfyOutputs(raw, promptId, baseUrl) {
     }
   }
   return { imageUrls, videoUrls, audioUrls, text: texts.join('\n').trim() };
+}
+
+function outputKindsForResult(result = {}) {
+  const kinds = [];
+  if (Array.isArray(result.imageUrls) && result.imageUrls.length) kinds.push('image');
+  if (Array.isArray(result.videoUrls) && result.videoUrls.length) kinds.push('video');
+  if (Array.isArray(result.audioUrls) && result.audioUrls.length) kinds.push('audio');
+  if (String(result.text || '').trim()) kinds.push('text');
+  return kinds;
 }
 
 function extractPromptId(raw) {
@@ -823,7 +847,8 @@ async function pollHistory(baseUrl, promptId, options = {}) {
     if (outputs.imageUrls.length || outputs.videoUrls.length || outputs.audioUrls.length || outputs.text) {
       return { raw, ...outputs };
     }
-    const status = extractStatus(raw);
+    const statusSource = raw?.[promptId] || raw?.data?.[promptId] || raw?.data || raw;
+    const status = extractStatus(statusSource);
     if (SUCCESS_STATUSES.has(status)) return { raw, ...outputs };
     if (FAILURE_STATUSES.has(status)) {
       const classified = classifyComfyUiError(raw, 'ComfyUI 工作流执行失败。');
@@ -878,12 +903,16 @@ async function generateImage(provider, input = {}, options = {}) {
       return { ok: false, code: 'missing_prompt_id', providerId: provider.id, protocol: 'comfyui', error: 'ComfyUI 未返回 prompt_id。', raw };
     }
     const polled = await pollHistory(baseUrl, promptId, options);
-    if (!polled.imageUrls.length) {
-      return { ok: false, code: 'empty_image', providerId: provider.id, protocol: 'comfyui', error: 'ComfyUI 工作流完成但没有返回图片。', raw: polled.raw };
+    const outputKinds = outputKindsForResult(polled);
+    if (!outputKinds.length) {
+      return { ok: false, code: 'empty_output', providerId: provider.id, protocol: 'comfyui', error: 'ComfyUI 工作流完成但没有返回图片、视频、音频或文本。', raw: polled.raw };
     }
+    const primaryKind = outputKinds[0];
     return {
       ok: true,
-      kind: 'image',
+      kind: primaryKind,
+      primaryKind,
+      outputKinds,
       code: 'completed',
       providerId: provider.id,
       protocol: 'comfyui',
@@ -958,6 +987,8 @@ async function testProvider(provider, options = {}) {
 
 module.exports = {
   classifyComfyUiError,
+  collectComfyOutputs,
   generateImage,
+  outputKindsForResult,
   testProvider,
 };

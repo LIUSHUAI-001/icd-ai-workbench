@@ -114,3 +114,29 @@ test('Electron packaging verifies encrypted local extension hook points', () => 
     assert.match(localPostBuild, /backend-enc['"], ['"]local-private/);
   }
 });
+
+test('formal Electron releases fail closed when required private sidecars are missing', () => {
+  const distRelease = read('../scripts/dist-release.cjs');
+  const viteConfig = read('../vite.config.ts');
+  const encrypt = read('../electron/encrypt.cjs');
+  const postBuild = read('../electron/_post_build.cjs');
+
+  assert.match(distRelease, /T8_REQUIRE_LOCAL_PRIVATE:\s*['"]1['"]/);
+
+  assert.match(viteConfig, /LOCAL_REQUIRED_FRONTEND_ENTRY/);
+  assert.match(viteConfig, /process\.env\.T8_REQUIRE_LOCAL_PRIVATE !== ['"]1['"]/);
+  assert.match(viteConfig, /formal release requires local private frontend/);
+  assert.match(viteConfig, /formal release cannot disable local private extensions/);
+
+  assert.match(encrypt, /REQUIRED_LOCAL_PRIVATE_BACKEND/);
+  assert.match(encrypt, /REQUIRED_LOCAL_PRIVATE_OUTPUT/);
+  assert.match(encrypt, /recharge['"], ['"]backend['"], ['"]routes\.cjs/);
+  assert.match(encrypt, /recharge['"], ['"]backend['"], ['"]routes\.t8c/);
+  assert.match(encrypt, /formal release requires local private backend/);
+  assert.match(encrypt, /local private bytecode missing after encryption/);
+
+  assert.match(postBuild, /function checkRequiredLocalPrivateArtifacts\(\)/);
+  assert.match(postBuild, /formal release requires local private build hook/);
+  assert.match(postBuild, /local-private['"], ['"]recharge['"], ['"]backend['"], ['"]routes\.t8c/);
+  assert.match(postBuild, /checkRequiredLocalPrivateArtifacts\(\)/);
+});

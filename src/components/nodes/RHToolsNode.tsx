@@ -27,7 +27,7 @@ import {
   Sparkles, Search, Plus, Pencil, AlertCircle, Loader2,
   Square, RefreshCw, ArrowLeft, Download, Upload,
 } from 'lucide-react';
-import { submitRh, queryRh, cancelRh, fetchRhAppInfo, uploadRhAsset } from '../../services/generation';
+import { submitRh, queryRh, cancelRh, fetchRhAppInfo, uploadRhAsset, type RhSite } from '../../services/generation';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useHasAutoOutput } from './useHasAutoOutput';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
@@ -157,6 +157,8 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
   const activeAppId: string = d?.rhToolsActiveAppId || '';
   const activeApp: RHTool | undefined = activeAppId ? tools.find((t) => t.id === activeAppId) : undefined;
   const webappId: string = activeApp?.webappId || '';
+  const configuredRhSite: RhSite = activeApp?.rhSite === 'intl' ? 'intl' : 'cn';
+  const activeRhSiteRef = useRef<RhSite>(configuredRhSite);
   // 运行态（与 RunningHubNode 字段对齐）
   const instanceType: string = d?.instanceType || '';
   const status: 'idle' | 'submitting' | 'polling' | 'success' | 'error' = d?.status || 'idle';
@@ -166,6 +168,10 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
   const paramValues: Record<string, RhParamValue> = d?.paramValues || {};
   const paramMentions: Record<string, MediaMention[]> =
     d?.paramMentions && typeof d.paramMentions === 'object' ? d.paramMentions : {};
+
+  useEffect(() => {
+    activeRhSiteRef.current = configuredRhSite;
+  }, [activeAppId, configuredRhSite]);
 
   // 主题色（青调 cyan，与 RunningHubNode 一致）—— v1.2.10.2 修复某些主题下紫色面板过于伤眼问题
   // v1.2.10.3: 像素风不再用 cyan 混入, 改走 RunningHubNode 同款糖果调色板（px-surface/px-muted/px-ink/px-yellow）
@@ -521,7 +527,8 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
           v.startsWith('/files/input/') ||
           v.startsWith('/input/');
         if (isUrlLike) {
-          const r = await uploadRhAsset(v);
+          const r = await uploadRhAsset(v, activeRhSiteRef.current);
+          if (r.site) activeRhSiteRef.current = r.site;
           fieldValue = r.fileName;
         } else {
           fieldValue = v;
@@ -580,7 +587,8 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
           return;
         }
         try {
-          const r = await queryRh(tid);
+          const r = await queryRh(tid, activeRhSiteRef.current);
+          if (r.site) activeRhSiteRef.current = r.site;
           if (elapsed % 6 === 0) {
             logBus.debug(`[${elapsed * 5}s] status=${r.status} code=${r.code} urls=${r.urls?.length || 0}`, src);
           }
@@ -643,7 +651,8 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
     }
     setFetchingInfo(true);
     try {
-      const info = await fetchRhAppInfo(webappId);
+      const info = await fetchRhAppInfo(webappId, activeRhSiteRef.current);
+      if (info?.rhSite) activeRhSiteRef.current = info.rhSite;
       const list: any[] = info?.nodeInfoList || [];
       logBus.info(`拉取应用信息 · webappId=${webappId} · ${list.length} 个字段`, src);
       const next: Record<string, RhParamValue> = { ...paramValues };
@@ -727,13 +736,15 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
         webappId,
         nodeInfoList,
         instanceType: instanceType || undefined,
+        site: activeRhSiteRef.current,
       });
+      activeRhSiteRef.current = r.site || activeRhSiteRef.current;
       activeTaskIdRef.current = r.taskId;
       if (stopRequestedRef.current) {
         logBus.warn(`停止请求已收到，提交返回后立即取消 RH 后台任务 taskId=${r.taskId}`, src);
         try {
           setCancelling(true);
-          await cancelRh(r.taskId);
+          await cancelRh(r.taskId, activeRhSiteRef.current);
           logBus.success(`已请求取消 RH 后台任务 taskId=${r.taskId}`, src);
           stopPoll(r.taskId, new Error('已取消'));
           stopRequestedRef.current = false;
@@ -784,7 +795,7 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
     logBus.warn(`用户主动停止，正在请求取消 RH 后台任务 taskId=${tid}`, src);
     update({ taskId: tid, error: '正在请求取消 RH 后台任务...' });
     try {
-      await cancelRh(tid);
+      await cancelRh(tid, activeRhSiteRef.current);
       logBus.success(`已请求取消 RH 后台任务 taskId=${tid}`, src);
       stopPoll(tid, new Error('已取消'));
       stopRequestedRef.current = false;
@@ -920,7 +931,7 @@ const RHToolsNode = ({ id, data, selected }: NodeProps) => {
               {activeApp.title}
             </div>
             <div className="text-[10px] truncate" style={{ color: subText }}>
-              {activeApp.description || `webappId: ${webappId}`}
+              {activeApp.description || `webappId: ${webappId}`} · {configuredRhSite === 'intl' ? '海外站' : '国内站'}
             </div>
           </div>
         </div>

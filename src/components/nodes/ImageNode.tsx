@@ -27,6 +27,8 @@ import {
 import {
   submitImageAsync,
   queryImageStatus,
+  submitSeedreamNz,
+  querySeedreamNz,
   submitImageFal,
   queryImageFal,
   uploadFile,
@@ -172,6 +174,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const model = d?.model || IMAGE_MODELS[0].id;
   const modelDef = useMemo(() => IMAGE_MODELS.find((m) => m.id === model) || IMAGE_MODELS[0], [model]);
   const advancedProviders = useApiKeysStore((s) => s.settings.advancedProviders);
+  const zhenzhenSd2ApiKey = useApiKeysStore((s) => s.settings.zhenzhenSd2ApiKey);
   const imageAdvancedProviders = useMemo(
     () => advancedProvidersForNode(advancedProviders, 'image'),
     [advancedProviders],
@@ -394,6 +397,13 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const isMj = modelDef.paramKind === 'mj';
   const isGrokImage = modelDef.paramKind === 'grok-image';
   const isSeedream = modelDef.paramKind === 'seedream-v5';
+  const seedreamApiSource: 'zhenzhen' | 'seedance-nz' = d?.seedreamApiSource === 'seedance-nz' ? 'seedance-nz' : 'zhenzhen';
+  const isSeedreamNz = isSeedream && seedreamApiSource === 'seedance-nz';
+  const seedreamNzResolution: '1k' | '2k' | 'custom' = ['1k', '2k', 'custom'].includes(d?.seedreamNzResolution)
+    ? d.seedreamNzResolution
+    : '2k';
+  const seedreamNzCustomSize = typeof d?.seedreamNzCustomSize === 'string' ? d.seedreamNzCustomSize : '2048x2048';
+  const seedreamNzResolvedSize = seedreamNzCustomSize.trim().replace(/\s+/g, '').replace(/[X×]/g, 'x');
   const seedreamOutputFormat: 'png' | 'jpeg' = d?.seedreamOutputFormat === 'jpeg' ? 'jpeg' : 'png';
   const seedreamCustomSize = typeof d?.seedreamCustomSize === 'string' ? d.seedreamCustomSize : '2048x2048';
   const seedreamResolvedSize = (sizeLevel === 'custom' ? seedreamCustomSize : sizeLevel)
@@ -462,6 +472,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const materialOrder: string[] = Array.isArray(d?.materialOrder) ? d.materialOrder : [];
   const orderedImages = useOrderedMaterials(allImagesUnordered, materialOrder);
   const orderedTexts = useOrderedMaterials(visibleUpstreamTexts, materialOrder);
+  const seedreamNzUiModel = orderedImages.length > 0 ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i';
   const mentionMaterials = useMemo(
     () => orderedImages.slice(0, maxRefs),
     [orderedImages, maxRefs],
@@ -588,10 +599,20 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
       logBus.error('生成中止: 缺少 prompt', src);
       return;
     }
-    if (isSeedream && !/^\d+x\d+$/.test(seedreamResolvedSize)) {
+    if (isSeedream && !isSeedreamNz && !/^\d+x\d+$/.test(seedreamResolvedSize)) {
       setError('Seedream 自定义尺寸格式应为 宽x高，例如 2048x1536');
       logBus.error(`生成中止: Seedream 尺寸格式无效 ${seedreamResolvedSize || '(空)'}`, src);
       return;
+    }
+    if (isSeedreamNz && seedreamNzResolution === 'custom') {
+      const match = seedreamNzResolvedSize.match(/^(\d+)x(\d+)$/);
+      const width = Number(match?.[1]);
+      const height = Number(match?.[2]);
+      if (!match || width < 240 || width > 8192 || height < 240 || height > 8192) {
+        setError('贞贞 SD2 Seedream 自定义宽高必须为 240-8192，例如 2048x1536');
+        logBus.error(`生成中止: Seedream NZ 尺寸格式无效 ${seedreamNzResolvedSize || '(空)'}`, src);
+        return;
+      }
     }
     const runId = nextGenerationRun();
     taskCompletionSound.primeAudio();
@@ -871,6 +892,61 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
         throw new Error(`FAL 超时: ${(maxPoll * interval) / 1000}s 未完成`);
       }
 
+      // seedance.nz has a separate asynchronous Seedream API. This branch is
+      // deliberately isolated so the existing zhenzhen Seedream call remains unchanged.
+      if (isSeedreamNz) {
+        if (!zhenzhenSd2ApiKey) throw new Error('请先在 API 设置中填写“贞贞的 SD2 API Key”');
+        const expectedModel = allRefs.length ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i';
+        logBus.info(
+          `贞贞 SD2 Seedream 提交: model=${expectedModel} 参考图=${allRefs.length} 尺寸=${seedreamNzResolution === 'custom' ? seedreamNzResolvedSize : seedreamNzResolution}`,
+          src,
+        );
+        const submit = await submitSeedreamNz({
+          prompt: finalPrompt,
+          images: allRefs,
+          resolution: seedreamNzResolution === 'custom' ? undefined : seedreamNzResolution,
+          size: seedreamNzResolution === 'custom' ? seedreamNzResolvedSize : undefined,
+          output_format: seedreamOutputFormat,
+        });
+        if (!isCurrentGenerationRun(runId)) return;
+        const taskId = submit.taskId;
+        if (!taskId) throw new Error('贞贞 SD2 Seedream 未返回任务 ID');
+        update({ progress: submit.progress || '0%', taskId });
+        const interval = 3000;
+        const maxPoll = minPollCountForTimeout(interval);
+        let lastProgress = submit.progress || '0%';
+        for (let i = 0; i < maxPoll; i++) {
+          await new Promise((resolve) => setTimeout(resolve, interval));
+          if (!isCurrentGenerationRun(runId)) return;
+          const query = await querySeedreamNz(taskId);
+          if (!isCurrentGenerationRun(runId)) return;
+          if (query.progress && query.progress !== lastProgress) {
+            lastProgress = query.progress;
+            update({ progress: query.progress });
+          }
+          const queryStatus = String(query.status || '').toLowerCase();
+          if (queryStatus === 'completed' || queryStatus === 'success' || queryStatus === 'done') {
+            const url = query.urls?.[0];
+            if (!url) throw new Error('贞贞 SD2 Seedream 任务完成但未返回图片');
+            logBus.success(`贞贞 SD2 Seedream 完成 → ${url}`, src);
+            update({
+              status: 'success',
+              progress: '100%',
+              imageUrl: url,
+              imageUrls: query.urls,
+              lastPrompt: finalPrompt,
+              usedI2I: allRefs.length > 0,
+            });
+            taskCompletionSound.notifyComplete(id, 'image');
+            return;
+          }
+          if (queryStatus === 'failed' || queryStatus === 'failure' || queryStatus === 'error') {
+            throw new Error(query.error || '贞贞 SD2 Seedream 任务失败');
+          }
+        }
+        throw new Error(`贞贞 SD2 Seedream 超时: ${(maxPoll * interval) / 1000}s 未完成`);
+      }
+
       // ============ 原有标准路径(GPT2 standard / nano-banana / nano-banana-pro 未动) ============
       logBus.info(
         `提交任务: model=${apiModel} 比例=${aspectRatio} 尺寸=${sizeLevel} 参考图=${allRefs.length} prompt="${finalPrompt.slice(0, 60)}${finalPrompt.length > 60 ? '…' : ''}"`,
@@ -1022,7 +1098,9 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           <div className="text-[10px] text-white/40">
             {isExternalSelected && providerSelection.provider
               ? `${providerSelection.provider.label || providerSelection.provider.id} · ${externalProviderModel || '未选模型'}`
-              : `${modelDef.label} · ${modelDef.description}`}
+              : isSeedreamNz
+                ? `贞贞 SD2 · ${seedreamNzUiModel}`
+                : `${modelDef.label} · ${modelDef.description}`}
           </div>
         </div>
       </div>
@@ -1470,8 +1548,31 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           </div>
         </div>}
 
+        {isSeedream && !isExternalSelected && (
+          <div className="rounded border border-cyan-400/25 bg-cyan-500/5 p-2 space-y-2">
+            <div>
+              <label className="text-[10px] text-white/50 block mb-1">API 来源</label>
+              <select
+                value={seedreamApiSource}
+                onChange={(e) => update({ seedreamApiSource: e.target.value })}
+                style={{ background: '#18181b', color: '#ffffff' }}
+                className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-cyan-400/60"
+              >
+                <option value="zhenzhen" style={{ background: '#18181b', color: '#ffffff' }}>贞贞工坊 · 原 Seedream</option>
+                <option value="seedance-nz" style={{ background: '#18181b', color: '#ffffff' }}>贞贞 SD2 · api.seedance.nz</option>
+              </select>
+            </div>
+            {isSeedreamNz && (
+              <div className="text-[10px] leading-4 text-cyan-100/75">
+                实际模型：{seedreamNzUiModel}（按参考图自动切换）
+                {!zhenzhenSd2ApiKey && <div className="mt-1 text-amber-300">尚未配置“贞贞的 SD2 API Key”</div>}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 子模型选择(对齐主项目 Tab 内的 model 下拉) - MJ 模式隐藏(用下面专属版本选择) */}
-        {!isExternalSelected && !isMj && (
+        {!isExternalSelected && !isMj && !isSeedreamNz && (
           <div>
             <label className="text-[10px] text-white/50 block mb-1">具体模型</label>
             <select
@@ -1493,9 +1594,9 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           data={d}
           update={update}
           context={{
-            providerSource: isExternalSelected ? providerSelection.providerSource : 'zhenzhen',
+            providerSource: isExternalSelected ? providerSelection.providerSource : (isSeedreamNz ? 'seedance-nz' : 'zhenzhen'),
             providerId: providerSelection.providerId,
-            providerModel: isExternalSelected ? externalProviderModel : apiModel,
+            providerModel: isExternalSelected ? externalProviderModel : (isSeedreamNz ? seedreamNzUiModel : apiModel),
             model: modelDef.id,
             apiModel,
             providerKind: isFal ? 'fal' : modelDef.paramKind,
@@ -1518,7 +1619,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                 ))}
               </select>
             </div>}
-            {!isGrokImage && modelDef.sizes.length > 0 && (
+            {!isGrokImage && !isSeedreamNz && modelDef.sizes.length > 0 && (
               <div>
                 <label className="text-[10px] text-white/50 block mb-1">尺寸</label>
                 <select
@@ -1530,6 +1631,21 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                   {modelDef.sizes.map((s) => (
                     <option key={s} value={s} style={{ background: '#18181b', color: '#ffffff' }}>{s}</option>
                   ))}
+                </select>
+              </div>
+            )}
+            {isSeedreamNz && (
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">分辨率</label>
+                <select
+                  value={seedreamNzResolution}
+                  onChange={(e) => update({ seedreamNzResolution: e.target.value })}
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                >
+                  <option value="1k" style={{ background: '#18181b', color: '#ffffff' }}>1K</option>
+                  <option value="2k" style={{ background: '#18181b', color: '#ffffff' }}>2K</option>
+                  <option value="custom" style={{ background: '#18181b', color: '#ffffff' }}>Custom</option>
                 </select>
               </div>
             )}
@@ -1547,7 +1663,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                 </select>
               </div>
             )}
-            {isSeedream && sizeLevel === 'custom' && (
+            {isSeedream && !isSeedreamNz && sizeLevel === 'custom' && (
               <div className="col-span-2">
                 <label className="text-[10px] text-white/50 block mb-1">自定义尺寸</label>
                 <input
@@ -1560,6 +1676,27 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                 />
               </div>
             )}
+            {isSeedreamNz && seedreamNzResolution === 'custom' && (
+              <div className="col-span-2">
+                <label className="text-[10px] text-white/50 block mb-1">自定义尺寸（240-8192）</label>
+                <input
+                  value={seedreamNzCustomSize}
+                  onChange={(e) => update({ seedreamNzCustomSize: e.target.value })}
+                  placeholder="2048x1536"
+                  inputMode="text"
+                  style={{ background: '#18181b', color: '#ffffff' }}
+                  className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
+                />
+              </div>
+            )}
+          </div>
+        )}
+        {isSeedreamNz && !isExternalSelected && (
+          <div>
+            <label className="text-[10px] text-white/50 block mb-1">具体模型</label>
+            <div className="w-full rounded border border-white/10 bg-black/20 px-2 py-1 text-xs text-white/80">
+              {seedreamNzUiModel}
+            </div>
           </div>
         )}
 
