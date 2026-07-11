@@ -78,9 +78,13 @@ function checkAchievementMedia() {
 function checkWebImageExtensionResources() {
   const extensionRoot = path.join(RES, 'extension', 'web-image-reverse');
   checkFile(path.join(extensionRoot, 'manifest.json'));
+  checkFile(path.join(extensionRoot, 'popup.html'));
+  checkFile(path.join(extensionRoot, 'sidepanel.html'));
+  checkFile(path.join(extensionRoot, 'scripts', 'asset-panel.js'));
   checkFile(path.join(extensionRoot, 'scripts', 'background.js'));
   checkFile(path.join(extensionRoot, 'scripts', 'content.js'));
   checkFile(path.join(extensionRoot, 'scripts', 'runninghub-bridge.js'));
+  checkFile(path.join(extensionRoot, 'styles', 'asset-panel.css'));
   checkFile(path.join(extensionRoot, 'styles', 'content.css'));
 }
 
@@ -161,12 +165,15 @@ function isSmallTextFile(p) {
 function runLocalPostBuildChecks() {
   const disabled = process.env.T8_ENABLE_LOCAL_PRIVATE === '0'
     || process.env.T8_DISABLE_LOCAL_EXTENSIONS === '1';
+  const required = process.env.T8_REQUIRE_LOCAL_PRIVATE === '1';
   const hookPath = path.join(ROOT, 'local-private', 'extensions', 'build', 'post-build.cjs');
   if (disabled) {
+    if (required) failSecurity('formal release cannot disable local private build hook:', hookPath);
     console.log('  ⚠️  local private build hook disabled by environment');
     return;
   }
   if (!fs.existsSync(hookPath)) {
+    if (required) failSecurity('formal release requires local private build hook:', hookPath);
     console.log('  ✅ no local private build hook configured');
     return;
   }
@@ -192,6 +199,28 @@ function runLocalPostBuildChecks() {
     walkFiles,
     isSmallTextFile,
   });
+}
+
+function checkRequiredLocalPrivateArtifacts() {
+  if (process.env.T8_REQUIRE_LOCAL_PRIVATE !== '1') return;
+  const requiredBackend = [
+    path.join(RES, 'backend-enc', 'local-private', 'extensions', 'backend', 'index.t8c'),
+    path.join(RES, 'backend-enc', 'local-private', 'recharge', 'backend', 'routes.t8c'),
+  ];
+  for (const file of requiredBackend) {
+    if (!fs.existsSync(file)) failSecurity('formal release missing encrypted local private backend:', file);
+    ok(file);
+  }
+
+  const forbiddenPlaintext = [
+    path.join(RES, 'backend-enc', 'local-private', 'extensions', 'backend', 'index.cjs'),
+    path.join(RES, 'backend-enc', 'local-private', 'recharge', 'backend', 'routes.cjs'),
+  ];
+  for (const file of forbiddenPlaintext) {
+    if (fs.existsSync(file)) failSecurity('formal release leaked local private backend source:', file);
+  }
+
+  console.log('  ✅ formal release local private frontend/backend artifacts verified');
 }
 
 function checkAiWatermarkRuntime() {
@@ -568,6 +597,7 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'routes', 'videoOps.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'batchTags.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'photoshopBridge.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'webAssets.t8c'));
   checkNoLocalVibexRoute();
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'media.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'store.t8c'));
@@ -583,6 +613,8 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'providers', 'volcengine.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'providers', 'comfyui.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'providers', 'jimengCli.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'providers', 'seedanceNz.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'providers', 'runninghubSite.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'tools', 'aiWatermark', 'runner.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'tools', 'aiWatermark', 'media.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'tools', 'topaz', 'runner.t8c'));
@@ -591,6 +623,7 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'utils', 'figmaBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'parseHubBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'runtimeArchive.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'utils', 'safeRemoteMediaFetch.t8c'));
 
   console.log('\n[2] 前端 dist:');
   checkFile(path.join(RES, 'frontend', 'index.html'));
@@ -621,6 +654,7 @@ function main() {
 
   console.log('\n[4] 本地私有扩展分发检查:');
   runLocalPostBuildChecks();
+  checkRequiredLocalPrivateArtifacts();
 
   console.log('\n[5] 去AI水印 sidecar runtime:');
   checkAiWatermarkRuntime();

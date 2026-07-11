@@ -850,8 +850,13 @@ const UploadNode = ({ id, data, selected, type }: NodeProps) => {
         >
           {meta ? <meta.icon size={13} /> : <UploadIcon size={13} />}
         </div>
-        <div className={`flex-1 text-sm font-semibold ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-          {headerLabel}
+        <div className={`min-w-0 flex-1 ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+          <div className="truncate text-sm font-semibold">{headerLabel}</div>
+          {d.webAssetImporter && (
+            <div className={`truncate text-[10px] font-medium ${isDark ? 'text-cyan-200/75' : 'text-cyan-700'}`}>
+              网页采集 · {mediaItems.length} 张
+            </div>
+          )}
         </div>
         {meta && (
           <button

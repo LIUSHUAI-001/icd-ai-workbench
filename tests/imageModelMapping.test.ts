@@ -106,3 +106,18 @@ test('Seedream V5 Pro is isolated behind its own image protocol and supports up 
   assert.match(proxySource, /Seedream 尺寸格式无效/);
   assert.match(imageNodeSource, /remaining: maxRefs - orderedImages\.length/);
 });
+
+test('Seedream tab keeps legacy source by default and exposes isolated seedance.nz image routing', () => {
+  assert.match(imageNodeSource, /d\?\.seedreamApiSource === 'seedance-nz' \? 'seedance-nz' : 'zhenzhen'/);
+  assert.match(imageNodeSource, /贞贞工坊 · 原 Seedream/);
+  assert.match(imageNodeSource, /贞贞 SD2 · api\.seedance\.nz/);
+  assert.match(imageNodeSource, /seedream-v5-pro-i2i/);
+  assert.match(imageNodeSource, /seedream-v5-pro-t2i/);
+  assert.match(imageNodeSource, /submitSeedreamNz/);
+  assert.match(imageNodeSource, /querySeedreamNz/);
+  assert.match(proxySource, /\/image\/seedance-nz\/submit/);
+  assert.match(proxySource, /\/image\/seedance-nz\/status\/:tid/);
+  assert.match(proxySource, /settings\?\.zhenzhenSd2ApiKey/);
+  assert.match(proxySource, /seedanceNz\.submitImageTask/);
+  assert.match(proxySource, /seedanceNz\.queryImageTask/);
+});

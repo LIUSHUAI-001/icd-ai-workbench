@@ -98,6 +98,14 @@ test('ApiSettings classified API keys expose explicit clear actions', () => {
   assert.match(apiSettingsSource, /aria-label=\{`\$\{spec\.label\}\$\{pendingClear \? '取消清空' : '清空'\}`\}/);
 });
 
+test('ApiSettings exposes an independent fixed seedance.nz main API key', () => {
+  assert.match(apiSettingsSource, /贞贞的 SD2 API Key/);
+  assert.match(apiSettingsSource, /FIXED_ZHENZHEN_SD2_BASE/);
+  assert.match(apiSettingsSource, /https:\/\/api\.seedance\.nz\/sign-up\?aff=ibVH/);
+  assert.match(apiSettingsSource, /zhenzhenSd2ApiKey/);
+  assert.match(apiSettingsSource, /clearable: true/);
+});
+
 test('ApiSettings cloud upload panels link to vendor consoles and secret key reminders', () => {
   assert.match(apiSettingsSource, /https:\/\/console\.cloud\.tencent\.com\/cam\/capi/);
   assert.match(apiSettingsSource, /https:\/\/console\.cloud\.tencent\.com\/lighthouse\/cos\/index\?rid=5/);

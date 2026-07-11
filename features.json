@@ -1,7 +1,131 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.5.2",
-  "lastUpdated": "2026-07-10-v252-garden-stage-tutorial-release",
+  "version": "2.5.3",
+  "lastUpdated": "2026-07-12-electron-release-v2.5.3",
+  "electronReleaseV253": {
+    "version": "2.5.3",
+    "status": "released",
+    "date": "2026-07-12",
+    "description": "v2.5.3 Electron 自动更新版：发布 ComfyUI 多类型输出、网页素材批量采集、贞贞 SD2 的 Seedance/Seedream、新 RunningHub 国内/海外双站和顶部 API 获取入口，并修复正式包充值私有 sidecar 缺失仍可发布的问题。",
+    "highlights": [
+      "RunningHub 国内站与海外站使用独立 API Key、固定域名和应用站点选择，明确错配时可安全尝试另一站，任务轮询与取消保持原站点。",
+      "贞贞 SD2 api.seedance.nz 支持 Seedance 2.0 主力模型和 Seedream V5 Pro 文生图/图像编辑，旧贞贞工坊链路保持不变。",
+      "ComfyUI 应用支持图片、视频、音频、文本多类型输出，一个聚合输出节点继续传递完整结果。",
+      "Chrome 扩展新增 Popup/Side Panel 网页素材扫描、筛选、截图和批量导入，一个批次进入一个多图上传素材节点。",
+      "顶部新增 API获取入口，集中展示贞贞与 RunningHub 国内/海外注册说明，不直接铺设长网址。",
+      "正式 Electron 发布强制注入并验证本地私有充值前端、加密后端和 post-build 钩子；任一缺失立即阻断发布。"
+    ],
+    "releaseBoundary": [
+      "公开提交不包含 local-private/**、skill.md、roadmap.md、nodemap.md、飞书多维表格实验、VibeX 本地子项目、缓存、测试凭据或私有计费源码。",
+      "本地私有 sidecar 只以 ignored/untracked 形式注入 release worktree，参与 Vite 构建和 Electron 后端加密，不进入 Git。"
+    ]
+  },
+  "apiAcquisitionPanel": {
+    "version": "2.5.2-dev",
+    "status": "implemented-and-verified",
+    "date": "2026-07-11",
+    "description": "顶部栏在图图打标器右侧新增短标题“API获取”入口，以独立浮层集中呈现贞贞国内/海外版与 RunningHub 国内/海外版 API Key 注册说明。",
+    "capabilities": [
+      "顶部按钮与图图打标器、插件安装保持同尺寸和图标加短文字样式，不在顶栏或浮层中直接展示长网址。",
+      "浮层提供四个独立说明卡：贞贞的平价AI小屋（国内版）、贞贞的AI工坊（海外版）、RunningHub APIKEY 国内版、RunningHub APIKEY 海外版。",
+      "每张卡使用短操作按钮打开对应注册页；Electron 优先调用 t8pc.openExternal，网页端或调用失败时回退 window.open 新窗口。",
+      "弹层从按钮左侧向右展开，避免在靠左的顶部入口位置向视口外溢出；Pixel 与普通明暗主题使用现有主题分支。"
+    ],
+    "verification": [
+      "顶部栏、插件安装、更新文档和 API 设置专项 Node tests 22/22。",
+      "npm run type-check。",
+      "npm run build。",
+      "真实开发画布已确认按钮顺序为图图打标器、API获取、插件安装，四张卡完整位于视口内。"
+    ],
+    "releaseBoundary": "本轮只完成源码、测试和文档，不打 Electron、不推送 GitHub、不创建 tag 或 Release。"
+  },
+  "runningHubDualSite": {
+    "version": "2.5.2-dev",
+    "status": "implemented-and-verified",
+    "date": "2026-07-11",
+    "description": "RunningHub 系列节点支持国内站 runninghub.cn 与海外站 runninghub.ai 独立配置、独立取参和独立任务轮询；旧 rhApiKey 与旧应用继续默认国内站。",
+    "capabilities": [
+      "API 设置将原 RunningHub APIKEY 明确为 RH APIKEY国内，并新增 RH APIKEY海外；两个 Base URL 由前后端分别锁定到 https://www.runninghub.cn 与 https://www.runninghub.ai。",
+      "RunningHub 节点、RH 工具编辑器和 RH 工具箱制作器在获取应用参数前可选择国内站或海外站，站点字段随应用持久化；旧画布、旧 RH 应用和旧 manifest 缺少字段时统一按 cn 读取。",
+      "应用取参、素材上传、任务提交、结果轮询和取消全部使用同站点 Host、Base URL 与 API Key；任务提交后会记住实际站点和 Key，防止后续轮询串站。",
+      "选错站点或 Key 时，仅在 401/403/404、Key 无效、应用不存在、任务不存在等明确错配结果下尝试另一套已配置 Key；参数校验失败、服务繁忙、网络异常和已返回 taskId 的提交不会跨站重提，避免重复付费任务。",
+      "RH 工具的去重身份包含 rhSite + webappId，国内与海外即使 WebApp ID 或标题相同也不会在导入和 manifest 合并时互相覆盖。"
+    ],
+    "verification": [
+      "RunningHub 双站路由、RH 工具箱、文本绑定、抠图能力、API 设置与更新文档专项 Node tests 通过。",
+      "npm run type-check。",
+      "npm run build。",
+      "真实开发画布 API 设置弹窗已确认同时显示 RH APIKEY国内、RH APIKEY海外、两个固定 Base URL 与独立获取入口。"
+    ],
+    "releaseBoundary": "本轮只完成源码、测试和文档，不打 Electron、不推送 GitHub、不创建 tag 或 Release。"
+  },
+  "communityPrFeaturesSelfImplemented": {
+    "version": "2.5.1-dev",
+    "status": "implemented-and-verified",
+    "date": "2026-07-11",
+    "description": "基于社区 PR 需求在当前主线独立实现 ComfyUI 多类型输出闭环与 Chrome 网页批量素材采集；未合并原 PR，也未带入无关 Docker、Codex CLI、Topaz 或 Web 更新器改动。",
+    "comfyuiMultiOutput": [
+      "ComfyUI 工作流只要返回图片、视频、音频或文本任一类型即判定成功，四类都为空才返回 empty_output。",
+      "兼容标准 images/videos/audio/audios 以及 VHS_VideoCombine 常见的 gifs MP4/WebM 输出，返回 outputKinds 与 primaryKind。",
+      "扩展平台图像路由统一把图片、视频和音频转存到 T8 output，保留 remote*Urls 诊断字段并报告部分转存失败。",
+      "ComfyUI 超市节点运行前清空四类旧结果，同屏预览图片、视频、音频和文本，显示真实计数，并通过一个多类型端口及一个聚合输出素材节点继续下游。"
+    ],
+    "webAssetCollector": [
+      "Chrome 扩展升级到 1.2.0，新增 Popup 与 Side Panel，扫描 img/currentSrc/srcset/picture、CSS background、canvas 和 data/blob 素材。",
+      "支持尺寸筛选、全选/清空、当前视口截图、可选懒加载滚动并恢复原位置、最多展示 200 项、单批导入 50 项和失败项重试。",
+      "新增本机 /api/web-assets/import：会话令牌、本机来源校验、DNS 绑定、重定向重验、私网拦截、流式 30MB 单项/300MB 批次限制、Sharp 解码、格式白名单、文件名清洗和内容哈希去重。",
+      "导入成功后通过 reference 桥接只创建一个多图上传素材节点，节点显示网页采集来源，并继续支持下载、资源库和拆散能力。"
+    ],
+    "verification": [
+      "ComfyUI provider、路由、节点、网页采集、桥接与插件说明专项 Node tests 61/61。",
+      "npm run type-check。",
+      "npm run build。",
+      "真实 Chromium 加载未打包扩展：扫描 img/canvas、浅色与暗色 Side Panel、后端导入、reference 桥接通过。",
+      "真实开发画布：两张 reference 素材只新增一个上传图像节点，未新增输出素材节点。"
+    ],
+    "releaseBoundary": "本轮只完成源码、测试和文档，不打 Electron、不推送 GitHub、不创建 tag 或 Release。"
+  },
+  "seedreamNzImageSource": {
+    "version": "2.5.1-dev",
+    "status": "implemented-and-live-tested",
+    "date": "2026-07-11",
+    "description": "图像节点 Seedream TAB 新增独立的贞贞 SD2 · api.seedance.nz 来源；默认继续使用原贞贞工坊 Seedream，旧画布和旧请求不迁移、不改写。",
+    "capabilities": [
+      "新来源使用官方 POST /v1/image/generations 与 GET /v1/image/generations/{task_id} 异步协议，和原贞贞工坊 /v1/images/generations 同步协议完全隔离。",
+      "无参考图自动使用 seedream-v5-pro-t2i；1-10 张参考图自动使用 seedream-v5-pro-i2i，本地素材先通过 /v1/files/upload 换取 24 小时公网直链。",
+      "支持 1K、2K、Custom 240-8192 宽高以及 PNG/JPEG；提示词限制 5-2000 字符，参考图本地上传限制单张 10MB 和 JPG/PNG/WebP。",
+      "任务完成后立即把临时图片下载到 T8 output；节点停止仅终止本地轮询，不影响远端任务，后续重新生成会轮询新任务。",
+      "API 设置中的贞贞的 SD2 API Key 同时供 Seedance 2.0、导演分镜台和本 Seedream 新来源使用。"
+    ],
+    "verification": [
+      "官方 llms.txt 与网页版文档协议核对完成。",
+      "Provider、独立代理路由、旧 Seedream 回归、图像节点来源与 API 设置专项测试通过。",
+      "npm run type-check、npm run build 与真实 Chromium Seedream TAB UI 验收通过。",
+      "真实 T8 代理文生图：seedream-v5-pro-t2i，任务成功并本地转存 1024x1024 PNG，1,434,505 bytes。",
+      "真实 T8 代理图像编辑：使用文生图结果作为参考图，自动切换 seedream-v5-pro-i2i，任务成功并本地转存 1024x1024 PNG，1,628,233 bytes；两次输出 SHA256 不同。"
+    ]
+  },
+  "seedanceNzMainApi": {
+    "version": "2.5.1-dev",
+    "status": "implemented-and-live-tested",
+    "date": "2026-07-11",
+    "description": "新增独立的贞贞 SD2 主力 API，固定接入 api.seedance.nz；SD2.0 节点与导演分镜台支持国内/Global 的 Standard、Fast、Mini 及 t2v、i2v、multi 共 18 个 Seedance 2.0 模型，同时完整保留旧贞贞工坊链路。",
+    "capabilities": [
+      "API 设置中新增贞贞的 SD2 API Key，独立保存、脱敏、清空和导入导出，Base URL 前后端锁定为 https://api.seedance.nz。",
+      "新增专用后端适配器，支持官方 /v1/videos、/v1/videos/{id}、/v1/files/upload，素材上传缓存、节流、状态归一和成功视频本地转存。",
+      "SD2.0 节点与导演分镜台可选择自动主力、新贞贞 SD2 或旧贞贞工坊；旧画布无来源字段时继续使用旧协议。",
+      "按素材自动推导 t2v、i2v、multi；multi 支持图片、视频、音频，并规范 @Image 1、@Video 1、@Audio 1 引用。",
+      "补充 Let’s Encrypt Root YR 信任链以兼容当前 Node/Electron CA，仍保持主机名和证书签名严格校验。"
+    ],
+    "verification": [
+      "真实 API：t2v 成功并下载有效 H.264 MP4。",
+      "真实 API：单图 i2v 成功并下载有效 H.264 MP4。",
+      "真实 API：恰好 1 图 + 1 视频 + 1 音频的 multi 成功并下载有效 H.264 MP4。",
+      "npx tsx --test tests/seedanceNzProvider.test.ts tests/seedanceNzFrontend.test.ts tests/directorStoryboard.test.ts tests/generationStopControls.test.ts tests/apiSettingsTheme.test.ts",
+      "npm run type-check",
+      "npm run build"
+    ]
+  },
   "electronReleaseV252": {
     "version": "2.5.2",
     "status": "electron-release",

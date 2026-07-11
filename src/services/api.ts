@@ -321,6 +321,7 @@ export interface RHToolCategory {
 export interface RHTool {
   id: string;
   webappId: string;
+  rhSite?: 'cn' | 'intl';
   title: string;
   description: string;
   categoryId: string;
@@ -339,6 +340,7 @@ export interface RHToolsBackup {
 
 export interface AddRHToolPayload {
   webappId: string;
+  rhSite?: 'cn' | 'intl';
   title: string;
   description?: string;
   categoryId?: string;
