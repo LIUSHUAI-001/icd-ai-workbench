@@ -59,8 +59,8 @@ interface KeySpec {
 }
 
 const COMMON_KEYS: KeySpec[] = [
-  { field: 'zhenzhenApiKey', label: '贞贞工坊 API Key', desc: '· 通用后备 · 用于图像/视频/音频生成', bullet: 'bg-amber-400' },
-  { field: 'zhenzhenSd2ApiKey', label: '贞贞的 SD2 API Key', desc: '· 主力 API · 用于 Seedance 2.0、导演分镜台与 Seedream 图像', bullet: 'bg-lime-400' },
+  { field: 'zhenzhenApiKey', label: '贞贞的AI工坊（海外） API Key', desc: '· 通用后备 · 用于图像/视频/音频生成', bullet: 'bg-amber-400' },
+  { field: 'zhenzhenSd2ApiKey', label: '贞贞的平价AI工坊（国内） API Key', desc: '· 主力 API · 用于 Seedance 2.0、Happy Horse、Seedream 与 Seed Audio', bullet: 'bg-lime-400' },
   { field: 'rhApiKey', label: 'RH APIKEY国内', desc: '· runninghub.cn 国内站应用', bullet: 'bg-cyan-400' },
   { field: 'rhIntlApiKey', label: 'RH APIKEY海外', desc: '· runninghub.ai 海外站应用', bullet: 'bg-blue-400' },
   { field: 'llmApiKey', label: 'LLM 独立 API Key', desc: '· 额度隔离 · 用于 LLM/Vision', bullet: 'bg-emerald-400' },
@@ -785,7 +785,7 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
           type="button"
           onClick={() => openExternal('https://ai.t8star.org/register?aff=dP7j')}
           className={linkBtnCls}
-          title="前往贞贞工坊注册获取 APIKEY"
+          title="前往贞贞的AI工坊（海外）注册获取 APIKEY"
         >
           <ExternalLink size={11} /> 获取 APIKey
         </button>
@@ -797,7 +797,7 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
           type="button"
           onClick={() => openExternal('https://api.seedance.nz/sign-up?aff=ibVH')}
           className={linkBtnCls}
-          title="前往贞贞 SD2 平台注册获取 APIKEY"
+          title="前往贞贞的平价AI工坊（国内）注册获取 APIKEY"
         >
           <ExternalLink size={11} /> 获取 APIKey
         </button>

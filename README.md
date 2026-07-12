@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.5.3
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.5.4
 >
 > GitHub：<https://github.com/T8mars/T8-penguin-canvas>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.5.3-brightgreen) ![node](https://img.shields.io/badge/node-55-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.5.4-brightgreen) ![node](https://img.shields.io/badge/node-56-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -35,8 +35,9 @@ My favorite girl Go YounJung
 
 ## ✨ 功能亮点
 
-- 🎨 **55 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标 / 随机路由
+- 🎨 **56 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标 / 随机路由
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
+- 🐎 **v2.5.4 Happy Horse / Seed Audio / 3D 白模自动更新版**：视频节点新增 Happy Horse 文生视频、单图生视频和多参考图生视频，音频节点新增 Doubao Seed Audio；3D 表情编辑器使用离线 ICT FaceKit 中性人类白模和 52 通道，支持照片比例校准及精确图片输出；教程同步新增第十六弹，贞贞国内/海外平台名称统一。
 - 🌐 **v2.5.3 双站 API 与网页素材采集自动更新版**：RunningHub 国内/海外双 Key 与站点路由、贞贞 SD2 的 Seedance/Seedream、ComfyUI 多类型聚合输出、Chrome 网页素材 Popup/Side Panel 批量采集和顶部 API 获取入口正式发布；Electron 发布新增必需私有 sidecar 强制校验，缺失即阻断。
 - 🌻 **v2.5.2 庭院守卫沉浸大屏自动更新版**：植物大战僵尸主题的庭院守卫新增类似俄罗斯方块主题的沉浸大屏按钮，战局不重载、按视口自适应放大并支持 Esc 退出；顶部“画布教程”同步新增教程第十五弹 Bilibili / YouTube 链接。
 - 🌻 **v2.5.1 庭院守卫 + Seedream 自动更新版**：新增第 14 套庭院守卫主题和按需加载的 Phaser 塔防面板，支持阳光、植物冷却、15 关、升级、局面恢复、鼠标离开自动暂停与主题默认音乐；图像节点新增 Seedream V5 Pro，支持文生图、多图编辑、PNG/JPEG、预设及自定义尺寸和最多 10 张参考图。

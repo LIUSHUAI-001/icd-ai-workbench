@@ -481,9 +481,9 @@ test('director storyboard binds seedance.nz provider to shot and bridge payloads
 
 test('director storyboard UI exposes automatic, seedance.nz and legacy built-in sources', () => {
   const node = read('../src/components/nodes/DirectorStoryboardNode.tsx');
-  assert.match(node, /主力 API（自动：优先贞贞 SD2）/);
-  assert.match(node, /贞贞 SD2 · api\.seedance\.nz/);
-  assert.match(node, /旧贞贞工坊 · ai\.t8star\.org/);
+  assert.match(node, /主力 API（自动：优先国内平价工坊）/);
+  assert.match(node, /贞贞的平价AI工坊（国内） · api\.seedance\.nz/);
+  assert.match(node, /贞贞的AI工坊（海外） · ai\.t8star\.org/);
   assert.match(node, /taskProvider: submittedProvider/);
 });
 

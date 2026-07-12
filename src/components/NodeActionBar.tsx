@@ -32,6 +32,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'grok-oauth-agent', 'codex-cli-agent',
   'resize', 'upscale', 'grid-crop', 'grid-editor', 'remove-bg', 'combine', 'image-compare', 'drawing-board',
   'panorama-3d',
+  'face-expression-3d',
   'frame-extractor', 'frame-pair',
   'upload',
   // v1.2.8 循环器 / 从合集获取

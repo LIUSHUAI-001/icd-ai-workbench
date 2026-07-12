@@ -129,6 +129,7 @@ import {
 } from '../utils/videoEdit';
 import { buildGenerationHistoryDataKey, collectGenerationHistory, countGenerationHistoryItems } from '../utils/generationHistory';
 import { validateUploadMediaFile } from '../utils/uploadMediaValidation';
+import { defaultFaceExpressionState } from '../utils/faceExpression3D';
 import {
   CREATIVE_TARGET_NODE_TYPE,
   buildCreativeTargetResult,
@@ -1063,6 +1064,7 @@ const RHToolsNode = lazyCanvasNode(() => import('./nodes/RHToolsNode'), 'RHTools
 const RHToolboxNode = lazyCanvasNode(() => import('./nodes/RHToolboxNode'), 'RHToolboxNode');
 const FalToolboxNode = lazyCanvasNode(() => import('./nodes/FalToolboxNode'), 'FalToolboxNode');
 const Model3DPreviewNode = lazyCanvasNode(() => import('./nodes/Model3DPreviewNode'), 'Model3DPreviewNode');
+const FaceExpression3DNode = lazyCanvasNode(() => import('./nodes/FaceExpression3DNode'), 'FaceExpression3DNode');
 const GrokOAuthAgentNode = lazyCanvasNode(() => import('./nodes/GrokOAuthAgentNode'), 'GrokOAuthAgentNode');
 const CodexCliAgentNode = lazyCanvasNode(() => import('./nodes/CodexCliAgentNode'), 'CodexCliAgentNode');
 const CodexImageConjureNode = lazyCanvasNode(() => import('./nodes/CodexImageConjureNode'), 'CodexImageConjureNode');
@@ -1139,6 +1141,7 @@ const SPECIFIC_NODES: Record<string, any> = {
   ...(import.meta.env?.DEV ? { 'rh-toolbox-maker': RHToolboxMakerNode } : {}),
   'fal-toolbox': FalToolboxNode,
   'model-3d-preview': Model3DPreviewNode,
+  'face-expression-3d': FaceExpression3DNode,
   'model-3d-upload': UploadNode,
   'grok-oauth-agent': GrokOAuthAgentNode,
   'codex-cli-agent': CodexCliAgentNode,
@@ -1708,6 +1711,16 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     error: '',
     size: { w: 520, h: 440 },
   },
+  'face-expression-3d': {
+    faceExpression3DState: defaultFaceExpressionState(),
+    imageUrl: '',
+    imageUrls: [],
+    urls: [],
+    metadata: null,
+    status: 'idle',
+    error: '',
+    size: { w: 520, h: 520 },
+  },
   'comfyui-store': {
     comfyuiStoreProviderId: '',
     comfyuiStoreCategoryId: 'all',
@@ -1939,6 +1952,7 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'grok-oauth-agent', 'codex-cli-agent', 'codex-image-conjure',
   'resize', 'upscale', 'grid-crop', 'grid-editor', 'remove-bg', 'combine', 'image-compare', 'drawing-board',
   'panorama-3d',
+  'face-expression-3d',
   'frame-extractor', 'frame-pair',
   'upload',
   // v1.2.8 工具节点 (循环器 / 从合集获取)

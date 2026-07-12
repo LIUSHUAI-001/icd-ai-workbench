@@ -30,9 +30,9 @@ test('SD2 node exposes built-in provider choices and preserves provider during p
   const node = read('../src/components/nodes/SeedanceNode.tsx');
   const generation = read('../src/services/generation.ts');
 
-  assert.match(node, /主力 API（自动：优先贞贞 SD2）/);
-  assert.match(node, /贞贞 SD2 · api\.seedance\.nz/);
-  assert.match(node, /旧贞贞工坊 · ai\.t8star\.org/);
+  assert.match(node, /主力 API（自动：优先国内平价工坊）/);
+  assert.match(node, /贞贞的平价AI工坊（国内） · api\.seedance\.nz/);
+  assert.match(node, /贞贞的AI工坊（海外） · ai\.t8star\.org/);
   assert.match(node, /taskProvider: builtinSource/);
   assert.match(node, /querySeedance\(tid, taskProvider\)/);
   assert.match(node, /lastTaskProvider/);
@@ -50,4 +50,49 @@ test('proxy routes seedance.nz independently and immediately stores completed ou
   assert.match(proxy, /provider: 'zhenzhen-legacy'/);
   assert.match(settings, /zhenzhenSd2ApiKey/);
   assert.match(settings, /zhenzhenSd2BaseUrl: config\.ZHENZHEN_SD2_BASE_URL/);
+});
+
+test('video node exposes Happy Horse as an isolated built-in model family', () => {
+  const models = read('../src/providers/models.ts');
+  const node = read('../src/components/nodes/VideoNode.tsx');
+  const generation = read('../src/services/generation.ts');
+  for (const model of ['happyhorse-1.1-t2v', 'happyhorse-1.1-i2v', 'happyhorse-1.1-r2v']) {
+    assert.match(models, new RegExp(model.replaceAll('.', '\\.')));
+  }
+  assert.match(models, /label: 'Happy Horse'/);
+  assert.match(models, /durations: \[3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15\]/);
+  assert.match(models, /resolutions: \['720p', '1080p'\]/);
+  assert.match(node, /submitHappyHorse/);
+  assert.match(node, /happyHorseMode === 'i2v' \? 1 : 9/);
+  assert.match(node, /文生视频只使用提示词，不发送画布中的参考图/);
+  assert.match(generation, /\/api\/proxy\/video\/happyhorse\/submit/);
+  assert.match(generation, /\/api\/proxy\/video\/happyhorse\/status/);
+});
+
+test('audio node exposes Seed Audio without replacing Suno and supports image/audio references', () => {
+  const node = read('../src/components/nodes/AudioNode.tsx');
+  const generation = read('../src/services/generation.ts');
+  const ports = read('../src/config/portTypes.ts');
+  const apiSettings = read('../src/components/ApiSettings.tsx');
+  assert.match(node, /audioProviderMode.*seed-audio/);
+  assert.match(node, /doubao-seed-audio-1\.0/);
+  assert.match(node, /submitSeedAudio/);
+  assert.match(node, /querySeedAudio/);
+  assert.match(node, /Seed Audio 的音色 ID、参考图和参考音频只能选择一种/);
+  assert.match(node, /\['wav', 'mp3', 'pcm', 'ogg_opus'\]/);
+  assert.match(node, /\['8000', '16000', '24000', '32000', '44100'\]/);
+  assert.match(node, /submitAudio\(/);
+  assert.match(generation, /\/api\/proxy\/audio\/seed-audio\/submit/);
+  assert.match(generation, /\/api\/proxy\/audio\/seed-audio\/status/);
+  assert.match(ports, /audio: \{ inputs: \['text', 'image', 'audio'\], outputs: \['audio'\] \}/);
+  assert.match(apiSettings, /Happy Horse、Seedream 与 Seed Audio/);
+});
+
+test('proxy keeps Happy Horse and Seed Audio on the domestic key and stores outputs locally', () => {
+  const proxy = read('../backend/src/routes/proxy.js');
+  assert.match(proxy, /seedanceNz\.submitHappyHorseTask/);
+  assert.match(proxy, /seedanceNz\.submitAudioTask/);
+  assert.match(proxy, /settings\?\.zhenzhenSd2ApiKey/);
+  assert.match(proxy, /saveRemoteVideo\(videoUrl, seedanceNz\.fetchRemote\)/);
+  assert.match(proxy, /saveRemoteAudio\(audioUrl\)/);
 });

@@ -628,6 +628,9 @@ function main() {
   console.log('\n[2] 前端 dist:');
   checkFile(path.join(RES, 'frontend', 'index.html'));
   checkFile(path.join(RES, 'frontend', 'assets'));
+  checkFile(path.join(RES, 'frontend', 'assets', 'face-expression', 't8-ict-neutral-head-v1.glb'));
+  checkFile(path.join(RES, 'frontend', 'assets', 'face-expression', 'asset-manifest.json'));
+  checkFile(path.join(RES, 'frontend', 'assets', 'face-expression', 'LICENSE-ICT-FaceKit.txt'));
   checkWebImageExtensionResources();
   checkFile(path.join(RES, 'shared', 'achievementManifest.json'));
   checkFile(path.join(RES, 'shared', 'videoTransitions.json'));

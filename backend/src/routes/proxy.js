@@ -1176,7 +1176,7 @@ router.post('/image/seedance-nz/submit', async (req, res) => {
   const settings = loadRawSettings();
   const apiKey = String(settings?.zhenzhenSd2ApiKey || '').trim();
   if (!apiKey) {
-    return res.status(400).json({ success: false, error: '请先在 API 设置中填写“贞贞的 SD2 API Key”' });
+    return res.status(400).json({ success: false, error: '请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”' });
   }
   try {
     const result = await seedanceNz.submitImageTask(req.body || {}, apiKey);
@@ -1212,7 +1212,7 @@ router.get('/image/seedance-nz/status/:tid', async (req, res) => {
   const remembered = recallTaskMeta(req.params.tid);
   const apiKey = String(remembered?.apiKey || settings?.zhenzhenSd2ApiKey || '').trim();
   if (!apiKey) {
-    return res.status(400).json({ success: false, error: '缺少贞贞的 SD2 API Key' });
+    return res.status(400).json({ success: false, error: '缺少贞贞的平价AI工坊（国内） API Key' });
   }
   try {
     const result = await seedanceNz.queryImageTask(req.params.tid, apiKey);
@@ -1257,6 +1257,125 @@ router.get('/image/seedance-nz/status/:tid', async (req, res) => {
     return res.status(status >= 400 && status < 600 ? status : 500).json({
       success: false,
       error: error?.message || 'seedance.nz Seedream 查询失败',
+    });
+  }
+});
+
+router.post('/video/happyhorse/submit', async (req, res) => {
+  const settings = loadRawSettings();
+  const apiKey = String(settings?.zhenzhenSd2ApiKey || '').trim();
+  if (!apiKey) {
+    return res.status(400).json({ success: false, error: '请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”' });
+  }
+  try {
+    const result = await seedanceNz.submitHappyHorseTask(req.body || {}, apiKey);
+    rememberTaskKey(result.taskId, apiKey, {
+      provider: 'happyhorse-nz',
+      model: result.model,
+      taskType: result.taskType,
+    });
+    return res.json({
+      success: true,
+      data: {
+        taskId: result.taskId,
+        model: result.model,
+        taskType: result.taskType,
+        raw: result.raw,
+      },
+    });
+  } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error('proxy/video/happyhorse/submit 错误:', error?.message || error);
+    return res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      error: error?.message || 'Happy Horse 请求失败',
+    });
+  }
+});
+
+router.get('/video/happyhorse/status/:tid', async (req, res) => {
+  const settings = loadRawSettings();
+  const remembered = recallTaskMeta(req.params.tid);
+  const apiKey = String(remembered?.apiKey || settings?.zhenzhenSd2ApiKey || '').trim();
+  if (!apiKey) return res.status(400).json({ success: false, error: '缺少贞贞的平价AI工坊（国内） API Key' });
+  try {
+    const result = await seedanceNz.queryTask(req.params.tid, apiKey);
+    let videoUrl = result.videoUrl;
+    if (result.status === 'succeeded' && videoUrl) {
+      videoUrl = await saveRemoteVideo(videoUrl, seedanceNz.fetchRemote);
+    }
+    return res.json({
+      success: true,
+      data: {
+        status: result.status,
+        progress: result.progress,
+        videoUrl,
+        failReason: result.failReason,
+        model: remembered?.model || '',
+        taskType: remembered?.taskType || '',
+        raw: result.raw,
+      },
+    });
+  } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error('proxy/video/happyhorse/status 错误:', error?.message || error);
+    return res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      error: error?.message || 'Happy Horse 查询失败',
+    });
+  }
+});
+
+router.post('/audio/seed-audio/submit', async (req, res) => {
+  const settings = loadRawSettings();
+  const apiKey = String(settings?.zhenzhenSd2ApiKey || '').trim();
+  if (!apiKey) {
+    return res.status(400).json({ success: false, error: '请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”' });
+  }
+  try {
+    const result = await seedanceNz.submitAudioTask(req.body || {}, apiKey);
+    rememberTaskKey(result.taskId, apiKey, {
+      provider: 'seed-audio-nz',
+      model: result.model,
+    });
+    return res.json({ success: true, data: { taskId: result.taskId, model: result.model, raw: result.raw } });
+  } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error('proxy/audio/seed-audio/submit 错误:', error?.message || error);
+    return res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      error: error?.message || 'Seed Audio 请求失败',
+    });
+  }
+});
+
+router.get('/audio/seed-audio/status/:tid', async (req, res) => {
+  const settings = loadRawSettings();
+  const remembered = recallTaskMeta(req.params.tid);
+  const apiKey = String(remembered?.apiKey || settings?.zhenzhenSd2ApiKey || '').trim();
+  if (!apiKey) return res.status(400).json({ success: false, error: '缺少贞贞的平价AI工坊（国内） API Key' });
+  try {
+    const result = await seedanceNz.queryAudioTask(req.params.tid, apiKey);
+    let audioUrl = result.audioUrl;
+    if (result.status === 'succeeded' && audioUrl) audioUrl = await saveRemoteAudio(audioUrl);
+    return res.json({
+      success: true,
+      data: {
+        status: result.status,
+        progress: result.progress,
+        audioUrl,
+        remoteAudioUrl: result.audioUrl,
+        failReason: result.failReason,
+        model: remembered?.model || '',
+        raw: result.raw,
+      },
+    });
+  } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error('proxy/audio/seed-audio/status 错误:', error?.message || error);
+    return res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      error: error?.message || 'Seed Audio 查询失败',
     });
   }
 });

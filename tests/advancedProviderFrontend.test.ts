@@ -310,11 +310,13 @@ test('SeedanceNode exposes explicit Jimeng intelligent multiframe mode only for 
 
 test('SeedanceNode exposes Zhenzhen mini model and native4K resolution', () => {
   const source = fs.readFileSync(new URL('../src/components/nodes/SeedanceNode.tsx', import.meta.url), 'utf8');
+  const seedanceConfig = fs.readFileSync(new URL('../src/config/seedance.ts', import.meta.url), 'utf8');
   const generation = fs.readFileSync(new URL('../src/services/generation.ts', import.meta.url), 'utf8');
 
-  assert.match(source, /value: 'doubao-seedance-2\.0-mini'/);
-  assert.match(source, /label: 'seedance-2\.0-mini'/);
-  assert.match(source, /RESOLUTION_OPTIONS = \[[^\]]*'native4K'[^\]]*\]/);
+  assert.match(source, /LEGACY_SEEDANCE_MODEL_OPTIONS as MODEL_OPTIONS/);
+  assert.match(seedanceConfig, /value: 'doubao-seedance-2\.0-mini'/);
+  assert.match(seedanceConfig, /label: 'seedance-2\.0-mini'/);
+  assert.match(seedanceConfig, /LEGACY_SEEDANCE_RESOLUTION_OPTIONS = \[[^\]]*'native4K'[^\]]*\]/);
   assert.match(generation, /doubao-seedance-2\.0-mini/);
   assert.match(generation, /native4K/);
 });

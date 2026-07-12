@@ -109,8 +109,8 @@ test('Seedream V5 Pro is isolated behind its own image protocol and supports up 
 
 test('Seedream tab keeps legacy source by default and exposes isolated seedance.nz image routing', () => {
   assert.match(imageNodeSource, /d\?\.seedreamApiSource === 'seedance-nz' \? 'seedance-nz' : 'zhenzhen'/);
-  assert.match(imageNodeSource, /贞贞工坊 · 原 Seedream/);
-  assert.match(imageNodeSource, /贞贞 SD2 · api\.seedance\.nz/);
+  assert.match(imageNodeSource, /贞贞的AI工坊（海外） · 原 Seedream/);
+  assert.match(imageNodeSource, /贞贞的平价AI工坊（国内） · api\.seedance\.nz/);
   assert.match(imageNodeSource, /seedream-v5-pro-i2i/);
   assert.match(imageNodeSource, /seedream-v5-pro-t2i/);
   assert.match(imageNodeSource, /submitSeedreamNz/);

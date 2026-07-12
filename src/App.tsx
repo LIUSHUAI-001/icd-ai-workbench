@@ -220,6 +220,11 @@ const CANVAS_TUTORIALS = [
     bilibili: 'https://www.bilibili.com/video/BV1RoN76RE9m/',
     youtube: 'https://www.youtube.com/watch?v=K65BqvSTfh4',
   },
+  {
+    title: '教程第十六弹（支持贞贞的平价AI小屋，全国内站模型比海外站便宜5-7.5折，支持宽审核，每日更新模型，RH API分离设置）',
+    bilibili: 'https://www.bilibili.com/video/BV11zNM6jEQR/',
+    youtube: 'https://www.youtube.com/watch?v=_G9xLFd0DN0',
+  },
 ];
 
 const CANVAS_PLUGIN_INSTALL_GUIDES = [

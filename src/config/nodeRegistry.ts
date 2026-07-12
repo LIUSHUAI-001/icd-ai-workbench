@@ -110,6 +110,7 @@ export const NODE_REGISTRY: NodeMeta[] = [
   { type: 'topaz-video-upscale', label: 'Topaz视频高清化', category: 'toolbox', description: '调用本机 Topaz Video AI 自带 ffmpeg，对上游视频做放大与补帧；需要用户已安装并登录软件', icon: 'Video', color: 'pink' },
 
   // ========== 3D 节点 ==========
+  { type: 'face-expression-3d', label: '3D表情编辑', category: '3d', description: '52 通道 3D 人脸表情、照片比例校准、相机灯光与 1K-4K 批量图片导出', icon: 'ScanFace', color: 'cyan' },
   { type: 'panorama-3d', label: '3D全景', category: '3d', description: 'Three.js 360 全景预览与取景导出，内置 GPT Image 2 文生/图生 21:9 全景贴图生成', icon: 'Globe2', color: 'sky' },
 ];
 
