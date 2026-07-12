@@ -226,14 +226,14 @@ export async function submitSeedreamNz(req: SeedreamNzSubmitRequest): Promise<Im
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
   });
-  const data = await safeJsonResponse(r, '贞贞 SD2 Seedream 提交');
+  const data = await safeJsonResponse(r, '贞贞的平价AI工坊（国内） Seedream 提交');
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;
 }
 
 export async function querySeedreamNz(taskId: string): Promise<ImageQueryResult> {
   const r = await fetch(`/api/proxy/image/seedance-nz/status/${encodeURIComponent(taskId)}`);
-  const data = await safeJsonResponse(r, '贞贞 SD2 Seedream 查询');
+  const data = await safeJsonResponse(r, '贞贞的平价AI工坊（国内） Seedream 查询');
   if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data || { status: data.success ? 'pending' : 'failed', progress: '0%', error: data?.error };
 }
@@ -782,6 +782,40 @@ export async function queryVideo(taskId: string, model?: string): Promise<VideoQ
   return data.data;
 }
 
+export interface HappyHorseSubmitRequest {
+  model: 'happyhorse-1.1-t2v' | 'happyhorse-1.1-i2v' | 'happyhorse-1.1-r2v';
+  prompt?: string;
+  duration: number;
+  ratio: string;
+  resolution: '720p' | '1080p';
+  images?: string[];
+}
+
+export async function submitHappyHorse(req: HappyHorseSubmitRequest): Promise<{ taskId: string; model: string; taskType: string }> {
+  const r = await fetch('/api/proxy/video/happyhorse/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export interface HappyHorseQueryResult {
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | string;
+  progress?: string | number;
+  videoUrl?: string | null;
+  failReason?: string | null;
+}
+
+export async function queryHappyHorse(taskId: string): Promise<HappyHorseQueryResult> {
+  const r = await fetch(`/api/proxy/video/happyhorse/status/${encodeURIComponent(taskId)}`);
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
 // ========================================================================
 // Seedance 2.0 (异步) — 完全对齐 gpt-image-2-web runSeedance / pollSeedance
 //   submit: POST /api/proxy/seedance/submit
@@ -869,6 +903,7 @@ export async function querySeedance(
 // 完全对齐主项目 gpt-image-2-web 的 runSuno / runSunoCover / runSunoExtend
 // ========================================================================
 export type AudioMode = 'generate' | 'cover' | 'extend';
+export type AudioProviderMode = 'suno' | 'seed-audio';
 export interface AudioSubmitRequest {
   mode: AudioMode;
   prompt?: string;
@@ -926,6 +961,45 @@ export async function queryAudio(clipIds: string[], saveLocal: boolean = true): 
   const ids = clipIds.join(',');
   const params = new URLSearchParams({ clipIds: ids, saveLocal: String(saveLocal) });
   const r = await fetch(`/api/proxy/audio/query?${params.toString()}`);
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export interface SeedAudioSubmitRequest {
+  model: 'doubao-seed-audio-1.0';
+  prompt: string;
+  speaker?: string;
+  outputFormat: 'wav' | 'mp3' | 'pcm' | 'ogg_opus';
+  sampleRate: '8000' | '16000' | '24000' | '32000' | '44100';
+  speechRate: number;
+  loudnessRate: number;
+  pitchRate: number;
+  images?: string[];
+  audioUrls?: string[];
+}
+
+export async function submitSeedAudio(req: SeedAudioSubmitRequest): Promise<{ taskId: string; model: string }> {
+  const r = await fetch('/api/proxy/audio/seed-audio/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export interface SeedAudioQueryResult {
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | string;
+  progress?: string | number;
+  audioUrl?: string | null;
+  remoteAudioUrl?: string | null;
+  failReason?: string | null;
+}
+
+export async function querySeedAudio(taskId: string): Promise<SeedAudioQueryResult> {
+  const r = await fetch(`/api/proxy/audio/seed-audio/status/${encodeURIComponent(taskId)}`);
   const data = await r.json();
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;

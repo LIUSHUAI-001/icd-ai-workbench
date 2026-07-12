@@ -21,6 +21,8 @@ import {
 } from '../../providers/models';
 import {
   generateExternalVideo,
+  submitHappyHorse,
+  queryHappyHorse,
   submitVideo,
   queryVideo,
   submitVideoFal,
@@ -63,6 +65,7 @@ import { LocalNodeAddonSlot } from 'virtual:t8-local-extensions';
  *   - Veo      (kind=veo)       — 默认 veo-omni-10s / 旧 Veo 3.1 子模型 / images(≤3)
  *   - Grok Video(kind=grok)     — Zhenzhen Grok 1.5 New / Grok Video 1.5 FAL / 旧版 FAL / grok-video-3 / images
  *   - Sora2    (kind=sora)      — Zhenzhen API + FAL 双渠道 / Base64 参考图(≤1)
+ *   - HappyHorse(kind=happyhorse)— api.seedance.nz 文生/图生/参考图生视频(≤9 图)
  *   - Seedance  (kind=seedance) — 零破坏兼容旧 veo 字段
  * 流程: submit → poll(5s 间隔) → 转存 → 展示
  */
@@ -144,6 +147,8 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   const modelDef = useMemo(() => VIDEO_MODELS.find((m) => m.id === mainId) || VIDEO_MODELS[0], [mainId]);
   // 子模型(上游真实 model 名)
   const apiModel: string = d?.model && modelDef.apiModelOptions.some((o) => o.value === d.model) ? d.model : modelDef.apiModelOptions[0].value;
+  const isHappyHorse = !isExternalSelected && modelDef.kind === 'happyhorse';
+  const happyHorseMode = apiModel.endsWith('-i2v') ? 'i2v' : apiModel.endsWith('-r2v') ? 'r2v' : 't2v';
   // 各参数(跳过着调用 update 默认值)
   const ratio: string = d?.ratio || modelDef.defaultRatio;
   const duration: number = d?.duration ?? modelDef.defaultDuration ?? (modelDef.durations?.[0] || 0);
@@ -291,7 +296,9 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
     [localRefImages, localRefVideos, localRefAudios, id],
   );
   const maxMentionRefs =
-    isVeoOmni
+    isHappyHorse
+      ? happyHorseMode === 't2v' ? 0 : happyHorseMode === 'i2v' ? 1 : 9
+      : isVeoOmni
       ? 1
       : isGrok15New
       ? 1
@@ -422,23 +429,25 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
           return;
         }
         try {
-          const r = await queryVideo(tid, apiModel);
+          const r = isHappyHorse ? await queryHappyHorse(tid) : await queryVideo(tid, apiModel);
+          const normalizedStatus = String(r.status || '').trim().toUpperCase();
+          const currentProgress = String(r.progress ?? '');
           if (!isCurrentGenerationRun(runId)) {
             rejectStoppedGeneration(reject);
             return;
           }
-          if (r.progress && r.progress !== lastProgress) {
-            lastProgress = r.progress;
-            logBus.debug(`[${elapsed}/${MAX}] status=${r.status} progress=${r.progress}`, src);
+          if (currentProgress && currentProgress !== lastProgress) {
+            lastProgress = currentProgress;
+            logBus.debug(`[${elapsed}/${MAX}] status=${r.status} progress=${currentProgress}`, src);
           }
-          if (r.status === 'SUCCESS' && r.videoUrl) {
+          if (['SUCCESS', 'SUCCEEDED', 'COMPLETED'].includes(normalizedStatus) && r.videoUrl) {
             pollRejectRef.current = null;
             stopPoll();
             update({ status: 'success', videoUrl: r.videoUrl, progress: '100%' });
             logBus.success(`任务完成 → ${r.videoUrl}`, src);
             taskCompletionSound.notifyComplete(id, 'video');
             resolve();
-          } else if (r.status === 'FAILURE') {
+          } else if (['FAILURE', 'FAILED'].includes(normalizedStatus)) {
             pollRejectRef.current = null;
             stopPoll();
             const msg = r.failReason || '生成失败';
@@ -447,7 +456,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
             logBus.error(`生成失败: ${msg}`, src);
             reject(new Error(msg));
           } else {
-            update({ status: 'polling', progress: r.progress || '' });
+            update({ status: 'polling', progress: currentProgress });
           }
         } catch (e: any) {
           if (!isCurrentGenerationRun(runId)) {
@@ -528,9 +537,14 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
     const { prompt: upstreamPrompt, imageUrls, videoUrls, audioUrls } = collectUpstream();
     const resolvedLocalPrompt = resolveMediaMentions(localPrompt, promptMentions, mentionMaterials);
     const finalPrompt = (upstreamPrompt || resolvedLocalPrompt || '').trim();
-    if (!finalPrompt) {
+    if (!finalPrompt && !(isHappyHorse && happyHorseMode !== 't2v')) {
       setError('未连接 text 节点也未填写 prompt');
       logBus.error('生成中止: 缺少 prompt', src);
+      return;
+    }
+    if (isHappyHorse && happyHorseMode !== 't2v' && imageUrls.length === 0) {
+      setError(`Happy Horse ${happyHorseMode} 至少需要 1 张参考图`);
+      logBus.error(`生成中止: Happy Horse ${happyHorseMode} 缺少参考图`, src);
       return;
     }
     if (isVeoOmni && imageUrls.length === 0) {
@@ -591,6 +605,29 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
         });
         logBus.success(`扩展平台视频完成 → ${nextVideoUrl}`, src);
         taskCompletionSound.notifyComplete(id, 'video');
+        return;
+      }
+
+      if (isHappyHorse) {
+        const happyImages = happyHorseMode === 't2v'
+          ? []
+          : imageUrls.slice(0, happyHorseMode === 'i2v' ? 1 : 9);
+        logBus.info(
+          `提交 Happy Horse: ${apiModel} · ${duration}s · ${resolution || '720p'} · ${ratio} · refs=${happyImages.length}`,
+          src,
+        );
+        const result = await submitHappyHorse({
+          model: apiModel as 'happyhorse-1.1-t2v' | 'happyhorse-1.1-i2v' | 'happyhorse-1.1-r2v',
+          prompt: finalPrompt || undefined,
+          duration: Number(duration) || 4,
+          ratio,
+          resolution: (resolution === '1080p' ? '1080p' : '720p'),
+          images: happyImages.length ? happyImages : undefined,
+        });
+        if (!isCurrentGenerationRun(runId)) return;
+        update({ status: 'polling', taskId: result.taskId, lastPrompt: finalPrompt, progress: '0%' });
+        logBus.info(`Happy Horse 任务 ${result.taskId} 已提交，开始轮询`, src);
+        await startPolling(result.taskId, runId);
         return;
       }
 
@@ -787,7 +824,13 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
     if (payload.kind === 'image' && payload.url) {
       const cur = Array.isArray(d?.localRefImages) ? d.localRefImages : [];
       if (cur.indexOf(payload.url) !== -1) return;
-      const cap = isGrok15New ? 1 : isJimengSeedanceSelected ? JIMENG_SEEDANCE_LIMITS.images : (modelDef.maxRefImages || 7) + 4;
+      const cap = isHappyHorse
+        ? maxMentionRefs
+        : isGrok15New
+          ? 1
+          : isJimengSeedanceSelected
+            ? JIMENG_SEEDANCE_LIMITS.images
+            : (modelDef.maxRefImages || 7) + 4;
       if (cur.length >= cap) return;
       update({ localRefImages: [...cur, payload.url] });
     } else if (payload.kind === 'video' && payload.url && isJimengSeedanceSelected) {
@@ -812,7 +855,11 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   const refsCount = orderedImages.length + localRefImages.length;
   const videoRefsCount = orderedVideos.length + localRefVideos.length;
   const audioRefsCount = orderedAudios.length + localRefAudios.length;
-  const previewTitle = isJimengSeedanceSelected
+  const previewTitle = isHappyHorse
+    ? happyHorseMode === 't2v'
+      ? '上游素材 · 当前模型不使用参考图'
+      : `上游素材 · 参考图 ${Math.min(refsCount, maxMentionRefs)}/${maxMentionRefs}`
+    : isJimengSeedanceSelected
     ? `上游素材 · 图${Math.min(refsCount, JIMENG_SEEDANCE_LIMITS.images)}/${JIMENG_SEEDANCE_LIMITS.images} 视${Math.min(videoRefsCount, JIMENG_SEEDANCE_LIMITS.videos)}/${JIMENG_SEEDANCE_LIMITS.videos} 音${Math.min(audioRefsCount, JIMENG_SEEDANCE_LIMITS.audios)}/${JIMENG_SEEDANCE_LIMITS.audios}`
     : `上游素材 · 参考图 ${Math.min(refsCount, maxMentionRefs)}/${maxMentionRefs}`;
 
@@ -1192,6 +1239,17 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
           </>
         )}
 
+        {isHappyHorse && (
+          <div className="rounded border border-amber-300/20 bg-amber-400/[0.06] px-2 py-1.5 text-[10px] leading-relaxed text-white/55">
+            {happyHorseMode === 't2v'
+              ? '文生视频只使用提示词，不发送画布中的参考图。'
+              : happyHorseMode === 'i2v'
+                ? '图生视频必须有参考图，只取排序后的第 1 张作为首图。'
+                : '参考图生视频需要 1-9 张图，可在提示词中使用“图1 / 图2”指代。'}
+            <div className="mt-1 text-white/35">贞贞的平价AI工坊（国内） · 3-15 秒 · 720p / 1080p</div>
+          </div>
+        )}
+
         {isJimengSeedanceSelected && (
           <div className="rounded border border-white/10 bg-white/5 p-1.5 space-y-1">
             <div className="flex items-center justify-between gap-2">
@@ -1333,7 +1391,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
         )}
 
         {/* Seed(非FAL) */}
-        {showGenericVideoControls && (
+        {showGenericVideoControls && !isHappyHorse && (
         <div>
           <label className="text-[10px] text-white/50 block mb-1">Seed (0=随机)</label>
           <input

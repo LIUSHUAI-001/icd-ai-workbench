@@ -15,6 +15,15 @@ const RESOLUTIONS = new Set(['480p', '720p', '1080p', '2k', '4k', 'native1080p',
 const IMAGE_MODELS = new Set(['seedream-v5-pro-t2i', 'seedream-v5-pro-i2i']);
 const IMAGE_RESOLUTIONS = new Set(['1k', '2k']);
 const IMAGE_OUTPUT_FORMATS = new Set(['jpeg', 'png']);
+const HAPPYHORSE_MODELS = new Set([
+  'happyhorse-1.1-t2v',
+  'happyhorse-1.1-i2v',
+  'happyhorse-1.1-r2v',
+]);
+const HAPPYHORSE_RESOLUTIONS = new Set(['720p', '1080p']);
+const SEED_AUDIO_MODEL = 'doubao-seed-audio-1.0';
+const SEED_AUDIO_FORMATS = new Set(['wav', 'mp3', 'pcm', 'ogg_opus']);
+const SEED_AUDIO_SAMPLE_RATES = new Set(['8000', '16000', '24000', '32000', '44100']);
 const IMAGE_REFERENCE_MAX_BYTES = 10 * 1024 * 1024;
 const DEFAULT_UPLOAD_INTERVAL_MS = 6100;
 const DEFAULT_UPLOAD_CACHE_TTL_MS = 20 * 60 * 60 * 1000;
@@ -106,6 +115,22 @@ function normalizeSeconds(value) {
     throw new Error('seedance.nz 时长只支持 4-15 秒或 -1 自动时长');
   }
   return String(seconds);
+}
+
+function normalizeHappyHorseSeconds(value) {
+  const seconds = Number(String(value ?? '4').trim());
+  if (!Number.isInteger(seconds) || seconds < 3 || seconds > 15) {
+    throw new Error('Happy Horse 时长只支持 3-15 秒');
+  }
+  return String(seconds);
+}
+
+function normalizeBoundedInteger(value, name, min, max, fallback = 0) {
+  const parsed = value === undefined || value === null || value === '' ? fallback : Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    throw new Error(`${name} 必须是 ${min}-${max} 的整数`);
+  }
+  return parsed;
 }
 
 function normalizePromptMentions(prompt) {
@@ -478,8 +503,157 @@ async function buildImagePayload(request, apiKey, options = {}) {
   return { payload, model, taskType: refs.length ? 'i2i' : 't2i' };
 }
 
+async function buildHappyHorsePayload(request, apiKey, options = {}) {
+  const model = String(request.model || '').trim();
+  if (!HAPPYHORSE_MODELS.has(model)) throw new Error(`未知 Happy Horse 模型：${model || '(空)'}`);
+  const prompt = String(request.prompt || '').trim();
+  if (prompt.length > 20480) throw new Error('Happy Horse 提示词不能超过 20480 字符');
+  if (model.endsWith('-t2v') && !prompt) throw new Error('Happy Horse 文生视频必须填写提示词');
+
+  const resolution = String(request.resolution || '720p').trim().toLowerCase();
+  if (!HAPPYHORSE_RESOLUTIONS.has(resolution)) {
+    throw new Error('Happy Horse 分辨率只支持 720p 或 1080p');
+  }
+  const ratio = normalizeRatio(request.ratio || 'adaptive');
+  const sources = normalizeList(request.images || request.refImages);
+  const taskType = model.endsWith('-t2v') ? 't2v' : model.endsWith('-i2v') ? 'i2v' : 'r2v';
+  if (taskType !== 't2v' && sources.length === 0) {
+    throw new Error(`Happy Horse ${taskType} 至少需要 1 张参考图`);
+  }
+  if (taskType === 'r2v' && sources.length > 9) throw new Error('Happy Horse r2v 最多支持 9 张参考图');
+
+  const payload = {
+    model,
+    seconds: normalizeHappyHorseSeconds(request.duration ?? request.seconds),
+    metadata: { resolution, ratio },
+  };
+  if (prompt) payload.prompt = prompt;
+  if (taskType !== 't2v') {
+    payload.images = [];
+    const selected = taskType === 'i2v' ? sources.slice(0, 1) : sources.slice(0, 9);
+    for (const source of selected) {
+      payload.images.push(await uploadMedia(source, 'image', apiKey, {
+        ...options,
+        allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
+      }));
+    }
+  }
+  return { payload, model, taskType };
+}
+
+async function submitHappyHorseTask(request, apiKey, options = {}) {
+  if (!String(apiKey || '').trim()) throw new Error('请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”');
+  const fetchImpl = getFetchImpl(options);
+  const baseUrl = cleanBaseUrl(options.baseUrl);
+  const built = await buildHappyHorsePayload(request, apiKey, options);
+  const response = await fetchImpl(`${baseUrl}/v1/videos`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(built.payload),
+  });
+  const data = await responseJson(response, 'seedance.nz Happy Horse 任务提交');
+  if (!response.ok) throw createUpstreamError(data, response.status);
+  const taskId = String(data?.id || data?.task_id || data?.data?.id || '').trim();
+  if (!taskId) throw new Error('seedance.nz Happy Horse 未返回任务 ID');
+  return { taskId, model: built.model, taskType: built.taskType, raw: data };
+}
+
+async function buildAudioPayload(request, apiKey, options = {}) {
+  const model = String(request.model || SEED_AUDIO_MODEL).trim();
+  if (model !== SEED_AUDIO_MODEL) throw new Error(`未知 Seed Audio 模型：${model}`);
+  const prompt = String(request.prompt || '').trim();
+  if (prompt.length < 5 || prompt.length > 2048) {
+    throw new Error('Seed Audio 提示词长度必须为 5-2048 字符');
+  }
+
+  const speaker = String(request.speaker || '').trim();
+  const imageSources = normalizeList(request.images || request.refImages).slice(0, 1);
+  const audioSources = normalizeList(request.audioUrls || request.audios || request.referenceAudios);
+  if (audioSources.length > 3) throw new Error('Seed Audio 最多支持 3 段参考音频');
+  const referenceModes = [!!speaker, imageSources.length > 0, audioSources.length > 0].filter(Boolean).length;
+  if (referenceModes > 1) throw new Error('Seed Audio 的音色 ID、参考图和参考音频只能选择一种');
+
+  const outputFormat = String(request.outputFormat || request.output_format || 'wav').trim().toLowerCase();
+  if (!SEED_AUDIO_FORMATS.has(outputFormat)) throw new Error('Seed Audio 输出格式只支持 wav/mp3/pcm/ogg_opus');
+  const sampleRate = String(request.sampleRate || request.sample_rate || '24000').trim();
+  if (!SEED_AUDIO_SAMPLE_RATES.has(sampleRate)) throw new Error('Seed Audio 不支持该采样率');
+  const metadata = {
+    format: outputFormat,
+    sample_rate: sampleRate,
+    speech_rate: normalizeBoundedInteger(request.speechRate ?? request.speech_rate, 'Seed Audio 语速', -50, 100),
+    loudness_rate: normalizeBoundedInteger(request.loudnessRate ?? request.loudness_rate, 'Seed Audio 音量', -50, 100),
+    pitch_rate: normalizeBoundedInteger(request.pitchRate ?? request.pitch_rate, 'Seed Audio 音高', -12, 12),
+  };
+  if (speaker) metadata.speaker = speaker;
+
+  const payload = { model, prompt, metadata };
+  if (imageSources.length) {
+    payload.images = [await uploadMedia(imageSources[0], 'image', apiKey, {
+      ...options,
+      allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
+    })];
+  }
+  if (audioSources.length) {
+    metadata.audio_urls = [];
+    for (const source of audioSources) {
+      metadata.audio_urls.push(await uploadMedia(source, 'audio', apiKey, options));
+    }
+  }
+  return { payload, model };
+}
+
+async function submitAudioTask(request, apiKey, options = {}) {
+  if (!String(apiKey || '').trim()) throw new Error('请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”');
+  const fetchImpl = getFetchImpl(options);
+  const baseUrl = cleanBaseUrl(options.baseUrl);
+  const built = await buildAudioPayload(request, apiKey, options);
+  const response = await fetchImpl(`${baseUrl}/v1/audio/generations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(built.payload),
+  });
+  const data = await responseJson(response, 'seedance.nz Seed Audio 任务提交');
+  if (!response.ok) throw createUpstreamError(data, response.status);
+  const taskId = String(data?.task_id || data?.id || data?.data?.task_id || '').trim();
+  if (!taskId) throw new Error('seedance.nz Seed Audio 未返回任务 ID');
+  return { taskId, model: built.model, raw: data };
+}
+
+async function queryAudioTask(taskId, apiKey, options = {}) {
+  if (!String(apiKey || '').trim()) throw new Error('缺少贞贞的平价AI工坊（国内） API Key');
+  const fetchImpl = getFetchImpl(options);
+  const baseUrl = cleanBaseUrl(options.baseUrl);
+  const response = await fetchImpl(`${baseUrl}/v1/audio/generations/${encodeURIComponent(taskId)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const data = await responseJson(response, 'seedance.nz Seed Audio 任务查询');
+  if (!response.ok) throw createUpstreamError(data, response.status);
+  const record = data?.data && typeof data.data === 'object' ? data.data : data;
+  const status = normalizeImageTaskStatus(record?.status || data?.status);
+  const nested = record?.data && typeof record.data === 'object' ? record.data : {};
+  const content = nested?.content && typeof nested.content === 'object' ? nested.content : {};
+  const audioUrl = status === 'succeeded'
+    ? String(record?.result_url || record?.resultUrl || content?.audio_url || content?.url || '').trim()
+    : '';
+  return {
+    status,
+    progress: record?.progress ?? data?.progress ?? '',
+    audioUrl: audioUrl || null,
+    failReason: status === 'failed'
+      ? String(record?.fail_reason || record?.error?.message || record?.error || data?.message || 'Seed Audio 任务失败')
+      : null,
+    raw: data,
+  };
+}
+
 async function submitImageTask(request, apiKey, options = {}) {
-  if (!String(apiKey || '').trim()) throw new Error('请先在 API 设置中填写“贞贞的 SD2 API Key”');
+  if (!String(apiKey || '').trim()) throw new Error('请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”');
   const fetchImpl = getFetchImpl(options);
   const baseUrl = cleanBaseUrl(options.baseUrl);
   const built = await buildImagePayload(request, apiKey, options);
@@ -507,7 +681,7 @@ function normalizeImageTaskStatus(value) {
 }
 
 async function queryImageTask(taskId, apiKey, options = {}) {
-  if (!String(apiKey || '').trim()) throw new Error('缺少贞贞的 SD2 API Key');
+  if (!String(apiKey || '').trim()) throw new Error('缺少贞贞的平价AI工坊（国内） API Key');
   const fetchImpl = getFetchImpl(options);
   const baseUrl = cleanBaseUrl(options.baseUrl);
   const response = await fetchImpl(`${baseUrl}/v1/image/generations/${encodeURIComponent(taskId)}`, {
@@ -533,7 +707,7 @@ async function queryImageTask(taskId, apiKey, options = {}) {
 }
 
 async function submitTask(request, apiKey, options = {}) {
-  if (!String(apiKey || '').trim()) throw new Error('请先在 API 设置中填写“贞贞的 SD2 API Key”');
+  if (!String(apiKey || '').trim()) throw new Error('请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”');
   const fetchImpl = getFetchImpl(options);
   const baseUrl = cleanBaseUrl(options.baseUrl);
   const built = await buildPayload(request, apiKey, options);
@@ -561,7 +735,7 @@ function normalizeStatus(value) {
 }
 
 async function queryTask(taskId, apiKey, options = {}) {
-  if (!String(apiKey || '').trim()) throw new Error('缺少贞贞的 SD2 API Key');
+  if (!String(apiKey || '').trim()) throw new Error('缺少贞贞的平价AI工坊（国内） API Key');
   const fetchImpl = getFetchImpl(options);
   const baseUrl = cleanBaseUrl(options.baseUrl);
   const response = await fetchImpl(`${baseUrl}/v1/videos/${encodeURIComponent(taskId)}`, {
@@ -591,11 +765,18 @@ function resetCachesForTests() {
 
 module.exports = {
   BASE_URL,
+  HAPPYHORSE_MODELS,
+  HAPPYHORSE_RESOLUTIONS,
   IMAGE_MODELS,
   IMAGE_RESOLUTIONS,
   PROVIDER_ID,
   RATIOS,
   RESOLUTIONS,
+  SEED_AUDIO_FORMATS,
+  SEED_AUDIO_MODEL,
+  SEED_AUDIO_SAMPLE_RATES,
+  buildAudioPayload,
+  buildHappyHorsePayload,
   buildPayload,
   buildImagePayload,
   deriveTaskType,
@@ -603,9 +784,12 @@ module.exports = {
   normalizePromptMentions,
   normalizeResolution,
   queryImageTask,
+  queryAudioTask,
   queryTask,
   resetCachesForTests,
   resolveModel,
+  submitAudioTask,
+  submitHappyHorseTask,
   submitImageTask,
   submitTask,
   uploadMedia,

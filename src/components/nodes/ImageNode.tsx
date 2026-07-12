@@ -609,7 +609,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
       const width = Number(match?.[1]);
       const height = Number(match?.[2]);
       if (!match || width < 240 || width > 8192 || height < 240 || height > 8192) {
-        setError('贞贞 SD2 Seedream 自定义宽高必须为 240-8192，例如 2048x1536');
+        setError('贞贞的平价AI工坊（国内） Seedream 自定义宽高必须为 240-8192，例如 2048x1536');
         logBus.error(`生成中止: Seedream NZ 尺寸格式无效 ${seedreamNzResolvedSize || '(空)'}`, src);
         return;
       }
@@ -895,10 +895,10 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
       // seedance.nz has a separate asynchronous Seedream API. This branch is
       // deliberately isolated so the existing zhenzhen Seedream call remains unchanged.
       if (isSeedreamNz) {
-        if (!zhenzhenSd2ApiKey) throw new Error('请先在 API 设置中填写“贞贞的 SD2 API Key”');
+        if (!zhenzhenSd2ApiKey) throw new Error('请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”');
         const expectedModel = allRefs.length ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i';
         logBus.info(
-          `贞贞 SD2 Seedream 提交: model=${expectedModel} 参考图=${allRefs.length} 尺寸=${seedreamNzResolution === 'custom' ? seedreamNzResolvedSize : seedreamNzResolution}`,
+          `贞贞的平价AI工坊（国内） Seedream 提交: model=${expectedModel} 参考图=${allRefs.length} 尺寸=${seedreamNzResolution === 'custom' ? seedreamNzResolvedSize : seedreamNzResolution}`,
           src,
         );
         const submit = await submitSeedreamNz({
@@ -910,7 +910,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
         });
         if (!isCurrentGenerationRun(runId)) return;
         const taskId = submit.taskId;
-        if (!taskId) throw new Error('贞贞 SD2 Seedream 未返回任务 ID');
+        if (!taskId) throw new Error('贞贞的平价AI工坊（国内） Seedream 未返回任务 ID');
         update({ progress: submit.progress || '0%', taskId });
         const interval = 3000;
         const maxPoll = minPollCountForTimeout(interval);
@@ -927,8 +927,8 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
           const queryStatus = String(query.status || '').toLowerCase();
           if (queryStatus === 'completed' || queryStatus === 'success' || queryStatus === 'done') {
             const url = query.urls?.[0];
-            if (!url) throw new Error('贞贞 SD2 Seedream 任务完成但未返回图片');
-            logBus.success(`贞贞 SD2 Seedream 完成 → ${url}`, src);
+            if (!url) throw new Error('贞贞的平价AI工坊（国内） Seedream 任务完成但未返回图片');
+            logBus.success(`贞贞的平价AI工坊（国内） Seedream 完成 → ${url}`, src);
             update({
               status: 'success',
               progress: '100%',
@@ -941,10 +941,10 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
             return;
           }
           if (queryStatus === 'failed' || queryStatus === 'failure' || queryStatus === 'error') {
-            throw new Error(query.error || '贞贞 SD2 Seedream 任务失败');
+            throw new Error(query.error || '贞贞的平价AI工坊（国内） Seedream 任务失败');
           }
         }
-        throw new Error(`贞贞 SD2 Seedream 超时: ${(maxPoll * interval) / 1000}s 未完成`);
+        throw new Error(`贞贞的平价AI工坊（国内） Seedream 超时: ${(maxPoll * interval) / 1000}s 未完成`);
       }
 
       // ============ 原有标准路径(GPT2 standard / nano-banana / nano-banana-pro 未动) ============
@@ -1099,7 +1099,7 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
             {isExternalSelected && providerSelection.provider
               ? `${providerSelection.provider.label || providerSelection.provider.id} · ${externalProviderModel || '未选模型'}`
               : isSeedreamNz
-                ? `贞贞 SD2 · ${seedreamNzUiModel}`
+                ? `贞贞的平价AI工坊（国内） · ${seedreamNzUiModel}`
                 : `${modelDef.label} · ${modelDef.description}`}
           </div>
         </div>
@@ -1558,14 +1558,14 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
                 style={{ background: '#18181b', color: '#ffffff' }}
                 className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-cyan-400/60"
               >
-                <option value="zhenzhen" style={{ background: '#18181b', color: '#ffffff' }}>贞贞工坊 · 原 Seedream</option>
-                <option value="seedance-nz" style={{ background: '#18181b', color: '#ffffff' }}>贞贞 SD2 · api.seedance.nz</option>
+                <option value="zhenzhen" style={{ background: '#18181b', color: '#ffffff' }}>贞贞的AI工坊（海外） · 原 Seedream</option>
+                <option value="seedance-nz" style={{ background: '#18181b', color: '#ffffff' }}>贞贞的平价AI工坊（国内） · api.seedance.nz</option>
               </select>
             </div>
             {isSeedreamNz && (
               <div className="text-[10px] leading-4 text-cyan-100/75">
                 实际模型：{seedreamNzUiModel}（按参考图自动切换）
-                {!zhenzhenSd2ApiKey && <div className="mt-1 text-amber-300">尚未配置“贞贞的 SD2 API Key”</div>}
+                {!zhenzhenSd2ApiKey && <div className="mt-1 text-amber-300">尚未配置“贞贞的平价AI工坊（国内） API Key”</div>}
               </div>
             )}
           </div>

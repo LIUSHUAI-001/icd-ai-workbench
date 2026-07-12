@@ -308,7 +308,7 @@ export const NBPRO_FAL_RESOLUTIONS = ['1K', '2K', '4K'];
 
 // ========== 视频 ==========
 // kind 决定上游 payload 协议(后端会根据 model 名自动识别,前端主要用于控制参数 UI 列表)
-export type VideoKind = 'veo' | 'grok' | 'sora' | 'seedance';
+export type VideoKind = 'veo' | 'grok' | 'sora' | 'seedance' | 'happyhorse';
 
 // ---- Video FAL 渠道注册表 (1:1 对齐 gpt-image-2-web runVeo3Fal / runGrokFal / runSora2Fal) ----
 export interface VideoFalEndpointDef {
@@ -516,6 +516,26 @@ export const VIDEO_MODELS: VideoModelDef[] = [
     defaultResolution: '',
     supportImages: true,
     maxRefImages: 1,
+  },
+  {
+    id: 'happyhorse-1.1',
+    label: 'Happy Horse',
+    kind: 'happyhorse',
+    provider: 'zhenzhen',
+    description: 'Happy Horse 1.1 · 文生/图生/参考图生视频',
+    apiModelOptions: [
+      { value: 'happyhorse-1.1-t2v', label: 'happyhorse-1.1-t2v（文生视频）' },
+      { value: 'happyhorse-1.1-i2v', label: 'happyhorse-1.1-i2v（图生视频）' },
+      { value: 'happyhorse-1.1-r2v', label: 'happyhorse-1.1-r2v（参考图生视频）' },
+    ],
+    ratios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+    defaultRatio: 'adaptive',
+    durations: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    defaultDuration: 4,
+    resolutions: ['720p', '1080p'],
+    defaultResolution: '720p',
+    supportImages: true,
+    maxRefImages: 9,
   },
   {
     id: 'seedance-2.0',

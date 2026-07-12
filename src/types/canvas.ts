@@ -24,6 +24,7 @@ export type NodeType =
   | 'fal-toolbox'
   | 'fal-toolbox-maker'
   | 'model-3d-preview'
+  | 'face-expression-3d'
   | 'model-3d-upload'
   | 'grok-oauth-agent'
   | 'codex-cli-agent'

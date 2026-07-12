@@ -209,3 +209,125 @@ test('seedance.nz Seedream submit and query use the documented image endpoints',
   assert.equal(queried.status, 'succeeded');
   assert.equal(queried.imageUrl, 'https://cdn.example.com/result.png');
 });
+
+test('seedance.nz builds all three Happy Horse payload modes without mixing Seedance fields', async () => {
+  const t2v = await seedanceNz.buildHappyHorsePayload({
+    model: 'happyhorse-1.1-t2v',
+    prompt: 'A paper horse runs through a miniature city',
+    duration: 3,
+    resolution: '720p',
+    ratio: '16:9',
+    images: ['https://assets.example.com/ignored.png'],
+  }, 'test-key');
+  assert.deepEqual(t2v.payload, {
+    model: 'happyhorse-1.1-t2v',
+    prompt: 'A paper horse runs through a miniature city',
+    seconds: '3',
+    metadata: { resolution: '720p', ratio: '16:9' },
+  });
+
+  const i2v = await seedanceNz.buildHappyHorsePayload({
+    model: 'happyhorse-1.1-i2v',
+    duration: 4,
+    resolution: '1080p',
+    ratio: 'adaptive',
+    images: ['https://assets.example.com/first.png', 'https://assets.example.com/ignored.png'],
+  }, 'test-key');
+  assert.equal(i2v.taskType, 'i2v');
+  assert.deepEqual(i2v.payload.images, ['https://assets.example.com/first.png']);
+
+  const r2v = await seedanceNz.buildHappyHorsePayload({
+    model: 'happyhorse-1.1-r2v',
+    prompt: '图1 的角色采用图2 的服装',
+    duration: 15,
+    resolution: '720p',
+    ratio: '9:16',
+    images: ['https://assets.example.com/one.png', 'https://assets.example.com/two.png'],
+  }, 'test-key');
+  assert.equal(r2v.taskType, 'r2v');
+  assert.equal(r2v.payload.images.length, 2);
+  assert.equal(r2v.payload.seconds, '15');
+});
+
+test('seedance.nz Happy Horse submit uses /v1/videos and rejects invalid limits', async () => {
+  const calls: string[] = [];
+  const fetchImpl = async (url: string) => {
+    calls.push(url);
+    return jsonResponse({ id: 'happy-task-1', status: 'queued' });
+  };
+  const result = await seedanceNz.submitHappyHorseTask({
+    model: 'happyhorse-1.1-t2v',
+    prompt: 'A minimal live test animation',
+    duration: 3,
+    resolution: '720p',
+    ratio: '16:9',
+  }, 'test-key', { baseUrl: 'https://api.seedance.nz', fetchImpl });
+  assert.equal(result.taskId, 'happy-task-1');
+  assert.equal(calls[0], 'https://api.seedance.nz/v1/videos');
+  await assert.rejects(
+    seedanceNz.buildHappyHorsePayload({
+      model: 'happyhorse-1.1-r2v', duration: 2, resolution: '4k', images: [],
+    }, 'test-key'),
+    /分辨率只支持 720p 或 1080p|时长只支持 3-15 秒|至少需要 1 张参考图/,
+  );
+});
+
+test('seedance.nz builds Seed Audio payload and enforces mutually exclusive references', async () => {
+  const built = await seedanceNz.buildAudioPayload({
+    model: 'doubao-seed-audio-1.0',
+    prompt: 'gentle rain falling on a quiet city street at night',
+    speaker: 'zh_male_shaonianzixin_uranus_bigtts',
+    outputFormat: 'mp3',
+    sampleRate: '24000',
+    speechRate: 10,
+    loudnessRate: -5,
+    pitchRate: 2,
+  }, 'test-key');
+  assert.deepEqual(built.payload, {
+    model: 'doubao-seed-audio-1.0',
+    prompt: 'gentle rain falling on a quiet city street at night',
+    metadata: {
+      format: 'mp3', sample_rate: '24000', speech_rate: 10, loudness_rate: -5, pitch_rate: 2,
+      speaker: 'zh_male_shaonianzixin_uranus_bigtts',
+    },
+  });
+  await assert.rejects(
+    seedanceNz.buildAudioPayload({
+      prompt: 'valid audio prompt',
+      speaker: 'voice-id',
+      images: ['https://assets.example.com/ref.png'],
+    }, 'test-key'),
+    /只能选择一种/,
+  );
+});
+
+test('seedance.nz Seed Audio submit and query use documented async audio endpoints', async () => {
+  const calls: string[] = [];
+  const fetchImpl = async (url: string) => {
+    calls.push(url);
+    if (url.endsWith('/v1/audio/generations')) {
+      return jsonResponse({ id: 'audio-task-1', task_id: 'audio-task-1', status: 'queued' });
+    }
+    return jsonResponse({
+      code: 'success',
+      data: {
+        task_id: 'audio-task-1', status: 'SUCCESS', progress: '100%',
+        result_url: 'https://cdn.example.com/output.wav',
+      },
+    });
+  };
+  const submitted = await seedanceNz.submitAudioTask({
+    prompt: 'soft analog synth pads with no vocals',
+    outputFormat: 'wav',
+    sampleRate: '24000',
+  }, 'test-key', { baseUrl: 'https://api.seedance.nz', fetchImpl });
+  const queried = await seedanceNz.queryAudioTask(submitted.taskId, 'test-key', {
+    baseUrl: 'https://api.seedance.nz', fetchImpl,
+  });
+  assert.deepEqual(calls, [
+    'https://api.seedance.nz/v1/audio/generations',
+    'https://api.seedance.nz/v1/audio/generations/audio-task-1',
+  ]);
+  assert.equal(queried.status, 'succeeded');
+  assert.equal(queried.audioUrl, 'https://cdn.example.com/output.wav');
+});

@@ -99,7 +99,8 @@ test('ApiSettings classified API keys expose explicit clear actions', () => {
 });
 
 test('ApiSettings exposes an independent fixed seedance.nz main API key', () => {
-  assert.match(apiSettingsSource, /贞贞的 SD2 API Key/);
+  assert.match(apiSettingsSource, /贞贞的平价AI工坊（国内） API Key/);
+  assert.match(apiSettingsSource, /贞贞的AI工坊（海外） API Key/);
   assert.match(apiSettingsSource, /FIXED_ZHENZHEN_SD2_BASE/);
   assert.match(apiSettingsSource, /https:\/\/api\.seedance\.nz\/sign-up\?aff=ibVH/);
   assert.match(apiSettingsSource, /zhenzhenSd2ApiKey/);

@@ -2065,14 +2065,14 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
             style={inputStyle}
             title="Seedance API 来源"
           >
-            <option value="auto">主力 API（自动：优先贞贞 SD2）</option>
-            <option value="seedance-nz">贞贞 SD2 · api.seedance.nz</option>
-            <option value="zhenzhen-legacy">旧贞贞工坊 · ai.t8star.org</option>
+            <option value="auto">主力 API（自动：优先国内平价工坊）</option>
+            <option value="seedance-nz">贞贞的平价AI工坊（国内） · api.seedance.nz</option>
+            <option value="zhenzhen-legacy">贞贞的AI工坊（海外） · ai.t8star.org</option>
           </select>
         </div>
         {isSeedanceNzSelected && !hasSeedanceNzKey && (
           <div className="rounded border px-2 py-1 text-[10px]" style={{ borderColor: 'var(--t8-warning, #f59e0b)', color: 'var(--t8-warning, #f59e0b)' }}>
-            尚未配置“贞贞的 SD2 API Key”，请先到 API 设置填写。
+            尚未配置“贞贞的平价AI工坊（国内） API Key”，请先到 API 设置填写。
           </div>
         )}
         <div className="grid grid-cols-4 gap-1.5">
