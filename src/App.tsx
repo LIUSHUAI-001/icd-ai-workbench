@@ -31,7 +31,7 @@ import { LocalModalSlot, LocalTopbarSlot } from 'virtual:t8-local-extensions';
 import { useIcdRoute } from './extensions/icdRouter';
 import { consumeIcdCanvasIntent } from './extensions/icdCanvasIntent';
 import { HomePage } from './extensions/pages/HomePage';
-import { InspirationPage } from './extensions/pages/InspirationPage';
+import { PromptLibraryPage } from './extensions/pages/PromptLibraryPage';
 import { CaseNavigationPage } from './extensions/pages/CaseNavigationPage';
 
 const Canvas = lazy(() => import('./components/Canvas'));
@@ -729,7 +729,7 @@ function App() {
             prompt: pendingCanvasIntent.text,
             text: pendingCanvasIntent.text,
             label: pendingCanvasIntent.title,
-            source: 'icd-case-navigation',
+            source: pendingCanvasIntent.kind === 'add-prompt' ? 'icd-prompt-library' : 'icd-case-navigation',
           },
         });
       }
@@ -742,13 +742,13 @@ function App() {
     };
   }, [pendingCanvasIntent, openResourceDrawer]);
 
-  // 非画布路由：渲染 ICD 产品页面（首页 / 灵感库 / 案例导航）
+  // 非画布路由：渲染 ICD 产品页面（首页 / 提示词库 / 案例导航）
   // 画布路由：走下方原有 T8 画布完整渲染路径
   if (icdRoute === 'home') {
     return <HomePage />;
   }
   if (icdRoute === 'inspiration') {
-    return <InspirationPage />;
+    return <PromptLibraryPage />;
   }
   if (icdRoute === 'cases') {
     return <CaseNavigationPage />;

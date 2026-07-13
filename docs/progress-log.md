@@ -18,6 +18,29 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 提示词库第一版原型
+
+- User goal: 将原来的灵感库改造成提示词库，先做出页面供用户查看整体方向。
+- Files changed:
+  - `src/extensions/prompts/icdPromptLibrary.ts`：新增空间设计提示词数据，覆盖空间类型、风格、材质色彩、灯光镜头、改造任务、负面控制。
+  - `src/extensions/pages/PromptLibraryPage.tsx`：新增提示词库页面，支持搜索、分类、收藏、复制提示词和加入画布文本节点。
+  - `src/extensions/icdCanvasIntent.ts`、`src/App.tsx`：增加提示词到现有 T8 文本节点的外壳级跨页意图。
+  - `src/extensions/pages/IcdNavbar.tsx`、`src/extensions/icdRouter.ts`：将导航名称更新为“提示词库”。
+  - `src/styles/your-brand-theme.css`：增加提示词库的紧凑卡片、搜索和分类布局。
+  - `docs/icd-framework-baseline.md`、`docs/claude-code-next-task.md`、`docs/progress-log.md`：更新当前产品框架和交接记录。
+- Completed:
+  - 原 `/inspiration` 路由现在展示提示词库页面；旧 `InspirationPage.tsx` 暂保留，不影响当前路由。
+  - 提示词卡片展示中文用途说明、英文生成提示词和标签。
+  - “复制提示词”使用浏览器剪贴板；“加入画布”复用现有跨页意图，写入 T8 文本节点，不改画布内核。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+- Core T8 files touched: 无。仅新增扩展页面、提示词数据和外壳级意图处理。
+- Risks / blockers:
+  - 当前提示词为第一版项目示例数据，后续可增加编辑、导入和团队共享；剪贴板功能依赖浏览器权限。
+- Next step: 用户查看提示词库页面后，再决定卡片样式和提示词字段是否需要细化。
+
 ## 2026-07-14 - Codex - 移除案例加入画布备注
 
 - User goal: 案例导航不需要把网站信息加入画布，只保留网站图片导航和外部网站访问。

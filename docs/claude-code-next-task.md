@@ -4,8 +4,8 @@
 
 The task below is the historical specification for ICD Framework v1. It is complete and verified; do not rebuild it.
 
-- Completed: 首页 / 画布 / 灵感库 / 案例导航路由、真实项目入口、工作流抽屉入口、灵感图像加入画布、默认路径品牌清理。
-- Completed: 灵感库本地图片导入，上传结果写入现有命名空间 localStorage，并沿用加入画布流程。
+- Completed: 首页 / 画布 / 提示词库 / 案例导航路由、真实项目入口、工作流抽屉入口、默认路径品牌清理。
+- Completed: 提示词库第一版，支持按分类搜索、收藏、复制提示词和加入画布文本节点。
 - Completed: 从 `/Users/liushuai/Desktop/bookmarks_2026_7_13.html` 整理为 90 个去重、去失效入口的设计网站，按 7 类做成紧凑图片导航；中文/英文重复站点优先保留中文入口，案例导航只负责外部网站导航，不增加自建案例上传、编辑、删除。
 - Verified in a disposable canvas: Chinese input, upload reference insertion, case text insertion, edge connection, refresh recovery, and real image generation. Test canvas and generated output were deleted.
 - Verified in browser: 灵感库上传入口唯一可见，上传接口可达，生产构建和类型检查通过。
@@ -20,7 +20,7 @@ This is a shell/framework task, not a canvas-engine task. The goal is to create 
 
 - 首页
 - 画布
-- 灵感库
+- 提示词库
 - 案例导航
 - 资产/资源入口 can remain as the existing T8 resource library
 

@@ -12,7 +12,8 @@ export type IcdCanvasIntent =
       category: string;
       tags: string[];
     }
-  | { kind: 'add-case-note'; title: string; text: string };
+  | { kind: 'add-case-note'; title: string; text: string }
+  | { kind: 'add-prompt'; title: string; text: string };
 
 const STORAGE_KEY = 'icd-ai-canvas:pending-intent:v1';
 
@@ -31,6 +32,7 @@ export function consumeIcdCanvasIntent(): IcdCanvasIntent | null {
     if (intent?.kind === 'open-workflow') return intent;
     if (intent?.kind === 'add-inspiration' && intent.title && intent.imageUrl) return intent;
     if (intent?.kind === 'add-case-note' && intent.title && intent.text) return intent;
+    if (intent?.kind === 'add-prompt' && intent.title && intent.text) return intent;
   } catch {
     // Ignore an interrupted or stale cross-page intent.
   }

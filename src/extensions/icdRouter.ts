@@ -4,7 +4,7 @@
  * 路由表：
  * - #/ 或空 hash  → 首页
  * - #/canvas       → T8 画布（现有 App 完整渲染）
- * - #/inspiration  → 灵感库
+ * - #/inspiration  → 提示词库
  * - #/cases        → 案例导航
  *
  * 不引入 React Router，纯 hash parser + popstate 监听。

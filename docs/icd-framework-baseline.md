@@ -6,7 +6,7 @@ Status: complete. Framework baseline, local inspiration import, and bookmark ima
 
 - `#/`: ICD STUDIO homepage with real project count, create/open workspace actions, and workflow cards.
 - `#/canvas`: original T8 canvas engine with ICD outer shell.
-- `#/inspiration`: searchable local inspiration cards; local image import persists to namespaced localStorage and “加入画布” creates an existing T8 upload image node.
+- `#/inspiration`: 提示词库；按空间类型、风格、材质、灯光和改造任务整理提示词，支持搜索、收藏、复制和加入画布文本节点。
 - `#/cases`: 90 个去重、去失效入口并按 7 类整理的设计网站图片导航；中文/英文重复站点优先保留中文入口，可搜索、收藏和打开外部网站。
 
 ## Architecture Boundary

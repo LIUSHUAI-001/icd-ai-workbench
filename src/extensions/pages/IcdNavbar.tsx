@@ -15,7 +15,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: '首页' },
   { key: 'canvas', label: '画布' },
-  { key: 'inspiration', label: '灵感库' },
+  { key: 'inspiration', label: '提示词库' },
   { key: 'cases', label: '案例导航' },
 ];
 
