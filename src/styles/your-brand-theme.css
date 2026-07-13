@@ -1937,6 +1937,21 @@ html[data-your-brand="active"] .your-brand-modal-note {
   margin-bottom: 16px;
 }
 
+.icd-inspiration__upload {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.icd-inspiration__upload-error {
+  max-width: 220px;
+  color: #f4aaa0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .icd-inspiration__search,
 .icd-cases__search {
   display: flex;
@@ -2282,6 +2297,22 @@ html[data-your-brand="active"] .your-brand-modal-note {
   background: rgba(59, 158, 255, 0.05);
 }
 
+.icd-btn-sm--primary {
+  border-color: rgba(59, 158, 255, 0.62);
+  color: var(--p24-frost);
+  background: rgba(59, 158, 255, 0.14);
+}
+
+.icd-btn-sm--primary:hover {
+  border-color: rgba(104, 184, 255, 0.86);
+  background: rgba(59, 158, 255, 0.24);
+}
+
+.icd-btn-sm:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
 /* 空状态 */
 .icd-empty-state {
   display: flex;
@@ -2484,6 +2515,19 @@ html[data-your-brand="active"] .icd-home__btn {
 }
 
 @media (max-width: 640px) {
+  .icd-inspiration__toolbar {
+    flex-wrap: wrap;
+  }
+
+  .icd-inspiration__search {
+    flex-basis: 100%;
+  }
+
+  .icd-inspiration__upload {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .icd-home__workflow-grid {
     grid-template-columns: 1fr;
   }

@@ -9,11 +9,12 @@
  *
  * 数据存储在 localStorage，key: icd-ai-canvas:inspiration:v1
  */
-import { type FC, useState, useEffect, useMemo } from 'react';
+import { type ChangeEvent, type FC, useRef, useState, useMemo } from 'react';
 import { IcdNavbar } from './IcdNavbar';
 import { useIcdNavigate } from '../icdRouter';
 import { queueIcdCanvasIntent } from '../icdCanvasIntent';
 import { useCanvasStore } from '../../stores/canvas';
+import { uploadFile } from '../../services/generation';
 
 /* ---- 类型 ---- */
 type InspirationCategory = '空间氛围' | '材质参考' | '灯光参考' | '色彩方案';
@@ -130,6 +131,9 @@ export const InspirationPage: FC = () => {
   const [category, setCategory] = useState<typeof CATEGORIES[number]>('全部');
   const [query, setQuery] = useState('');
   const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const persist = (next: InspirationRecord[]) => {
     setItems(next);
@@ -167,6 +171,38 @@ export const InspirationPage: FC = () => {
       await canvasState.createCanvas(`画布 ${canvasState.canvases.length + 1}`);
     }
     navigate('canvas');
+  };
+
+  const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setUploadError('请选择图片文件');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError('');
+    try {
+      const uploaded = await uploadFile(file);
+      const title = file.name.replace(/\.[^.]+$/, '').trim() || '本地灵感参考';
+      const nextItem: InspirationRecord = {
+        id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        title,
+        category: '空间氛围',
+        tags: ['本地上传'],
+        imageUrl: uploaded.url,
+        note: '本地导入的灵感参考图',
+        isFavorite: false,
+        createdAt: Date.now(),
+      };
+      persist([nextItem, ...items]);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : '图片上传失败，请重试');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const stats = useMemo(
@@ -209,6 +245,24 @@ export const InspirationPage: FC = () => {
               placeholder="搜索标题、标签或说明"
             />
           </label>
+          <div className="icd-inspiration__upload">
+            <input
+              ref={uploadInputRef}
+              type="file"
+              accept="image/*"
+              onChange={(event) => void handleUpload(event)}
+              hidden
+            />
+            <button
+              type="button"
+              className="icd-btn-sm icd-btn-sm--primary"
+              onClick={() => uploadInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              {isUploading ? '上传中...' : '上传图片'}
+            </button>
+            {uploadError && <span className="icd-inspiration__upload-error">{uploadError}</span>}
+          </div>
         </div>
 
         {/* 分类与过滤 */}

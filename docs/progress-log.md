@@ -18,6 +18,31 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-13 - Codex - 灵感库真实图片导入
+
+- User goal: 让灵感库支持本地图片导入，并保留原有搜索、收藏、分类和加入画布能力。
+- Files changed:
+  - `src/extensions/pages/InspirationPage.tsx`
+    - 增加图片选择和上传状态。
+    - 复用 `/api/files/upload`，将上传结果保存到 `icd-ai-canvas:inspiration:v1`。
+    - 自动生成本地灵感卡片，默认分类为“空间氛围”，可直接加入真实画布。
+  - `src/styles/your-brand-theme.css`
+    - 增加上传入口、主按钮和窄屏工具栏样式。
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 本地图片可通过灵感库入口上传并持久化。
+  - 上传卡片沿用现有收藏、搜索、分类和加入画布流程。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - `/api/files/upload` 无文件请求返回预期 `400 missing_file`；真实上传需在浏览器选择用户图片后验证。
+- Core T8 files touched: 无。未改画布内核、节点组件、节点注册、后端路由或画布存储格式。
+- Risks / blockers:
+  - 本次默认新导入图片归入“空间氛围”，后续可增加上传后的分类和备注编辑。
+- Next step:
+  - 在浏览器选择一张实际图片完成端到端验收；通过后提交本次灵感库功能。
+
 ## 2026-07-13 - Codex - 完整画布验收与清理
 
 - User goal: 在不影响用户画布的前提下，完成中文文本、灵感/案例插入、连线、保存恢复和真实 API 生成验收。
