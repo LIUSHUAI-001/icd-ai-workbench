@@ -119,7 +119,7 @@ On non-canvas pages, do not show controls that only make sense for the canvas, u
 
 Build a usable first-screen home page based on the old ICD homepage structure:
 
-- headline: 空间设计智能工作台
+- headline: 洲际设计AI工作台
 - short description: 从参考图、草图和提示词开始，完成生成、对比、标注与项目资产沉淀。
 - actions:
   - 新建/进入画布 -> `#/canvas`

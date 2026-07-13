@@ -98,8 +98,8 @@ export const HomePage: FC = () => {
           <div className="icd-home__hero-copy">
             <div className="icd-home__hero-eyebrow">建筑与室内设计团队内部工具</div>
             <h1 className="icd-home__hero-title">
-              <span>空间设计团队</span>
-              <span>智能工作台</span>
+              <span>洲际设计</span>
+              <span>AI工作台</span>
             </h1>
             <p className="icd-home__hero-desc">
               从参考图、草图和提示词开始，完成生成、对比、标注与项目资产沉淀。
@@ -239,7 +239,7 @@ export const HomePage: FC = () => {
       {/* ======== Footer ======== */}
       <footer className="icd-footer">
         <strong>ICD STUDIO</strong>
-        <span>空间设计智能工作台</span>
+        <span>洲际设计AI工作台</span>
       </footer>
     </div>
   );

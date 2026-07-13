@@ -18,6 +18,19 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 更新产品名称
+
+- User goal: 将产品名称统一为“洲际设计AI工作台”。
+- Files changed:
+  - `src/extensions/pages/HomePage.tsx`：更新首页主标题和页脚品牌副标题。
+  - `src/extensions/pages/PromptLibraryPage.tsx`、`src/extensions/pages/CaseNavigationPage.tsx`、`src/extensions/pages/InspirationPage.tsx`：更新页脚品牌副标题。
+  - `docs/claude-code-next-task.md`、`docs/progress-log.md`：更新当前产品文案记录。
+- Completed: 当前首页、提示词库、案例导航和旧灵感页面统一使用“洲际设计AI工作台”。
+- Validation: `npm run type-check`、`git diff --check`。
+- Core T8 files touched: 无。
+- Risks / blockers: 无。
+- Next step: 继续按新产品名称进行页面细节调整。
+
 ## 2026-07-14 - Codex - 提示词库第一版原型
 
 - User goal: 将原来的灵感库改造成提示词库，先做出页面供用户查看整体方向。

@@ -355,7 +355,7 @@ export const InspirationPage: FC = () => {
 
       <footer className="icd-footer">
         <strong>ICD STUDIO</strong>
-        <span>空间设计智能工作台</span>
+        <span>洲际设计AI工作台</span>
       </footer>
     </div>
   );
