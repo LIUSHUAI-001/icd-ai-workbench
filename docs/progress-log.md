@@ -18,6 +18,18 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 删除重复 Pinterest 首页入口
+
+- User goal: 删除案例导航中重复的 Pinterest 网站入口。
+- Files changed:
+  - `src/extensions/bookmarks/icdDesignBookmarks.ts`：删除 `https://www.pinterest.com/` 首页，保留品牌视觉系统专题入口。
+  - `docs/icd-framework-baseline.md`、`docs/claude-code-next-task.md`、`docs/progress-log.md`：将当前入口数量更新为 89。
+- Completed: Pinterest 重复入口从 2 个减少为 1 个，保留更具体的品牌视觉参考入口；旧 localStorage 会通过现有归一化逻辑自动移除已删除入口。
+- Validation: `npm run type-check`、`git diff --check`。
+- Core T8 files touched: 无。
+- Risks / blockers: 无。
+- Next step: 继续检查设计资源库中的重复入口和分类准确性。
+
 ## 2026-07-14 - Codex - 更新产品名称
 
 - User goal: 将产品名称统一为“洲际设计AI工作台”。

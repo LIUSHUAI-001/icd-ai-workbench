@@ -445,22 +445,6 @@ export const ICD_DESIGN_BOOKMARKS: IcdDesignBookmark[] = [
     createdAt: 0
   },
   {
-    id: "bookmark-31",
-    name: "Pinterest",
-    url: "https://www.pinterest.com/",
-    description: "视觉灵感收藏平台，适合建立建筑、室内、材质与品牌灵感板。",
-    category: "作品与灵感平台",
-    tags: [
-      "作品与灵感平台",
-      "pinterest.com"
-    ],
-    imageUrl: "https://s.wordpress.com/mshots/v1/https%3A%2F%2Fwww.pinterest.com%2F?w=900",
-    faviconUrl: "https://www.google.com/s2/favicons?domain=pinterest.com&sz=128",
-    isFavorite: false,
-    isPreset: true,
-    createdAt: 0
-  },
-  {
     id: "bookmark-32",
     name: "立邦漆色彩查询页电子版1988色 - 色彩目录 - 千通彩色库",
     url: "https://www.qtccolor.com/secaiku/dir/28",
