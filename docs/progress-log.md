@@ -18,6 +18,26 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 提示词库工作台布局试版
+
+- User goal: 参考成熟开源提示词库的排版方式，把当前提示词库做成更像工作台的布局供查看。
+- Files changed:
+  - `src/extensions/pages/PromptLibraryPage.tsx`：增加左侧分类导航、中间结果列表和右侧完整提示词详情面板。
+  - `src/styles/your-brand-theme.css`：增加三栏工作台布局、选中状态和响应式折叠样式。
+  - `docs/progress-log.md`：本条记录。
+- Completed:
+  - 点击卡片可查看完整提示词，不再只看卡片截断文本。
+  - 左侧显示分类数量；中间显示筛选结果；右侧保留复制、收藏和加入画布操作。
+  - 900px 以下折叠为两栏，640px 以下折叠为单栏。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 本地前端 HTTP 200 ✅
+- Core T8 files touched: 无。仅调整提示词库扩展页面和品牌样式。
+- Risks / blockers: 当前为排版试版，后续可根据用户视觉反馈调整三栏比例、卡片密度和详情字段。
+- Next step: 用户查看页面后确认是否保留三栏结构，再进入提示词字段完善。
+
 ## 2026-07-14 - Codex - 提示词库第一版原型
 
 - User goal: 将原来的灵感库改造成提示词库，先做出页面供用户查看整体方向。

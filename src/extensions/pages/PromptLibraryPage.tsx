@@ -33,6 +33,7 @@ export const PromptLibraryPage: FC = () => {
   const [query, setQuery] = useState('');
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState(ICD_PROMPT_LIBRARY[0]?.id ?? '');
 
   useEffect(() => { setItems(loadPrompts()); }, []);
 
@@ -48,6 +49,14 @@ export const PromptLibraryPage: FC = () => {
         .some((value) => value.toLowerCase().includes(keyword));
     });
   }, [category, favoriteOnly, items, query]);
+
+  const selected = filtered.find((item) => item.id === selectedId) ?? filtered[0] ?? null;
+
+  useEffect(() => {
+    if (filtered.length > 0 && !filtered.some((item) => item.id === selectedId)) {
+      setSelectedId(filtered[0].id);
+    }
+  }, [filtered, selectedId]);
 
   const copyPrompt = async (item: IcdPromptRecord) => {
     await navigator.clipboard.writeText(item.prompt);
@@ -90,28 +99,54 @@ export const PromptLibraryPage: FC = () => {
           </button>
         </div>
 
-        <div className="icd-prompts__filters">
-          {CATEGORIES.map((item) => <button key={item} className={`icd-chip${category === item ? ' is-active' : ''}`} onClick={() => setCategory(item)}>{item}</button>)}
-        </div>
+        <div className="icd-prompts__workspace">
+          <aside className="icd-prompts__sidebar" aria-label="提示词分类">
+            <p className="icd-prompts__sidebar-title">提示词分类</p>
+            {CATEGORIES.map((item) => (
+              <button key={item} className={`icd-prompts__category${category === item ? ' is-active' : ''}`} onClick={() => setCategory(item)}>
+                <span>{item}</span>
+                <small>{item === '全部' ? items.length : items.filter((prompt) => prompt.category === item).length}</small>
+              </button>
+            ))}
+          </aside>
 
-        <section className="icd-prompts__grid" aria-label="提示词列表">
-          {filtered.map((item) => (
-            <article className="icd-prompts__card" key={item.id}>
-              <div className="icd-prompts__card-head">
-                <span>{item.category}</span>
-                <button className={`icd-prompts__fav${item.isFavorite ? ' is-active' : ''}`} onClick={() => toggleFavorite(item.id)} aria-label={item.isFavorite ? '取消收藏' : '收藏'}>{item.isFavorite ? '★' : '☆'}</button>
+          <section className="icd-prompts__results" aria-label="提示词列表">
+            <div className="icd-prompts__results-head">
+              <div><strong>{category === '全部' ? '全部提示词' : category}</strong><span>{filtered.length} 条结果</span></div>
+              <span>点击卡片查看完整内容</span>
+            </div>
+            <div className="icd-prompts__grid">
+              {filtered.map((item) => (
+                <article className={`icd-prompts__card${selected?.id === item.id ? ' is-selected' : ''}`} key={item.id} onClick={() => setSelectedId(item.id)}>
+                  <div className="icd-prompts__card-head">
+                    <span>{item.category}</span>
+                    <button className={`icd-prompts__fav${item.isFavorite ? ' is-active' : ''}`} onClick={(event) => { event.stopPropagation(); toggleFavorite(item.id); }} aria-label={item.isFavorite ? '取消收藏' : '收藏'}>{item.isFavorite ? '★' : '☆'}</button>
+                  </div>
+                  <h2>{item.title}</h2>
+                  <p className="icd-prompts__description">{item.description}</p>
+                  <div className="icd-prompts__prompt">{item.prompt}</div>
+                  <div className="icd-prompts__tags">{item.tags.map((tag) => <span className="icd-tag" key={tag}>{tag}</span>)}</div>
+                </article>
+              ))}
+            </div>
+            {filtered.length === 0 && <div className="icd-empty-state"><strong>没有符合条件的提示词</strong><p>换一个分类或清除搜索条件后再试。</p></div>}
+          </section>
+
+          {selected && (
+            <aside className="icd-prompts__detail" aria-label="提示词详情">
+              <div className="icd-prompts__detail-head"><span>{selected.category}</span><button className={`icd-prompts__fav${selected.isFavorite ? ' is-active' : ''}`} onClick={() => toggleFavorite(selected.id)} aria-label="收藏">{selected.isFavorite ? '★' : '☆'}</button></div>
+              <h2>{selected.title}</h2>
+              <p className="icd-prompts__detail-description">{selected.description}</p>
+              <p className="icd-prompts__detail-label">完整提示词</p>
+              <div className="icd-prompts__detail-prompt">{selected.prompt}</div>
+              <div className="icd-prompts__tags">{selected.tags.map((tag) => <span className="icd-tag" key={tag}>{tag}</span>)}</div>
+              <div className="icd-prompts__detail-actions">
+                <button className="icd-btn-sm icd-btn-sm--primary" onClick={() => void copyPrompt(selected)}>{copiedId === selected.id ? '已复制' : '复制提示词'}</button>
+                <button className="icd-btn-sm icd-btn-sm--ghost" onClick={() => void addToCanvas(selected)}>加入画布</button>
               </div>
-              <h2>{item.title}</h2>
-              <p className="icd-prompts__description">{item.description}</p>
-              <div className="icd-prompts__prompt">{item.prompt}</div>
-              <div className="icd-prompts__tags">{item.tags.map((tag) => <span className="icd-tag" key={tag}>{tag}</span>)}</div>
-              <div className="icd-prompts__actions">
-                <button className="icd-btn-sm icd-btn-sm--primary" onClick={() => void copyPrompt(item)}>{copiedId === item.id ? '已复制' : '复制提示词'}</button>
-                <button className="icd-btn-sm icd-btn-sm--ghost" onClick={() => void addToCanvas(item)}>加入画布</button>
-              </div>
-            </article>
-          ))}
-        </section>
+            </aside>
+          )}
+        </div>
       </main>
       <footer className="icd-footer"><strong>ICD STUDIO</strong><span>空间设计智能工作台</span></footer>
     </div>
