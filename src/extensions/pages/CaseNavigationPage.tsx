@@ -30,7 +30,7 @@ const CATEGORIES: Array<'全部' | CaseCategory> = [
 ];
 
 const STORAGE_KEY = 'icd-ai-canvas:cases:v2';
-const STORAGE_VERSION = 2;
+const STORAGE_VERSION = 3;
 
 /* ---- localStorage 工具 ---- */
 function loadItems(): CaseRecord[] {
@@ -38,8 +38,18 @@ function loadItems(): CaseRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed?._v === STORAGE_VERSION && Array.isArray(parsed.items) && parsed.items.length > 0) {
-        return parsed.items;
+      if (Array.isArray(parsed.items) && parsed.items.length > 0) {
+        if (parsed._v === STORAGE_VERSION) return parsed.items;
+        if (parsed._v === 2) {
+          const favoriteUrls = new Set(
+            parsed.items.filter((item: CaseRecord) => item.isFavorite).map((item: CaseRecord) => item.url),
+          );
+          const migrated = ICD_DESIGN_BOOKMARKS.map((item) => (
+            favoriteUrls.has(item.url) ? { ...item, isFavorite: true } : item
+          ));
+          saveItems(migrated);
+          return migrated;
+        }
       }
     }
   } catch { /* ignore */ }
@@ -189,7 +199,6 @@ export const CaseNavigationPage: FC = () => {
                 </a>
                 <div className="icd-cases__card-head">
                   <span className="icd-cases__card-category">{item.category}</span>
-                  {item.isPreset && <small className="icd-cases__card-preset">书签</small>}
                   <button
                     className={`icd-cases__card-fav${item.isFavorite ? ' is-active' : ''}`}
                     onClick={() => toggleFavorite(item.id)}

@@ -18,6 +18,28 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 案例导航去重与紧凑化
+
+- User goal: 删除重复和明显失效的网站入口，中文/英文重复站点优先保留中文；移除“来自本地书签归档”文案；为每个网站补充中文用途介绍，并缩小卡片占用空间。
+- Files changed:
+  - `src/extensions/bookmarks/icdDesignBookmarks.ts`：从 98 条收敛为 90 条，删除 8 个重复或明确失效入口，补充按网站特性编写的中文描述。
+  - `src/extensions/pages/CaseNavigationPage.tsx`：升级数据版本并迁移旧收藏；移除卡片上的“书签”来源标记。
+  - `src/styles/your-brand-theme.css`：案例卡片改为桌面四列、缩小间距、图片和内容区高度更紧凑。
+  - `docs/icd-framework-baseline.md`、`docs/claude-code-next-task.md`、`docs/progress-log.md`：记录当前数据规则和交接边界。
+- Completed:
+  - ArchDaily 中文/英文重复入口保留中文；合并 Behance、BIG、Matrix、Refero、Godly 等重复入口。
+  - 删除 CCD `/work` 404 入口；403/429 反爬响应不作为失效依据。
+  - 保留已有 v2 收藏状态，迁移到当前 90 条数据；新的入口不再显示本地书签来源说明。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 数据检查：90 条、90 个唯一 URL、无“来自本地书签”文案。
+- Core T8 files touched: 无。未改画布内核、节点组件、节点注册、后端路由或画布存储格式。
+- Risks / blockers:
+  - mshots 缩略图和部分外部网站受网络、反爬或站点改版影响；仍保留 favicon 回退。
+- Next step: 继续进入工作流预设或高频节点 UI 任务，不重新引入案例 CRUD 或已删除的重复入口。
+
 ## 2026-07-13 - Codex - 设计网站书签分类与图片导航
 
 - User goal: 将桌面浏览器书签中的设计灵感网站分类整理，并在案例导航页面以图片而不是纯文字呈现。

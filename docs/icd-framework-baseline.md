@@ -7,7 +7,7 @@ Status: complete. Framework baseline, local inspiration import, and bookmark ima
 - `#/`: ICD STUDIO homepage with real project count, create/open workspace actions, and workflow cards.
 - `#/canvas`: original T8 canvas engine with ICD outer shell.
 - `#/inspiration`: searchable local inspiration cards; local image import persists to namespaced localStorage and “加入画布” creates an existing T8 upload image node.
-- `#/cases`: 98 个按 7 类整理的设计网站书签图片导航；可搜索、收藏、打开外部网站，并用“加入画布备注”创建现有 T8 文本节点。
+- `#/cases`: 90 个去重、去失效入口并按 7 类整理的设计网站图片导航；中文/英文重复站点优先保留中文入口，可搜索、收藏、打开外部网站，并用“加入画布备注”创建现有 T8 文本节点。
 
 ## Architecture Boundary
 
@@ -30,7 +30,7 @@ Status: complete. Framework baseline, local inspiration import, and bookmark ima
 ## Known Limitations
 
 - `npm run lint` cannot run because this checkout does not include the `eslint` executable. Do not add or upgrade dependencies without explicit approval.
-- Inspiration and navigation data remain local-first. Inspiration supports local image import; case navigation uses a versioned project copy of the desktop bookmark export and不提供用户上传、编辑或删除案例的功能。网站缩略图依赖外部 mshots 服务，加载失败时回退到站点 favicon。
+- Inspiration and navigation data remain local-first. Inspiration supports local image import; case navigation uses a versioned project copy of the desktop bookmark export and不提供用户上传、编辑或删除案例的功能。网站缩略图依赖外部 mshots 服务，加载失败时回退到站点 favicon；书签数据更新会迁移旧版收藏状态。
 - Upstream theme easter-egg modes and tutorial history retain upstream names outside the default ICD path. Do not remove them unless the user asks.
 
 ## Next Handoff
