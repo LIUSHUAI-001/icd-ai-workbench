@@ -8,14 +8,22 @@ import { ICD_PROMPT_LIBRARY, type IcdPromptCategory, type IcdPromptRecord } from
 type PromptFilter = '全部' | IcdPromptCategory;
 const CATEGORIES: PromptFilter[] = ['全部', '空间类型', '风格表达', '材质与色彩', '灯光与镜头', '改造任务', '负面控制'];
 const STORAGE_KEY = 'icd-ai-canvas:prompts:v1';
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
 
 function loadPrompts(): IcdPromptRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed?._v === STORAGE_VERSION && Array.isArray(parsed.items)) return parsed.items;
+      if (Array.isArray(parsed.items)) {
+        const savedById = new Map<string, IcdPromptRecord>(parsed.items.map((item: IcdPromptRecord) => [item.id, item]));
+        const normalized = ICD_PROMPT_LIBRARY.map((item) => {
+          const saved = savedById.get(item.id);
+          return saved ? { ...item, isFavorite: saved.isFavorite } : item;
+        });
+        if (parsed._v !== STORAGE_VERSION) savePrompts(normalized);
+        return normalized;
+      }
     }
   } catch { /* ignore */ }
   savePrompts(ICD_PROMPT_LIBRARY);

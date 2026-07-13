@@ -129,24 +129,28 @@ html[data-your-brand="active"] .t8-topbar button[title="资源库"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.035);
-  color: rgba(242, 244, 247, 0.72);
-  font-size: 16px;
-  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(242, 244, 247, 0.66);
   line-height: 1;
   text-decoration: none;
-  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
 .your-brand-canvas-back:hover {
-  border-color: rgba(193, 122, 77, 0.32);
-  background: rgba(166, 106, 70, 0.12);
+  border-color: rgba(193, 122, 77, 0.42);
+  background: rgba(166, 106, 70, 0.14);
   color: rgba(242, 244, 247, 0.94);
+  transform: translateX(-1px);
+}
+
+.your-brand-canvas-back:focus-visible {
+  outline: 2px solid rgba(193, 122, 77, 0.75);
+  outline-offset: 2px;
 }
 
 .your-brand-modal-note {
@@ -2658,6 +2662,186 @@ html[data-your-brand="active"] .icd-cases__stats span {
   padding: 6px 10px !important;
 }
 
+/* --- 设计资源库 — 简洁工具页密度 --- */
+html[data-your-brand="active"] .icd-cases__hero {
+  padding: 36px 0 22px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__hero-copy {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 28px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__hero-main {
+  min-width: 0;
+}
+
+html[data-your-brand="active"] .icd-cases__hero-copy h1 {
+  font-size: clamp(34px, 3vw, 42px) !important;
+  margin-bottom: 10px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__sub {
+  max-width: 560px !important;
+  margin-bottom: 0 !important;
+}
+
+html[data-your-brand="active"] .icd-cases__stats {
+  flex: 0 0 250px !important;
+  width: 250px !important;
+  margin-bottom: 2px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__stats span {
+  font-size: 16px !important;
+  padding: 6px 8px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__toolbar {
+  margin: 18px 0 10px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__search {
+  width: min(680px, 100%) !important;
+  height: 40px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__filters {
+  gap: 12px !important;
+  margin-bottom: 14px !important;
+  padding-bottom: 10px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__chips {
+  flex-wrap: nowrap !important;
+  min-width: 0 !important;
+  overflow-x: auto !important;
+  scrollbar-width: none;
+}
+
+html[data-your-brand="active"] .icd-cases__chips::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-your-brand="active"] .icd-chip {
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__grid {
+  gap: 10px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-head {
+  min-height: 29px !important;
+  padding: 0 10px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-body {
+  padding: 10px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-name {
+  font-size: 12px !important;
+  margin-bottom: 3px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-desc {
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-note {
+  margin-top: 6px !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-tags {
+  max-height: 22px !important;
+  margin-top: 5px !important;
+  overflow: hidden !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-actions {
+  padding: 5px 10px 8px !important;
+}
+
+html[data-your-brand="active"] .icd-cases__card-actions .icd-btn-sm {
+  min-height: 28px !important;
+  padding: 0 9px !important;
+  font-size: 11px !important;
+}
+
+/* --- 提示词库 — 与设计资源库统一首屏密度 --- */
+html[data-your-brand="active"] .icd-prompts__hero {
+  min-height: unset !important;
+  padding: 36px 0 22px !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__hero-copy {
+  max-width: none !important;
+  margin-left: 0 !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__hero h1 {
+  font-size: clamp(34px, 3vw, 42px) !important;
+  margin-bottom: 10px !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__kicker {
+  min-height: 32px !important;
+  margin-bottom: 18px !important;
+  font-size: 12px !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__sub {
+  max-width: 560px !important;
+  margin-bottom: 18px !important;
+  font-size: 14px !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__stats {
+  width: min(260px, 100%) !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__stats span {
+  padding: 6px 8px !important;
+  font-size: 16px !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__toolbar {
+  margin: 18px 0 10px !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__filters {
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  margin-bottom: 14px !important;
+  padding-bottom: 10px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none;
+}
+
+html[data-your-brand="active"] .icd-prompts__filters::-webkit-scrollbar {
+  display: none;
+}
+
+html[data-your-brand="active"] .icd-prompts__filters .icd-chip {
+  flex: 0 0 auto;
+  min-height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 11px !important;
+}
+
+html[data-your-brand="active"] .icd-prompts__grid {
+  gap: 10px !important;
+  padding-top: 0 !important;
+}
+
 /* --- 首页 — 保留 Hero 视觉但压缩高度，露出项目索引 --- */
 html[data-your-brand="active"] .icd-home__hero {
   min-height: unset !important;
@@ -2823,5 +3007,20 @@ html[data-your-brand="active"] .icd-home__btn {
   .icd-cases__filters {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  html[data-your-brand="active"] .icd-cases__hero-copy {
+    align-items: stretch !important;
+    flex-direction: column !important;
+    gap: 18px !important;
+  }
+
+  html[data-your-brand="active"] .icd-cases__stats {
+    flex-basis: auto !important;
+    width: min(260px, 100%) !important;
+  }
+
+  html[data-your-brand="active"] .icd-cases__chips {
+    width: 100%;
   }
 }

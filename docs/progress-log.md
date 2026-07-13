@@ -18,6 +18,56 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 全项目 UI 审查后的首屏密度调整
+
+- User goal: 根据完整 UI 审查结果，继续优化提示词库，并保持画布内核不变。
+- Files changed:
+  - `src/extensions/pages/CaseNavigationPage.tsx`：为资源卡片收藏按钮补充明确的无障碍标签。
+  - `src/styles/your-brand-theme.css`：压缩提示词库 Hero、统计区和筛选区，统一设计资源库的首屏密度与横向分类交互。
+  - `docs/progress-log.md`：本条记录。
+- Completed:
+  - 提示词库顶部留白减少，首屏更快进入搜索、分类和提示词卡片。
+  - 提示词分类按钮改为紧凑横向滚动，避免窄屏换行撑高页面。
+  - 未修改画布节点、连线、状态或数据格式。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+- Core T8 files touched: 无。仅修改 ICD 外层页面和主题 CSS。
+- Risks / blockers:
+  - 设计资源库仍有一个页面截图显示 403 blocked，删除该资源前需确认具体条目，避免误删用户想保留的网站。
+  - 移动端、键盘导航和焦点状态尚未完成专项审查。
+- Next step: 确认并移除资源库中的 403 条目，然后进行移动端与画布首次加载告警专项验证。
+
+## 2026-07-14 - Codex - 删除失效资源并统一中文提示词
+
+- User goal: 删除资源库中的 403 网站，并将提示词库全部改为中文。
+- Files changed:
+  - `src/extensions/bookmarks/icdDesignBookmarks.ts`：删除 `https://loftcn.com/` 资源条目。
+  - `src/extensions/prompts/icdPromptLibrary.ts`：将 14 条提示词全部改为中文。
+  - `src/extensions/pages/PromptLibraryPage.tsx`：增加提示词数据版本迁移，保留收藏状态并自动刷新旧缓存内容。
+  - `docs/progress-log.md`：本条记录。
+- Completed:
+  - 资源库不再展示 loftcn.com 及其 403 截图。
+  - 提示词标题、说明、生成文本和标签均为中文；英文旧缓存会自动迁移。
+  - 未修改画布内核、节点、连线和画布数据格式。
+- Validation: `npm run type-check` ✅、`npm run build` ✅、`git diff --check` ✅；浏览器页面需刷新后复核缓存迁移结果。
+- Core T8 files touched: 无。仅修改 ICD 外层数据与页面。
+- Risks / blockers: 现有用户若收藏过旧提示词，只保留收藏状态，不保留旧英文文本。
+- Next step: 浏览器刷新提示词库和设计资源库，确认缓存迁移、资源数量和页面布局。
+
+## 2026-07-14 - Codex - 优化画布返回按钮
+
+- User goal: 改善画布页头返回首页箭头的视觉效果。
+- Files changed:
+  - `src/App.tsx`：将文本字符返回箭头替换为 Lucide `ArrowLeft` 图标，保留原有首页链接。
+  - `src/styles/your-brand-theme.css`：调整返回按钮尺寸、圆角、边框、悬停和键盘焦点状态。
+  - `docs/progress-log.md`：本条记录。
+- Completed: 返回按钮从厚重圆形文本箭头改为轻量方圆图标按钮。
+- Validation: 待执行 `npm run type-check`、`npm run build`。
+- Core T8 files touched: `src/App.tsx` 仅为画布外层页头入口，未修改画布内核。
+- Risks / blockers: 无。
+- Next step: 刷新画布确认按钮视觉和返回行为。
+
 ## 2026-07-14 - Codex - 调整 Pinterest 保留入口
 
 - User goal: 修正 Pinterest 重复项删除方向，保留首页并删除 Brand VI 专题入口。

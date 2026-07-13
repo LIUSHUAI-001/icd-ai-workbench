@@ -349,22 +349,6 @@ export const ICD_DESIGN_BOOKMARKS: IcdDesignBookmark[] = [
     createdAt: 0
   },
   {
-    id: "bookmark-25",
-    name: "设计风向-〡探知全球最新设计风向，为中国新设计力量、中国创意赋能",
-    url: "https://loftcn.com/",
-    description: "中国设计趋势与案例媒体，适合了解本土设计团队和行业动态。",
-    category: "设计媒体与奖项",
-    tags: [
-      "设计媒体与奖项",
-      "loftcn.com"
-    ],
-    imageUrl: "https://s.wordpress.com/mshots/v1/https%3A%2F%2Floftcn.com%2F?w=900",
-    faviconUrl: "https://www.google.com/s2/favicons?domain=loftcn.com&sz=128",
-    isFavorite: false,
-    isPreset: true,
-    createdAt: 0
-  },
-  {
     id: "bookmark-26",
     name: "标志情报局 - 全球LOGO新闻和品牌设计趋势平台",
     url: "https://www.logonews.cn/",
