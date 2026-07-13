@@ -5,15 +5,12 @@
  * - 搜索输入
  * - 分类 chips：建筑与室内 / 设计媒体 / 作品灵感 / 材料产品 / UI网页 / 色彩工具
  * - 来自浏览器书签的图片网站卡片
- * - 打开网站 / 收藏 / 加入画布备注
+ * - 打开网站 / 收藏
  *
  * 数据存储在 localStorage，key: icd-ai-canvas:cases:v2
  */
 import { type FC, useEffect, useMemo, useState } from 'react';
 import { IcdNavbar } from './IcdNavbar';
-import { useIcdNavigate } from '../icdRouter';
-import { queueIcdCanvasIntent } from '../icdCanvasIntent';
-import { useCanvasStore } from '../../stores/canvas';
 import {
   ICD_DESIGN_BOOKMARKS,
   type IcdDesignBookmark,
@@ -65,7 +62,6 @@ function saveItems(items: CaseRecord[]) {
 
 /* ---- 组件 ---- */
 export const CaseNavigationPage: FC = () => {
-  const navigate = useIcdNavigate();
   const [items, setItems] = useState<CaseRecord[]>(loadItems);
   const [category, setCategory] = useState<typeof CATEGORIES[number]>('全部');
   const [query, setQuery] = useState('');
@@ -82,23 +78,6 @@ export const CaseNavigationPage: FC = () => {
 
   const toggleFavorite = (id: string) => {
     persist(items.map((item) => (item.id === id ? { ...item, isFavorite: !item.isFavorite } : item)));
-  };
-
-  const addNoteToCanvas = async (item: CaseRecord) => {
-    const text = [
-      item.name,
-      item.description,
-      item.note ? `备注：${item.note}` : '',
-      `来源：${item.url}`,
-      item.tags.length ? `标签：${item.tags.join('、')}` : '',
-    ].filter(Boolean).join('\n');
-    queueIcdCanvasIntent({ kind: 'add-case-note', title: item.name, text });
-    await useCanvasStore.getState().loadCanvases();
-    const canvasState = useCanvasStore.getState();
-    if (!canvasState.activeId) {
-      await canvasState.createCanvas(`画布 ${canvasState.canvases.length + 1}`);
-    }
-    navigate('canvas');
   };
 
   const filtered = useMemo(() => {
@@ -232,12 +211,6 @@ export const CaseNavigationPage: FC = () => {
                   >
                     打开网站
                   </a>
-                  <button
-                    className="icd-btn-sm icd-btn-sm--ghost"
-                    onClick={() => void addNoteToCanvas(item)}
-                  >
-                    加入画布备注
-                  </button>
                 </div>
               </article>
             ))}

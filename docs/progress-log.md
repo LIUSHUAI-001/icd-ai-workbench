@@ -18,6 +18,24 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 移除案例加入画布备注
+
+- User goal: 案例导航不需要把网站信息加入画布，只保留网站图片导航和外部网站访问。
+- Files changed:
+  - `src/extensions/pages/CaseNavigationPage.tsx`：移除“加入画布备注”按钮、跨页意图和画布状态引用。
+  - `docs/icd-framework-baseline.md`、`docs/claude-code-next-task.md`：更新当前案例导航能力说明。
+  - `docs/progress-log.md`：本条记录。
+- Completed:
+  - 案例导航现在只保留搜索、分类、收藏和打开网站。
+  - 未修改 T8 画布、节点系统和画布数据格式。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+- Core T8 files touched: 无。
+- Risks / blockers: 无。
+- Next step: 继续执行下一项产品 UI 任务。
+
 ## 2026-07-14 - Codex - 修复案例导航旧缓存文案
 
 - User goal: 解决案例导航刷新后仍显示“来自本地书签归档”的问题。

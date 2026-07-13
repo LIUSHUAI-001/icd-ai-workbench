@@ -4,7 +4,7 @@
 
 The task below is the historical specification for ICD Framework v1. It is complete and verified; do not rebuild it.
 
-- Completed: 首页 / 画布 / 灵感库 / 案例导航路由、真实项目入口、工作流抽屉入口、灵感图像和案例备注加入画布、默认路径品牌清理。
+- Completed: 首页 / 画布 / 灵感库 / 案例导航路由、真实项目入口、工作流抽屉入口、灵感图像加入画布、默认路径品牌清理。
 - Completed: 灵感库本地图片导入，上传结果写入现有命名空间 localStorage，并沿用加入画布流程。
 - Completed: 从 `/Users/liushuai/Desktop/bookmarks_2026_7_13.html` 整理为 90 个去重、去失效入口的设计网站，按 7 类做成紧凑图片导航；中文/英文重复站点优先保留中文入口，案例导航只负责外部网站导航，不增加自建案例上传、编辑、删除。
 - Verified in a disposable canvas: Chinese input, upload reference insertion, case text insertion, edge connection, refresh recovery, and real image generation. Test canvas and generated output were deleted.
@@ -158,7 +158,7 @@ Build the first framework of the case navigation page:
 - search input
 - category chips: 全部 / 建筑 / 室内 / 商业 / 办公 / 酒店 / 餐饮 / 展陈 / 材质 / 综合
 - case/link cards with placeholder/sample records
-- actions: 打开网站 / 收藏 / 加入画布备注
+- actions: 打开网站 / 收藏
 
 For this pass, local sample data is acceptable. Do not add backend routes.
 
