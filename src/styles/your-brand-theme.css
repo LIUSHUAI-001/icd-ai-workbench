@@ -2171,12 +2171,53 @@ html[data-your-brand="active"] .your-brand-modal-note {
 .icd-cases__card {
   display: flex;
   flex-direction: column;
-  min-height: 292px;
+  min-height: 390px;
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--p24-rail);
   border-radius: var(--p24-radius-card);
   background: var(--p24-black);
+}
+
+.icd-cases__card-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-bottom: 1px solid var(--p24-rail);
+  background: #080909;
+}
+
+.icd-cases__card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.86;
+  transition: transform 220ms var(--p24-ease), opacity 220ms var(--p24-ease);
+}
+
+.icd-cases__card-media-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.72));
+}
+
+.icd-cases__card-media-label {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 5px;
+  color: var(--p24-frost);
+  background: rgba(0, 0, 0, 0.58);
+  font-size: 10px;
+}
+
+.icd-cases__card-media:hover img {
+  opacity: 1;
+  transform: scale(1.035);
 }
 
 .icd-cases__card:hover {

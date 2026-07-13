@@ -18,6 +18,30 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-13 - Codex - 设计网站书签分类与图片导航
+
+- User goal: 将桌面浏览器书签中的设计灵感网站分类整理，并在案例导航页面以图片而不是纯文字呈现。
+- Files changed:
+  - `src/extensions/bookmarks/icdDesignBookmarks.ts`：保存从 `bookmarks_2026_7_13.html` 整理出的 98 个设计网站书签。
+  - `src/extensions/pages/CaseNavigationPage.tsx`：接入 7 类筛选、搜索、收藏、外部网站打开和加入画布备注。
+  - `src/styles/your-brand-theme.css`：增加网站缩略图卡片样式。
+  - `docs/icd-framework-baseline.md`、`docs/claude-code-next-task.md`：明确案例导航为网站导航，不做自建案例 CRUD。
+  - `docs/progress-log.md`：本条记录。
+- Completed:
+  - 从书签文件的设计相关目录提取 110 条链接，过滤无关入口并按 URL 去重，最终导入 98 条。
+  - 分类为建筑与室内、设计媒体与奖项、作品与灵感平台、材料家具与产品、UI 网页与动效、色彩字体与设计工具、设计工具。
+  - 卡片使用网站缩略图，失败时回退到站点 favicon；保留打开网站和加入画布备注能力。
+  - 未触碰 T8 画布内核、节点组件、节点注册、后端路由或画布存储格式。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器验证：全部分类 98 条；UI、网页与动效分类 33 条；图片检查 98 个卡片、0 个 broken、0 个 fallback 图标。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - mshots 缩略图依赖网络，页面保留 favicon 回退；未来更新书签需要重新生成项目数据文件。
+- Next step: 进入工作流预设或高频节点 UI 的下一项产品任务，继续保持画布内核不变。
+
 ## 2026-07-13 - Codex - 灵感库真实图片导入
 
 - User goal: 让灵感库支持本地图片导入，并保留原有搜索、收藏、分类和加入画布能力。

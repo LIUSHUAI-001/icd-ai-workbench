@@ -3,131 +3,34 @@
  *
  * 功能：
  * - 搜索输入
- * - 分类 chips：全部 / 建筑 / 室内 / 商业 / 办公 / 酒店 / 餐饮 / 展陈 / 材质 / 综合
- * - 案例卡片（含示例数据）
+ * - 分类 chips：建筑与室内 / 设计媒体 / 作品灵感 / 材料产品 / UI网页 / 色彩工具
+ * - 来自浏览器书签的图片网站卡片
  * - 打开网站 / 收藏 / 加入画布备注
  *
- * 数据存储在 localStorage，key: icd-ai-canvas:cases:v1
+ * 数据存储在 localStorage，key: icd-ai-canvas:cases:v2
  */
-import { type FC, useState, useMemo } from 'react';
+import { type FC, useMemo, useState } from 'react';
 import { IcdNavbar } from './IcdNavbar';
 import { useIcdNavigate } from '../icdRouter';
 import { queueIcdCanvasIntent } from '../icdCanvasIntent';
 import { useCanvasStore } from '../../stores/canvas';
+import {
+  ICD_DESIGN_BOOKMARKS,
+  type IcdDesignBookmark,
+  type IcdDesignBookmarkCategory,
+} from '../bookmarks/icdDesignBookmarks';
 
 /* ---- 类型 ---- */
-type CaseCategory = '建筑' | '室内' | '商业' | '办公' | '酒店' | '餐饮' | '展陈' | '材质' | '综合';
-
-interface CaseRecord {
-  id: string;
-  name: string;
-  url: string;
-  description: string;
-  category: CaseCategory;
-  tags: string[];
-  note?: string;
-  isFavorite: boolean;
-  isPreset: boolean;
-  createdAt: number;
-}
+type CaseCategory = IcdDesignBookmarkCategory;
+type CaseRecord = IcdDesignBookmark;
 
 const CATEGORIES: Array<'全部' | CaseCategory> = [
-  '全部', '建筑', '室内', '商业', '办公', '酒店', '餐饮', '展陈', '材质', '综合',
+  '全部', '建筑与室内', '设计媒体与奖项', '作品与灵感平台', '材料、家具与产品',
+  'UI、网页与动效', '色彩、字体与设计工具', '设计工具',
 ];
 
-const STORAGE_KEY = 'icd-ai-canvas:cases:v1';
-
-/* ---- 示例数据 ---- */
-const SAMPLE_CASES: CaseRecord[] = [
-  {
-    id: 'sample-c1',
-    name: 'ArchDaily 建筑案例',
-    url: 'https://www.archdaily.com',
-    description: '全球建筑项目数据库，涵盖文化、住宅、商业、教育等类型',
-    category: '建筑',
-    tags: ['建筑', '国际', '项目库'],
-    isFavorite: true,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 2,
-  },
-  {
-    id: 'sample-c2',
-    name: 'Dezeen 设计杂志',
-    url: 'https://www.dezeen.com',
-    description: '建筑与室内设计先锋媒体，每日更新全球精选项目',
-    category: '室内',
-    tags: ['室内', '媒体', '国际'],
-    isFavorite: true,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 3,
-  },
-  {
-    id: 'sample-c3',
-    name: '谷德设计网',
-    url: 'https://www.gooood.cn',
-    description: '国内建筑与室内设计项目平台，含访谈和招聘信息',
-    category: '综合',
-    tags: ['中文', '项目', '访谈'],
-    isFavorite: false,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 5,
-  },
-  {
-    id: 'sample-c4',
-    name: 'Yatzer 设计旅行',
-    url: 'https://www.yatzer.com',
-    description: '高端酒店、餐厅和商业空间设计案例，摄影质量极高',
-    category: '酒店',
-    tags: ['酒店', '摄影', '高端'],
-    isFavorite: false,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 7,
-  },
-  {
-    id: 'sample-c5',
-    name: 'Frame 室内设计奖',
-    url: 'https://www.frameweb.com',
-    description: '国际室内设计奖项与零售空间创新案例',
-    category: '商业',
-    tags: ['零售', '奖项', '创新'],
-    isFavorite: false,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 10,
-  },
-  {
-    id: 'sample-c6',
-    name: 'Metalocus 建筑杂志',
-    url: 'https://www.metalocus.es',
-    description: '欧洲建筑与城市规划深度文章，含学术视角',
-    category: '建筑',
-    tags: ['欧洲', '学术', '城市规划'],
-    isFavorite: false,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 14,
-  },
-  {
-    id: 'sample-c7',
-    name: 'Office Snapshots',
-    url: 'https://officesnapshots.com',
-    description: '全球办公空间设计案例库，按行业和规模分类',
-    category: '办公',
-    tags: ['办公', '科技', '空间规划'],
-    isFavorite: false,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 20,
-  },
-  {
-    id: 'sample-c8',
-    name: 'Restaurant & Bar Design',
-    url: 'https://restaurantandbardesignawards.com',
-    description: '国际餐厅与酒吧设计奖项入围作品展示',
-    category: '餐饮',
-    tags: ['餐厅', '酒吧', '奖项'],
-    isFavorite: false,
-    isPreset: true,
-    createdAt: Date.now() - 86400000 * 25,
-  },
-];
+const STORAGE_KEY = 'icd-ai-canvas:cases:v2';
+const STORAGE_VERSION = 2;
 
 /* ---- localStorage 工具 ---- */
 function loadItems(): CaseRecord[] {
@@ -135,16 +38,18 @@ function loadItems(): CaseRecord[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (parsed?._v === STORAGE_VERSION && Array.isArray(parsed.items) && parsed.items.length > 0) {
+        return parsed.items;
+      }
     }
   } catch { /* ignore */ }
-  saveItems(SAMPLE_CASES);
-  return SAMPLE_CASES;
+  saveItems(ICD_DESIGN_BOOKMARKS);
+  return ICD_DESIGN_BOOKMARKS;
 }
 
 function saveItems(items: CaseRecord[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ _v: STORAGE_VERSION, items }));
   } catch { /* ignore */ }
 }
 
@@ -198,7 +103,7 @@ export const CaseNavigationPage: FC = () => {
     () => ({
       total: items.length,
       favorites: items.filter((i) => i.isFavorite).length,
-      custom: items.filter((i) => !i.isPreset).length,
+      categories: new Set(items.map((item) => item.category)).size,
     }),
     [items],
   );
@@ -214,12 +119,12 @@ export const CaseNavigationPage: FC = () => {
             <p className="icd-cases__kicker">设计案例入口</p>
             <h1>案例导航</h1>
             <p className="icd-cases__sub">
-              管理团队常用设计网站与案例入口，按空间类型筛选，并把案例说明直接加入项目画布。
+              将设计网站书签按用途整理成图片导航，快速打开参考来源，并把网站说明加入项目画布。
             </p>
             <div className="icd-cases__stats">
               <span data-label="个入口">{String(stats.total).padStart(2, '0')}</span>
               <span data-label="个收藏">{String(stats.favorites).padStart(2, '0')}</span>
-              <span data-label="个自建">{String(stats.custom).padStart(2, '0')}</span>
+              <span data-label="个分类">{String(stats.categories).padStart(2, '0')}</span>
             </div>
           </div>
         </section>
@@ -262,10 +167,29 @@ export const CaseNavigationPage: FC = () => {
         {filtered.length > 0 ? (
           <section className="icd-cases__grid" aria-label="案例入口">
             {filtered.map((item) => (
-              <article key={item.id} className="icd-cases__card">
+            <article key={item.id} className="icd-cases__card">
+                <a
+                  className="icd-cases__card-media"
+                  href={item.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`打开 ${item.name}`}
+                >
+                  <img
+                    src={item.imageUrl}
+                    alt=""
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.onerror = null;
+                      event.currentTarget.src = item.faviconUrl;
+                    }}
+                  />
+                  <span className="icd-cases__card-media-shade" />
+                  <span className="icd-cases__card-media-label">查看网站</span>
+                </a>
                 <div className="icd-cases__card-head">
                   <span className="icd-cases__card-category">{item.category}</span>
-                  {item.isPreset && <small className="icd-cases__card-preset">预置</small>}
+                  {item.isPreset && <small className="icd-cases__card-preset">书签</small>}
                   <button
                     className={`icd-cases__card-fav${item.isFavorite ? ' is-active' : ''}`}
                     onClick={() => toggleFavorite(item.id)}
