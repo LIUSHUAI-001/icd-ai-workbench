@@ -9,7 +9,7 @@
  *
  * 数据存储在 localStorage，key: icd-ai-canvas:cases:v2
  */
-import { type FC, useMemo, useState } from 'react';
+import { type FC, useEffect, useMemo, useState } from 'react';
 import { IcdNavbar } from './IcdNavbar';
 import { useIcdNavigate } from '../icdRouter';
 import { queueIcdCanvasIntent } from '../icdCanvasIntent';
@@ -39,17 +39,17 @@ function loadItems(): CaseRecord[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.items) && parsed.items.length > 0) {
-        if (parsed._v === STORAGE_VERSION) return parsed.items;
-        if (parsed._v === 2) {
-          const favoriteUrls = new Set(
-            parsed.items.filter((item: CaseRecord) => item.isFavorite).map((item: CaseRecord) => item.url),
-          );
-          const migrated = ICD_DESIGN_BOOKMARKS.map((item) => (
-            favoriteUrls.has(item.url) ? { ...item, isFavorite: true } : item
-          ));
-          saveItems(migrated);
-          return migrated;
+        const savedByUrl = new Map<string, CaseRecord>(
+          parsed.items.map((item: CaseRecord) => [item.url, item]),
+        );
+        const normalized = ICD_DESIGN_BOOKMARKS.map((item) => {
+          const saved = savedByUrl.get(item.url);
+          return saved ? { ...item, isFavorite: saved.isFavorite, note: saved.note } : item;
+        });
+        if (parsed._v !== STORAGE_VERSION || JSON.stringify(parsed.items) !== JSON.stringify(normalized)) {
+          saveItems(normalized);
         }
+        return normalized;
       }
     }
   } catch { /* ignore */ }
@@ -70,6 +70,10 @@ export const CaseNavigationPage: FC = () => {
   const [category, setCategory] = useState<typeof CATEGORIES[number]>('全部');
   const [query, setQuery] = useState('');
   const [favoriteOnly, setFavoriteOnly] = useState(false);
+
+  useEffect(() => {
+    setItems(loadItems());
+  }, []);
 
   const persist = (next: CaseRecord[]) => {
     setItems(next);

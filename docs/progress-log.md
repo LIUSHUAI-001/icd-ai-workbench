@@ -18,6 +18,24 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 修复案例导航旧缓存文案
+
+- User goal: 解决案例导航刷新后仍显示“来自本地书签归档”的问题。
+- Files changed:
+  - `src/extensions/pages/CaseNavigationPage.tsx`：按当前 90 条项目数据强制归一化 localStorage，只迁移收藏和备注状态。
+  - `docs/progress-log.md`：本条记录。
+- Completed:
+  - 旧缓存不再覆盖最新网站中文介绍、去重结果和删除结果。
+  - 页面挂载时重新读取并归一化数据，兼容热更新后旧 React 状态未重置的情况。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 本地前端 HTTP 200 ✅
+- Core T8 files touched: 无。
+- Risks / blockers: 无；外部网站缩略图仍受网络和站点反爬影响。
+- Next step: 刷新 `#/cases` 验收最新中文网站介绍。
+
 ## 2026-07-14 - Codex - 案例导航去重与紧凑化
 
 - User goal: 删除重复和明显失效的网站入口，中文/英文重复站点优先保留中文；移除“来自本地书签归档”文案；为每个网站补充中文用途介绍，并缩小卡片占用空间。
