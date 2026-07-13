@@ -18,6 +18,18 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-14 - Codex - 调整 Pinterest 保留入口
+
+- User goal: 修正 Pinterest 重复项删除方向，保留首页并删除 Brand VI 专题入口。
+- Files changed:
+  - `src/extensions/bookmarks/icdDesignBookmarks.ts`：删除 Brand VI 搜索入口，恢复 Pinterest 首页入口。
+  - `docs/progress-log.md`：本条记录。
+- Completed: Pinterest 保留 `https://www.pinterest.com/`，总入口仍为 89 个。
+- Validation: `npm run type-check`、`git diff --check`。
+- Core T8 files touched: 无。
+- Risks / blockers: 无。
+- Next step: 继续检查设计资源库重复入口时，以用户指定保留项为准。
+
 ## 2026-07-14 - Codex - 删除重复 Pinterest 首页入口
 
 - User goal: 删除案例导航中重复的 Pinterest 网站入口。

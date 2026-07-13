@@ -429,16 +429,16 @@ export const ICD_DESIGN_BOOKMARKS: IcdDesignBookmark[] = [
     createdAt: 0
   },
   {
-    id: "bookmark-30",
-    name: "(50) Pinterest",
-    url: "https://www.pinterest.com/search/pins/?q=Brand%20VI%20system&rs=typed",
-    description: "视觉灵感收藏平台，当前入口聚焦品牌视觉系统与 Logo 参考。",
+    id: "bookmark-31",
+    name: "Pinterest",
+    url: "https://www.pinterest.com/",
+    description: "视觉灵感收藏平台，适合建立建筑、室内、材质与品牌灵感板。",
     category: "作品与灵感平台",
     tags: [
       "作品与灵感平台",
       "pinterest.com"
     ],
-    imageUrl: "https://s.wordpress.com/mshots/v1/https%3A%2F%2Fwww.pinterest.com%2Fsearch%2Fpins%2F%3Fq%3DBrand%2520VI%2520system%26rs%3Dtyped?w=900",
+    imageUrl: "https://s.wordpress.com/mshots/v1/https%3A%2F%2Fwww.pinterest.com%2F?w=900",
     faviconUrl: "https://www.google.com/s2/favicons?domain=pinterest.com&sz=128",
     isFavorite: false,
     isPreset: true,
