@@ -28,13 +28,30 @@ Preferred customization locations:
 
 ## Current Baseline
 
+### ICD Framework v1 (completed, 2026-07-13)
+
+- 路由：`#/` 首页、`#/canvas` 真实 T8 画布、`#/inspiration` 灵感库、`#/cases` 案例导航。
+- 首页：读取真实画布列表；可新建和打开最近画布；工作流卡片进入画布后自动打开既有工作流抽屉。
+- 灵感库 / 案例导航：通过 `src/extensions/icdCanvasIntent.ts` 一次性意图接入当前画布；分别复用既有 `upload` 与 `text` 节点入口，不直接写画布 JSON。
+- 画布外壳：返回首页、当前画布名、左侧菜单/资源库/工作流 dock；默认路径已移除旧启动图、成就按钮和旧品牌展示文案。
+- 静态启动页：`index.html` 为 ICD AI Canvas 深色加载页，避免 React 接管前闪出上游旧品牌。
+- 已在独立测试画布完成中文文本、灵感/案例插入、连线、保存刷新恢复和一次真实图像生成验收；测试画布与输出已清理。详见 `docs/progress-log.md`。
+
 The ICD product extension uses a two-layer architecture:
 
 - `src/extensions/icdLocalExtensions.tsx` (tracked)
   - the single source of truth for ICD product behavior
   - forces TECH_TEMPLATE_ID + dark mode
-  - renders ICD topbar (logo / ICD STUDIO / AI Canvas / 本地工作区)
-  - renders bottom brand note
+  - initializes ICD theme and default collapsed canvas sidebar
+  - renders the bottom build note
+
+- `src/extensions/icdRouter.ts` / `src/extensions/pages/*`
+  - tracked ICD product routes and pages
+  - keep all non-canvas product UI here instead of copying another app into T8
+
+- `src/extensions/icdCanvasIntent.ts`
+  - one-time handoff from non-canvas pages to the existing canvas insertion API
+  - do not bypass it by mutating canvas storage directly
 
 - `local-private/extensions/frontend/index.tsx` (ignored)
   - thin local adapter that re-exports from `src/extensions/icdLocalExtensions.tsx`
@@ -50,6 +67,9 @@ The ICD product extension uses a two-layer architecture:
 
 - `docs/customization-and-upgrade-plan.md`
   - long-form execution and upgrade plan
+
+- `docs/icd-framework-baseline.md`
+  - current completed baseline, verification evidence, and the next handoff boundary
 
 - `docs/local-private-deployment.md`
   - recovery and deployment instructions for the local-private adapter

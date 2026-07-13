@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>贞贞的无限画布（企鹅共创版）</title>
+    <title>ICD AI Canvas</title>
     <style>
       html,
       body,
@@ -15,8 +15,8 @@
       }
 
       body {
-        background: #f4ead5;
-        color: #201713;
+        background: #0b0d10;
+        color: #f4f5f7;
         overflow: hidden;
         font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
       }
@@ -28,18 +28,7 @@
         min-width: 0;
         min-height: 100%;
         overflow: hidden;
-        background: #f4ead5;
-      }
-
-      .t8-boot-art {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center;
-        user-select: none;
-        -webkit-user-drag: none;
+        background: #0b0d10;
       }
 
       .t8-boot-progress-shell {
@@ -53,19 +42,19 @@
         width: min(760px, 48vw);
         min-width: 420px;
         padding: 11px 18px;
-        border: 1px solid rgba(83, 72, 51, 0.32);
+        border: 1px solid rgba(162, 178, 194, 0.22);
         border-radius: 999px;
-        background: rgba(255, 249, 232, 0.88);
+        background: rgba(20, 24, 30, 0.94);
         box-shadow:
-          0 18px 48px rgba(86, 60, 24, 0.14),
-          inset 0 1px 0 rgba(255, 255, 255, 0.86);
+          0 18px 48px rgba(0, 0, 0, 0.32),
+          inset 0 1px 0 rgba(255, 255, 255, 0.06);
         backdrop-filter: blur(10px);
         transform: translateX(-50%);
       }
 
       .t8-boot-progress-label,
       .t8-boot-progress-percent {
-        color: rgba(43, 33, 22, 0.82);
+        color: rgba(232, 237, 242, 0.86);
         font-size: 15px;
         font-weight: 800;
         line-height: 1;
@@ -75,9 +64,9 @@
       .t8-boot-progress-track {
         position: relative;
         height: 13px;
-        border: 1px solid rgba(91, 79, 55, 0.16);
+        border: 1px solid rgba(162, 178, 194, 0.18);
         border-radius: 999px;
-        background: rgba(245, 235, 209, 0.92);
+        background: rgba(255, 255, 255, 0.08);
         overflow: hidden;
       }
 
@@ -87,8 +76,8 @@
         height: 100%;
         min-width: 90px;
         border-radius: inherit;
-        background: linear-gradient(90deg, #51beb8, #76d7c8, #e4c268);
-        box-shadow: 0 0 18px rgba(81, 190, 184, 0.42);
+        background: linear-gradient(90deg, #43b8ff, #6ed4c0, #d4ab70);
+        box-shadow: 0 0 18px rgba(67, 184, 255, 0.36);
         animation: t8BootProgress 1.7s cubic-bezier(.45, 0, .2, 1) infinite;
       }
 
@@ -100,17 +89,13 @@
         border-radius: 50%;
         background: #ffffff;
         box-shadow:
-          0 0 0 3px rgba(118, 215, 200, 0.35),
-          0 0 18px rgba(228, 194, 104, 0.72);
+          0 0 0 3px rgba(110, 212, 192, 0.30),
+          0 0 18px rgba(67, 184, 255, 0.60);
         transform: translate(-50%, -50%);
         animation: t8BootSpark 1.7s cubic-bezier(.45, 0, .2, 1) infinite;
       }
 
       @media (max-width: 560px) {
-        .t8-boot-art {
-          object-position: center;
-        }
-
         .t8-boot-progress-shell {
           bottom: 34px;
           width: calc(100vw - 32px);
@@ -161,7 +146,6 @@
   <body>
     <div id="root">
       <div class="t8-boot-screen" role="status" aria-label="正在打开画布工作台">
-        <img class="t8-boot-art" src="/infinite-canvas-loading.png" alt="" aria-hidden="true" />
         <div class="t8-boot-progress-shell" aria-hidden="true">
           <span class="t8-boot-progress-label">正在启动...</span>
           <div class="t8-boot-progress-track">

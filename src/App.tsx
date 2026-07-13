@@ -1,17 +1,17 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Moon, Settings, Sun, Wifi, WifiOff, Sparkles, Cloud, ExternalLink, Copy, Check, Gift, Heart, Youtube, PlayCircle, Bell, Wand2, Globe, MessageCircle, CalendarDays, Rocket, Library, Palette, Skull, Sailboat, BookOpen, Shield, Crown, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Moon, Settings, Sun, Wifi, WifiOff, Sparkles, Cloud, ExternalLink, Copy, Check, Gift, Heart, Youtube, PlayCircle, Bell, Wand2, Globe, MessageCircle, CalendarDays, Rocket, Library, Palette, Skull, Sailboat, BookOpen, Shield, Crown, PanelLeftClose, PanelLeftOpen, Workflow } from 'lucide-react';
 import { useThemeStore } from './stores/theme';
 import { seedDragonBallRadarForShenronTest, useDragonBallRadarStore } from './stores/dragonBallRadar';
 import { seedSaintSeiyaGoldClothsForHadesTest, useSaintSeiyaSanctuaryStore } from './stores/saintSeiyaSanctuary';
 import { trackAchievementEvent } from './stores/achievements';
 import { useApiKeysStore } from './stores/apiKeys';
 import { useShortcutStore } from './stores/shortcuts';
+import { useCanvasStore } from './stores/canvas';
 import Sidebar from './components/Sidebar';
 import type { AddNodeFn, InsertWorkflowFn } from './components/Canvas';
 import AppUpdaterButton from './components/AppUpdaterButton';
 import MaterialContextMenu from './components/MaterialContextMenu';
 import ErrorBoundary from './components/ErrorBoundary';
-import AchievementButton from './components/AchievementButton';
 import AchievementCeremonyLayer from './components/AchievementCeremonyLayer';
 import AchievementDrawer from './components/AchievementDrawer';
 import AchievementToast from './components/AchievementToast';
@@ -28,6 +28,11 @@ import { matchesAnyShortcut } from './utils/keyboardShortcuts';
 import { portraitResourceToNodeData } from './utils/portraitResource';
 import { applyUiFontPreference } from './utils/uiFont';
 import { LocalModalSlot, LocalTopbarSlot } from 'virtual:t8-local-extensions';
+import { useIcdRoute } from './extensions/icdRouter';
+import { consumeIcdCanvasIntent } from './extensions/icdCanvasIntent';
+import { HomePage } from './extensions/pages/HomePage';
+import { InspirationPage } from './extensions/pages/InspirationPage';
+import { CaseNavigationPage } from './extensions/pages/CaseNavigationPage';
 
 const Canvas = lazy(() => import('./components/Canvas'));
 const ApiSettingsModal = lazy(() => import('./components/ApiSettings'));
@@ -188,7 +193,6 @@ const CANVAS_TUTORIALS = [
 function InfiniteCanvasBootLoading() {
   return (
     <div className="t8-boot-screen" role="status" aria-label="正在打开画布工作台">
-      <img className="t8-boot-art" src="/infinite-canvas-loading.png" alt="" aria-hidden="true" />
       <div className="t8-boot-progress-shell" aria-hidden="true">
         <span className="t8-boot-progress-label">正在启动...</span>
         <div className="t8-boot-progress-track">
@@ -218,13 +222,21 @@ function App() {
   } = useThemeStore();
   const { load: loadSettings } = useApiKeysStore();
   const shortcuts = useShortcutStore((s) => s.shortcuts);
+  const { activeId, canvases } = useCanvasStore();
   const currentTemplate = useMemo(
     () => resolveThemeTemplate(templateId, customTemplates),
     [templateId, customTemplates],
   );
+  const activeCanvasName = useMemo(() => {
+    if (!activeId) return '未选择画布';
+    return canvases.find((canvas) => canvas.id === activeId)?.name || '当前画布';
+  }, [activeId, canvases]);
   const [backendStatus, setBackendStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [resourceOpen, setResourceOpen] = useState(false);
+  const [drawerKey, setDrawerKey] = useState('default');
+  const [pendingCanvasIntent, setPendingCanvasIntent] = useState<ReturnType<typeof consumeIcdCanvasIntent>>(null);
+  const sidebarHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [themeManagerOpen, setThemeManagerOpen] = useState(false);
   // 「在线画布」推广浮层开关 + 容器 ref(用于点击外部关闭)
   const [cloudOpen, setCloudOpen] = useState(false);
@@ -250,9 +262,36 @@ function App() {
   const addNodeRef = useRef<AddNodeFn | null>(null);
   const insertWorkflowRef = useRef<InsertWorkflowFn | null>(null);
 
-  const toggleSidebarCollapsed = useCallback(() => {
-    setSidebarCollapsed((collapsed) => !collapsed);
+  const clearSidebarTimer = useCallback(() => {
+    if (sidebarHoverTimerRef.current !== null) {
+      clearTimeout(sidebarHoverTimerRef.current);
+      sidebarHoverTimerRef.current = null;
+    }
   }, []);
+
+  const scheduleSidebarCollapse = useCallback(() => {
+    clearSidebarTimer();
+    sidebarHoverTimerRef.current = setTimeout(() => {
+      setSidebarCollapsed(true);
+    }, 220);
+  }, [clearSidebarTimer]);
+
+  const openSidebarFromDock = useCallback(() => {
+    clearSidebarTimer();
+    setSidebarCollapsed(false);
+  }, [clearSidebarTimer]);
+
+  const openResourceDrawer = useCallback((kind: 'default' | 'workflow') => {
+    clearSidebarTimer();
+    setSidebarCollapsed(true);
+    setDrawerKey(kind);
+    setResourceOpen(true);
+  }, [clearSidebarTimer]);
+
+  const toggleSidebarCollapsed = useCallback(() => {
+    clearSidebarTimer();
+    setSidebarCollapsed((collapsed) => !collapsed);
+  }, [clearSidebarTimer]);
 
   // 「在线画布」浮层: 点击容器外部 / 按 ESC 自动关闭
   useEffect(() => {
@@ -492,6 +531,15 @@ function App() {
     window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, sidebarCollapsed ? '1' : '0');
   }, [sidebarCollapsed]);
 
+  // 侧边栏 hover timer 清理
+  useEffect(() => {
+    return () => {
+      if (sidebarHoverTimerRef.current !== null) {
+        clearTimeout(sidebarHoverTimerRef.current);
+      }
+    };
+  }, []);
+
   // 侧边栏快捷键：H 隐藏 / 恢复左侧栏。输入框内不拦截，避免影响 Prompt 和搜索。
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -618,6 +666,95 @@ function App() {
     addNodeRef.current?.('upload', { data });
   };
 
+  // ---- ICD 产品框架路由 ----
+  const icdRoute = useIcdRoute();
+
+  useEffect(() => {
+    if (icdRoute !== 'canvas') {
+      // Canvas 已卸载时不能复用旧实例的 addNode 回调。
+      addNodeRef.current = null;
+      return;
+    }
+    setPendingCanvasIntent(consumeIcdCanvasIntent());
+  }, [icdRoute]);
+
+  useEffect(() => {
+    if (!pendingCanvasIntent) return;
+    if (pendingCanvasIntent.kind === 'open-workflow') {
+      openResourceDrawer('workflow');
+      setPendingCanvasIntent(null);
+      return;
+    }
+
+    let retryTimer: number | undefined;
+    let attempts = 0;
+    let readyChecks = 0;
+    const insertIntoCanvas = () => {
+      if (!addNodeRef.current) {
+        attempts += 1;
+        if (attempts > 60) {
+          setPendingCanvasIntent(null);
+          return;
+        }
+        retryTimer = window.setTimeout(insertIntoCanvas, 80);
+        return;
+      }
+
+      // Canvas 会在初次挂载后异步恢复已有数据；短暂确认 ref 稳定，
+      // 避免新节点先写入内存又被恢复结果覆盖。
+      if (readyChecks < 4) {
+        readyChecks += 1;
+        retryTimer = window.setTimeout(insertIntoCanvas, 100);
+        return;
+      }
+
+      if (pendingCanvasIntent.kind === 'add-inspiration') {
+        addNodeRef.current('upload', {
+          data: {
+            uploadType: 'image',
+            imageUrl: pendingCanvasIntent.imageUrl,
+            fileName: pendingCanvasIntent.title,
+            fileSize: 0,
+            mime: 'image/*',
+            icdReference: {
+              category: pendingCanvasIntent.category,
+              tags: pendingCanvasIntent.tags,
+              note: pendingCanvasIntent.note || '',
+            },
+          },
+        });
+      } else {
+        addNodeRef.current('text', {
+          data: {
+            prompt: pendingCanvasIntent.text,
+            text: pendingCanvasIntent.text,
+            label: pendingCanvasIntent.title,
+            source: 'icd-case-navigation',
+          },
+        });
+      }
+      setPendingCanvasIntent(null);
+    };
+
+    insertIntoCanvas();
+    return () => {
+      if (retryTimer) window.clearTimeout(retryTimer);
+    };
+  }, [pendingCanvasIntent, openResourceDrawer]);
+
+  // 非画布路由：渲染 ICD 产品页面（首页 / 灵感库 / 案例导航）
+  // 画布路由：走下方原有 T8 画布完整渲染路径
+  if (icdRoute === 'home') {
+    return <HomePage />;
+  }
+  if (icdRoute === 'inspiration') {
+    return <InspirationPage />;
+  }
+  if (icdRoute === 'cases') {
+    return <CaseNavigationPage />;
+  }
+  // icdRoute === 'canvas' — 继续渲染 T8 画布
+
   return (
     <RHToolsProvider>
     <AchievementTracker />
@@ -638,6 +775,9 @@ function App() {
         }`}
       >
         <div className="flex items-center gap-3">
+          <a href="#/" className="your-brand-canvas-back" aria-label="返回首页">
+            ←
+          </a>
           {isOp ? (
             <div className="t8-op-brand flex items-center gap-2">
               <span className="t8-op-brand__mark">
@@ -791,7 +931,7 @@ function App() {
               <span className="px-chip px-chip--pink text-[10px]">企鹅共创版</span>
             </>
           ) : (
-            <h1 className="text-sm font-semibold">贞贞的无限画布（企鹅共创版）</h1>
+            <h1 className="text-sm font-semibold">{activeCanvasName}</h1>
           )}
           <span
             className={
@@ -1645,7 +1785,6 @@ function App() {
             </div>
           )}
           <LocalTopbarSlot isPixel={isPixel} isDark={isDark} />
-          <AchievementButton isPixel={isPixel} isDark={isDark} />
           <button
             onClick={() => setResourceOpen(true)}
             className={
@@ -1693,17 +1832,50 @@ function App() {
         className={`t8-main-layout flex-1 flex overflow-hidden relative${sidebarCollapsed ? ' t8-main-layout--sidebar-collapsed' : ''}`}
         data-sidebar-collapsed={sidebarCollapsed ? 'true' : 'false'}
       >
-        {!sidebarCollapsed && <Sidebar onAddNode={handleAddNode} />}
-        <button
-          type="button"
-          className={`t8-sidebar-toggle t8-mini-icon-button${sidebarCollapsed ? ' is-collapsed' : ''}`}
-          aria-label={sidebarCollapsed ? '显示侧边栏' : '隐藏侧边栏'}
-          title={sidebarCollapsed ? '显示侧边栏 (H)' : '隐藏侧边栏 (H)'}
-          aria-pressed={sidebarCollapsed}
-          onClick={toggleSidebarCollapsed}
+        {!sidebarCollapsed && (
+          <div onMouseEnter={clearSidebarTimer} onMouseLeave={scheduleSidebarCollapse}>
+            <Sidebar onAddNode={handleAddNode} />
+          </div>
+        )}
+        <nav
+          className="your-brand-dock"
+          aria-label="画布快捷菜单"
         >
-          {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        </button>
+          <button
+            type="button"
+            className={`t8-sidebar-toggle t8-mini-icon-button${sidebarCollapsed ? ' is-collapsed' : ''}`}
+            aria-label={sidebarCollapsed ? '显示侧边栏' : '隐藏侧边栏'}
+            title={sidebarCollapsed ? '显示侧边栏 (H)' : '隐藏侧边栏 (H)'}
+            aria-pressed={sidebarCollapsed}
+            onMouseEnter={openSidebarFromDock}
+            onPointerEnter={openSidebarFromDock}
+            onMouseLeave={scheduleSidebarCollapse}
+            onClick={toggleSidebarCollapsed}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+          <div className="your-brand-dock__sep" />
+          <button
+            type="button"
+            className="your-brand-dock__btn"
+            title="资源库"
+            onMouseEnter={() => openResourceDrawer('default')}
+            onPointerEnter={() => openResourceDrawer('default')}
+            onClick={() => openResourceDrawer('default')}
+          >
+            <Library size={14} />
+          </button>
+          <button
+            type="button"
+            className="your-brand-dock__btn"
+            title="工作流"
+            onMouseEnter={() => openResourceDrawer('workflow')}
+            onPointerEnter={() => openResourceDrawer('workflow')}
+            onClick={() => openResourceDrawer('workflow')}
+          >
+            <Workflow size={14} />
+          </button>
+        </nav>
         <ErrorBoundary fallbackTitle="画布渲染出错了，已被错误边界捕获">
           <Suspense fallback={<InfiniteCanvasBootLoading />}>
             <Canvas onAddNodeRef={addNodeRef} onInsertWorkflowRef={insertWorkflowRef} />
@@ -1720,9 +1892,11 @@ function App() {
         )}
         {resourceOpen && (
           <ResourceLibraryDrawer
+            key={drawerKey}
             open={resourceOpen}
             onClose={() => setResourceOpen(false)}
             onInsertMaterial={handleInsertResource}
+            initialKind={drawerKey === 'workflow' ? 'workflow' : undefined}
           />
         )}
       </Suspense>

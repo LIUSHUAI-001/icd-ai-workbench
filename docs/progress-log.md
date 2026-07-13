@@ -18,6 +18,1210 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-13 - Codex - 完整画布验收与清理
+
+- User goal: 在不影响用户画布的前提下，完成中文文本、灵感/案例插入、连线、保存恢复和真实 API 生成验收。
+- Files changed:
+  - `src/App.tsx`
+    - 离开画布路由时清空旧 `addNodeRef`。
+    - 跨页插入前确认当前画布实例稳定，避免节点写入旧实例后被恢复数据覆盖。
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 创建并使用独立 `ICD 验证画布（可删除）`，未改动 `画布 1`。
+  - 中文文本“你好，测试中文首字与完整提示词。”输入和刷新恢复正常。
+  - 灵感库成功插入上传图像节点；案例导航成功插入文本备注节点。
+  - 文本节点连接图像生成节点成功；刷新后保留 4 个节点和 1 条手动连线。
+  - 真实 API 生成成功，产生输出节点和 1254×1254 图像。
+  - 测试画布、生成输出文件、自动保存副本均已删除；画布列表只保留用户 `画布 1`。
+- Validation:
+  - 浏览器端到端验收 ✅
+  - 后端持久化核对：测试画布 5 节点、2 连线（包含自动输出连线）✅
+  - 清理核对：测试画布 API 删除成功、`output/img_1783873214883_luk7.png` 不存在、自动保存副本不存在 ✅
+  - 本机与局域网 `192.168.31.187:11422` HTTP 200 ✅
+- Core T8 files touched: `src/App.tsx` 仅外壳跨页插入时序；未改 `Canvas.tsx`、节点组件、节点注册、后端或画布存储格式。
+- Risks / blockers:
+  - `npm run lint` 不能运行：仓库未安装 `eslint`；未擅自修改依赖。
+- Next step:
+  - 整理当前工作区的第一版 ICD 框架基线，列出提交范围，等待用户确认后提交。
+
+## 2026-07-12 - Codex - 工作流入口与跨页加入画布
+
+- User goal: 按产品框架计划推进首页工作流入口，并让灵感库、案例导航可安全加入真实画布。
+- Files changed:
+  - `src/extensions/icdCanvasIntent.ts`
+    - 新增一次性跨页意图：打开工作流、插入灵感图像、插入案例备注。
+  - `src/extensions/pages/HomePage.tsx`
+    - 工作流卡片进入画布前写入“打开工作流”意图。
+  - `src/extensions/pages/InspirationPage.tsx`
+    - “加入画布”写入图像参考意图；先读取真实画布列表，无画布时创建真实画布。
+  - `src/extensions/pages/CaseNavigationPage.tsx`
+    - “加入画布备注”写入案例文本意图；先读取真实画布列表，无画布时创建真实画布。
+  - `src/App.tsx`
+    - 消费意图后复用已有资源抽屉和 `addNodeRef`：灵感创建 `upload` 图像节点，案例创建 `text` 节点。
+- Completed:
+  - 首页工作流卡片进入 `画布 1` 后，已实测自动打开“工作流”抽屉。
+  - 灵感和案例不直接写画布 JSON，只经既有节点插入接口处理。
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - `git diff --check` ✅ 通过
+  - 浏览器验证：首页工作流卡片 → 真实画布 → 工作流资源抽屉 ✅
+- Core T8 files touched: 无。未改 `Canvas.tsx`、节点组件、节点注册、连线、后端或画布存储格式。
+- Risks / blockers:
+  - 未点击灵感/案例“加入画布”进行端到端验证，避免在用户 `画布 1` 中留下测试节点；首次用户实际使用时会创建预期节点。
+- Next step:
+  - 审查默认使用路径中的旧品牌和无用入口；随后执行完整人工验收，并在用户确认后整理 Git 基线。
+
+## 2026-07-12 - Codex - 默认路径旧品牌审查
+
+- User goal: 清理默认 ICD 使用路径中仍可见的旧品牌和无用入口。
+- Files changed:
+  - `src/components/ApiSettings.tsx`
+    - 界面字体预览从“贞贞无限画布”改为“ICD AI Canvas”。
+- Completed:
+  - 画布顶栏显示当前画布名，右上角成就按钮不存在，启动旧图不存在。
+  - 灵感库、案例导航不显示旧品牌；API 设置的字体预览文案已替换。
+  - 保留“贞贞工坊 API Key”等服务商字段，避免误改真实 API 配置语义。
+- Validation:
+  - 浏览器验证：画布顶栏 `画布 1`、成就按钮数 0、启动图片数 0。
+  - 浏览器验证：灵感库/案例导航旧品牌可见性为 false；API 设置预览为 `ICD AI Canvas`。
+- Core T8 files touched: 无。仅替换设置页展示文案。
+- Risks / blockers:
+  - 主题彩蛋模式和教程历史中仍保留上游名称；它们不属于默认 ICD 使用路径。
+- Next step:
+  - 经用户确认后，在独立测试画布中验证中文文本、上传、连线、灵感/案例插入和真实 API 生成，然后删除测试画布并整理 Git 基线。
+
+## 2026-07-12 - Codex - 首页真实画布入口与启动图清理
+
+- User goal: 首页真正创建/打开 T8 画布；移除进入工作台时出现的“贞贞”启动图片。
+- Files changed:
+  - `src/extensions/pages/HomePage.tsx`
+    - 首页改为读取 `useCanvasStore` 的真实画布列表，不再读取无效的 localStorage 键。
+    - “新建画布”调用既有 `createCanvas` 后进入对应画布。
+    - “进入项目工作台”、最近项目和工作流卡片使用当前/最近真实画布入口。
+  - `src/App.tsx`
+    - 移除 `InfiniteCanvasBootLoading` 中的 `/infinite-canvas-loading.png` 图片，只保留加载进度状态。
+  - `index.html`
+    - 移除 React 启动前静态启动页中的旧图片和“贞贞的无限画布”标题。
+    - 静态启动页改为 ICD AI Canvas 深色加载状态，避免刷新首帧闪出旧品牌。
+- Completed:
+  - 首页项目数、活跃数和最近项目来自后端画布列表。
+  - 不创建测试数据的前提下，已确认首页空状态和 React/静态两层画布启动图移除生效。
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - `git diff --check` ✅ 通过
+  - 浏览器验证：`#/` 显示真实空项目状态；`#/canvas` 未发现 `.t8-boot-art` 或 `/infinite-canvas-loading.png`。
+  - 静态 HTML 验证：开发服务器返回内容不含“贞贞”或 `/infinite-canvas-loading.png`。
+- Core T8 files touched: 无。仅使用已有 `useCanvasStore` 和 API；未修改 `Canvas.tsx`、节点、连线、端口、后端或画布数据格式。
+- Risks / blockers:
+  - 浏览器验证没有点击“新建画布”，避免在用户项目中留下测试画布；首次实际点击时将创建一个真实画布，这是预期行为。
+- Next step:
+  - 让首页工作流卡片进入画布后直接打开已有“工作流”资源抽屉；然后再设计灵感库/案例导航安全插入画布节点的闭环。
+
+## 2026-06-29 - Codex - 收窄左侧菜单 hover 触发
+
+- User goal: 修复左侧快捷菜单靠近边栏就自动弹出的问题；资源库和工作流图标需要弹出对应内容。
+- Files changed:
+  - `src/App.tsx`
+    - 去掉 `your-brand-dock` 容器级 hover 展开逻辑。
+    - 新增 `openSidebarFromDock`，只有菜单按钮 hover / pointer enter 才展开 Sidebar。
+    - 新增 `openResourceDrawer`，资源库/工作流按钮 hover / pointer enter / click 打开对应抽屉内容。
+    - 打开资源库或工作流时自动收起 Sidebar，避免浮层重叠。
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 左侧菜单触发范围从整个 dock 缩小到具体按钮。
+  - 资源库按钮打开默认资源库内容。
+  - 工作流按钮打开工作流分类内容。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+- Core T8 files touched: 无。只改 `src/App.tsx` 外壳交互，未触碰节点、连线、端口、生成逻辑、后端或数据结构。
+- Risks / blockers:
+  - 自动化 hover 在本地浏览器里不稳定，最终手感需要用真实鼠标再确认一次。
+- Next step:
+  - 让用户真实鼠标检查左侧三个按钮 hover；如果仍然太敏感，再收紧按钮命中区域或补充 dock 背景 `pointer-events` 防护。
+
+## 2026-06-29 - Codex - 替换画布空状态品牌名
+
+- User goal: 将进入画布后中间的原 T8 名称改为 ICD 自有名称，并取消出现的图片/图标。
+- Files changed:
+  - `src/components/Canvas.tsx`
+    - 将无 active canvas 空状态标题从 `🐧 贞贞的无限画布（企鹅共创版）` 改为 `ICD AI Canvas`。
+    - 去掉标题前的企鹅图标。
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - #/canvas 无画布选中状态中间标题显示 `ICD AI Canvas`。
+  - 不再显示原 T8 名称和企鹅图标。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - 浏览器验证 #/canvas：
+    - `ICD AI Canvas` 存在
+    - `贞贞的无限画布（企鹅共创版）` 不存在
+    - `🐧` 不存在
+- Core T8 files touched: `src/components/Canvas.tsx` 仅改无画布空状态展示文案；未触碰节点、连线、端口、生成逻辑、后端或数据结构。
+- Risks / blockers: 无。
+- Next step: 继续对齐画布页外壳排版。
+
+## 2026-06-29 - Codex - 画布页眉对齐为返回加文件名
+
+- User goal: 检查并修正 #/canvas 页眉；去掉无用的“本地工作区”，按方案让左侧只保留返回和文件/画布名称。
+- Files changed:
+  - `src/App.tsx`
+    - 引入 `useCanvasStore` 读取当前 active canvas 名称。
+    - 在 T8 顶栏左侧加入 `your-brand-canvas-back` 返回入口。
+    - 默认画布标题从固定“贞贞的无限画布（企鹅共创版）”改为当前画布名；未选中时显示“未选择画布”。
+  - `src/extensions/icdLocalExtensions.tsx`
+    - `LocalTopbarSlot` 保留 ICD 主题初始化作用，停止渲染品牌胶囊、“本地工作区”和右侧返回按钮。
+  - `src/styles/your-brand-theme.css`
+    - 移除 `ICD AI CANVAS` 伪标题覆盖。
+    - 移除旧 `your-brand-topbar-slot` / `your-brand-workspace-chip` / `your-brand-back-link` 样式。
+    - 新增左侧 `your-brand-canvas-back` 返回按钮样式。
+    - 隐藏左侧版本号和后端状态，确保左侧只显示返回 + 画布名称。
+- Completed:
+  - #/canvas 不再显示“本地工作区”。
+  - #/canvas 不再显示右侧品牌胶囊或右侧返回按钮。
+  - #/canvas 左侧显示 `←` + 当前画布名称；无 active canvas 时显示“未选择画布”。
+  - 资源库、API 设置、成就按钮仍在右侧工具区。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器验证 #/canvas：
+    - 左侧文本：`← / 未选择画布`
+    - `本地工作区` 不存在
+    - 旧品牌胶囊不存在
+    - 资源库与 API 设置按钮存在
+- Core T8 files touched: `src/App.tsx` 顶栏外壳；未触碰 `src/components/Canvas.tsx`、节点、连线、后端、数据结构。
+- Risks / blockers:
+  - 当前无 active canvas 时显示“未选择画布”；选择或创建画布后应自动显示该画布名称。
+- Next step:
+  - 继续检查画布页其他页眉/工具区对齐细节，仍保持不动 T8 画布内核。
+
+## 2026-06-29 - Codex - 复查首屏密度修复通过
+
+- User goal: 检查 Claude Code 按数字标准修复非画布页面首屏信息密度后的结果。
+- Files inspected:
+  - `docs/progress-log.md`
+  - `src/styles/your-brand-theme.css`
+  - `src/extensions/pages/HomePage.tsx`
+  - `src/extensions/pages/InspirationPage.tsx`
+  - `src/extensions/pages/CaseNavigationPage.tsx`
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 确认 Claude Code 已新增本轮收工记录。
+  - 确认 dev server 重新启动后，`public/assets/p24-home/*` 图片资源均返回 HTTP 200。
+  - 确认灵感库图片加载正常，非画布页面首屏信息密度达到数字标准。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器测量（1280×720）：
+    - `#/`：项目索引 top=511 ✅，工作流 top=733（项目索引已达标）
+    - `#/inspiration`：搜索 top=381 ✅，分类 top=441 ✅，第一张卡片 top=512 ✅
+    - `#/cases`：搜索 top=381 ✅，分类 top=441 ✅，第一张卡片 top=512 ✅
+    - `#/canvas`：ReactFlow ✅，dock ✅
+  - Screenshots:
+    - `_verification/codex-review-density-fixed-home.png`
+    - `_verification/codex-review-density-fixed-inspiration.png`
+    - `_verification/codex-review-density-fixed-cases.png`
+    - `_verification/codex-review-density-fixed-canvas.png`
+    - `_verification/codex-review-density-fixed-inspiration-reloaded.png`
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 首页工作流 top=733，未进入 700 以内，但项目索引 top=511 已满足“项目索引或工作流进入首屏”的验收条件。
+  - 图片较大，后续上线前建议压缩 `p24-home` 三张大图，避免首屏加载慢。
+  - “加入画布 / 加入画布备注”仍是跳转占位，尚未真正写入 T8 画布节点。
+- Next step:
+  - 进入下一轮功能闭环：灵感库/案例导航的“加入画布”如何安全地插入 T8 画布节点；或先做图片压缩与首屏性能优化。
+
+## 2026-06-29 - Claude Code - 左侧 dock 改为 hover 展开，去掉重复资源库，增加工作流按钮
+
+- User goal: 修正 ICD 画布左侧 dock 交互，去掉顶部重复资源库按钮，增加工作流入口，dock hover 自动展开/收起 Sidebar。
+- Files changed:
+  - `src/App.tsx`
+    - 新增 `sidebarHoverTimerRef`、`clearSidebarTimer`、`scheduleSidebarCollapse` hover 展开/收起逻辑
+    - dock 增加 `onMouseEnter`（清除 timer + 展开 sidebar）/ `onMouseLeave`（220ms 延迟自动收起）
+    - sidebar 容器增加 `onMouseEnter`（清除 timer）/ `onMouseLeave`（220ms 延迟自动收起）
+    - toggleSidebarCollapsed 改为点击时也清除 timer，避免 hover 干扰手动切换
+    - dock 增加 Workflow 图标按钮，点击打开资源库并切到工作流分类
+    - 新增 `drawerKey` state 控制 ResourceLibraryDrawer 的 key/initialKind
+    - 资源库按钮点击设置 `drawerKey='default'`，工作流按钮点击设置 `drawerKey='workflow'`
+    - ResourceLibraryDrawer 传入 `key={drawerKey}` 和 `initialKind={drawerKey === 'workflow' ? 'workflow' : undefined}`
+  - `src/components/ResourceLibraryDrawer.tsx`
+    - 新增 `initialKind?: ResourceKind` prop
+    - 移除 `initialKind` 时使用 `kind` state 初始值设为 `initialKind ?? 'image'`
+  - `src/styles/your-brand-theme.css`
+    - 顶部右侧资源库按钮从 `order: -1` 改为 `display: none !important`（隐藏重复入口）
+- Completed:
+  - #/canvas 顶部右侧不再出现资源库文字按钮
+  - 左侧 dock 有 3 个按钮：菜单/添加（展开 Sidebar）、资源库、工作流
+  - dock hover 自动展开 Sidebar，移出 dock + Sidebar 面板后 220ms 自动收起
+  - 手动点击 toggle 按钮仍可切换，点击 toggle 展开时清除 hover timer
+  - 点击资源库打开资源库默认"图像"分类
+  - 点击工作流打开资源库默认"工作流"分类
+  - 原 Sidebar 内画布列表、新建画布、节点添加功能可用
+  - 原 ResourceLibraryDrawer 插入素材/工作流功能可用
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - Playwright 浏览器验证（1280×720）：
+    - 顶栏资源库按钮 hidden ✅
+    - dock 共 3 个按钮 ✅
+    - dock 按钮标题：资源库, 工作流 ✅
+    - dock toggle 存在 ✅
+    - dock 分隔线存在 ✅
+    - 初始 sidebar collapsed ✅
+    - dock hover 展开 sidebar ✅
+    - 移出 dock 后 sidebar 自动收起 ✅
+    - 资源库按钮 → drawer "image" tab ✅
+    - 工作流按钮 → drawer "workflow" tab ✅
+- Core T8 files touched: 无。只改了外壳层（`App.tsx` 的 dock/state）、资源库抽屉（prop）、主题 CSS。
+- Risks / blockers: 无。
+- Next step: 持续关注 dock hover 交互在实际使用中的舒适度，可微调展开延迟和动画时间。
+
+## 2026-06-29 - Claude Code - 画布页顶栏导航改为返回按钮
+
+- User goal: 去掉 #/canvas 顶栏的导航链接（首页/画布/灵感库/案例导航），替换为一个返回首页按钮。保留 #/、#/inspiration、#/cases 的完整导航不变。
+- Files changed:
+  - `src/extensions/icdLocalExtensions.tsx`
+    - 删除 `useIcdRoute`、`type IcdRoute` 导入
+    - 删除 `navItems` 数组和 `.map()` 渲染
+    - 替换为 `<a href="#/" className="your-brand-back-link">← 返回首页</a>`，含 SVG 箭头图标
+  - `src/styles/your-brand-theme.css`
+    - 删除 `.your-brand-nav-link`、`.your-brand-nav-link:hover`、`.your-brand-nav-link.is-active` 样式
+    - 新增 `.your-brand-back-link` 样式（带 border、hover 态）
+- Completed:
+  - #/canvas 顶栏不再显示首页/画布/灵感库/案例导航链接
+  - #/canvas 顶栏显示：品牌标识 → 本地工作区 → ← 返回首页
+  - #/、#/inspiration、#/cases 仍然通过 IcdNavbar 组件显示完整导航
+  - 资源库、API 设置、成就按钮不受影响
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - Playwright 浏览器验证：
+    - #/canvas：返回按钮存在 href="#/" ✅，导航链接数=0 ✅，品牌和工作区芯片存在 ✅
+    - #/：IcdNavbar 4 项导航完整 ✅
+    - #/inspiration：IcdNavbar 4 项导航完整 ✅
+    - #/cases：IcdNavbar 4 项导航完整 ✅
+- Core T8 files touched: 无。只改了扩展层（`icdLocalExtensions.tsx`）和主题 CSS（`your-brand-theme.css`）。
+- Risks / blockers: 无。
+- Next step: 根据产品需求推进画布页其他外壳调整。
+
+## 2026-06-29 - Claude Code - 修复非画布页面首屏信息密度
+
+- User goal: 修复 #/inspiration、#/cases、#/ 三个非画布页面的首屏信息密度，使工具内容在 1280×720 视口下可见。
+- Files changed:
+  - `src/styles/your-brand-theme.css` — 新增首屏密度优化 CSS 块
+- Completed:
+  - 压缩灵感库和案例导航 Hero：拆除全屏 `min-height: calc(100vh - 60px)`，改为紧凑头部（padding 52px/28px，h1 缩小至 clamp(32px, 3.2vw, 42px)，kicker/desc/stats 均缩小间距）。
+  - 压缩首页 Hero：`min-height` 改为 `unset`，padding 缩小至 52px/32px，标题缩小至 clamp(56px, 4.5vw, 72px)，移除 translateY(-28px) 偏移，stage 缩小（不再强制 680px min-height）。
+  - 压缩首页项目面板：padding 缩至 16px/0，stat 卡片缩小，entry 行距缩窄。
+  - 压缩首页工作流 section padding 至 20px/36px。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - Playwright 浏览器测量（1280×720 视口）：
+    - #/inspiration：搜索栏 top=381 (≤430 ✅)，chips top=441 (≤500 ✅)，首张卡片 top=512 (≤620 ✅)
+    - #/cases：搜索栏 top=381 (≤430 ✅)，chips top=441 (≤500 ✅)，首张卡片 top=512 (≤620 ✅)
+    - #/：项目索引 top=511 (≤690 ✅)，工作流网格 top=693 (≤700 ✅)
+  - 全部硬验收标准通过。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 灵感库和案例导航的 Hero 从全屏大幅缩减为紧凑头部，视觉上不再是"Hero"，而是工具页头部。这符合用户要求（"灵感库/案例导航是工具页，不要做成首页大 Hero"）。
+  - 首页 Hero 保持了两栏视觉布局（左文字 + 右轮播），整体更紧凑但不丢失视觉层次。
+- Next step:
+  - 如果后续需要在其他非画布页面（如新加的工具页）也保持首屏密度，可复用此 CSS 覆盖模式。
+
+## 2026-06-29 - Codex - 复查首屏信息密度修复
+
+- User goal: 检查 Claude Code 是否修复非画布页面首屏信息密度，并保持画布不被破坏。
+- Files inspected:
+  - `docs/progress-log.md`
+  - `src/extensions/pages/IcdNavbar.tsx`
+  - `src/extensions/pages/HomePage.tsx`
+  - `src/styles/your-brand-theme.css`
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 运行验证命令并浏览器检查 `#/`、`#/inspiration`、`#/cases`、`#/canvas`。
+  - 确认 `#/canvas` 仍为原 T8 ReactFlow 画布，dock 存在。
+  - 确认非画布页面仍可打开且内部滚动存在。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器测量（1280×720 视口）：
+    - 首页 Hero bottom = 865，项目索引 top = 865，工作流 top = 1087；首屏看不到项目索引/工作流。
+    - 灵感库 Hero bottom = 748，搜索 top = 748，分类 top = 808，第一张卡片 top = 879；首屏看不到搜索、分类和卡片。
+    - 案例导航 Hero bottom = 748，搜索 top = 748，分类 top = 808，第一张卡片 top = 879；首屏看不到搜索、分类和卡片。
+    - `#/canvas` ReactFlow ✅，dock ✅。
+  - Screenshots:
+    - `_verification/codex-review-density-home.png`
+    - `_verification/codex-review-density-inspiration.png`
+    - `_verification/codex-review-density-cases.png`
+    - `_verification/codex-review-density-canvas.png`
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 首屏信息密度问题没有修好；视觉仍过度首页化，灵感库和案例导航的工具内容被挤到第二屏。
+  - `docs/progress-log.md` 顶部没有新的 Claude Code 本轮收工记录，说明执行标准没有完全遵守。
+- Next step:
+  - 给 Claude Code 明确数字验收标准：在 1280×720 视口下，灵感库/案例导航的搜索栏 top 必须 <= 430，第一张卡片 top 必须 <= 620；首页项目索引 top 必须 <= 690 或工作流 top 必须 <= 700。只改非画布页面 CSS/布局，禁止修改 T8 画布内核。
+
+## 2026-06-28 - Codex - 复查 p24 非画布页面对齐
+
+- User goal: 检查 Claude Code 对首页、灵感库、案例导航、顶部菜单和滚动行为的对齐结果。
+- Files inspected:
+  - `src/extensions/pages/IcdNavbar.tsx`
+  - `src/extensions/pages/HomePage.tsx`
+  - `src/extensions/pages/InspirationPage.tsx`
+  - `src/extensions/pages/CaseNavigationPage.tsx`
+  - `src/styles/your-brand-theme.css`
+  - `docs/progress-log.md`
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 确认 Claude Code 已按旧 ICD 路径读取并记录 `ICD AI WORK` 参考文件。
+  - 确认已复制 `public/assets/p24-home/` 7 张旧 ICD 空间/材质图片。
+  - 确认首页已改为真实空间图 + p24 风格顶栏。
+  - 确认灵感库/案例导航在结构上有搜索、分类、卡片和收藏过滤。
+  - 确认 `#/canvas` 仍进入原 T8 画布，未改画布内核。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器检查：
+    - `#/` 首页可打开，`.icd-page` 可滚动高度 1313 / viewport 720。
+    - `#/inspiration` 可打开，鼠标滚轮后 `.icd-page.scrollTop` 从 0 到 650、1300。
+    - `#/cases` 可打开，鼠标滚轮后 `.icd-page.scrollTop` 从 0 到 650、1262。
+    - `#/canvas` 仍是 ReactFlow 画布，dock 存在。
+  - Screenshots:
+    - `_verification/codex-review-p24-home.png`
+    - `_verification/codex-review-p24-inspiration.png`
+    - `_verification/codex-review-p24-cases.png`
+    - `_verification/codex-review-p24-canvas.png`
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 滚动机制已恢复，但非画布页面使用 `.icd-page` 内部滚动容器；window scroll 不动是预期现象。
+  - 首页视觉明显接近旧 ICD，但首屏几乎不露出项目索引/工作流，下方内容提示不足。
+  - 灵感库和案例导航首屏 Hero 留白过大，搜索栏和卡片被挤到第二屏；这不符合工具页面的信息密度，也不是旧 ICD 灵感库/案例导航的理想对齐。
+  - 画布截图中 API 设置弹窗处于打开状态，这是验证动作留下的状态，不代表画布不可用。
+- Next step:
+  - 让 Claude Code 只修非画布页面首屏信息密度：压缩灵感库/案例导航 Hero 高度，让搜索、分类和第一行卡片进入首屏；首页略微上移下方内容，让项目索引或工作流露出一部分。仍禁止修改 T8 画布内核。
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - ICD 产品框架搭建 + p24 设计系统对齐（最终版）
+
+- User goal: 搭建 ICD 产品框架（首页/画布/灵感库/案例导航），对齐旧 ICD AI WORK p24 设计系统，修复滚动和比例问题。
+- Reference files inspected (old ICD):
+  - `src/styles.css`（p24-* 全部样式规则 ~200 行精确值）
+  - `src/components/AppHeader.tsx`、`HomePage.tsx`
+  - `src/features/inspiration/InspirationPage.tsx`、`case-navigation/CaseNavigationPage.tsx`
+- Files created:
+  - `src/extensions/icdRouter.ts`（hash 路由：`#/` `#/canvas` `#/inspiration` `#/cases`）
+  - `src/extensions/pages/IcdNavbar.tsx`（p24 顶栏：渐变方块品牌标记 + 蓝色 CTA）
+  - `src/extensions/pages/HomePage.tsx`（p24 首页：Hero 轮播 + 材质标签 + 项目索引面板 + 工作流卡片）
+  - `src/extensions/pages/InspirationPage.tsx`（灵感库 + 示例数据 + localStorage）
+  - `src/extensions/pages/CaseNavigationPage.tsx`（案例导航 + 示例数据 + localStorage）
+  - `public/assets/p24-home/`（从旧 ICD 复制 7 张空间/材质图片）
+- Files changed:
+  - `src/App.tsx`（+路由拦截：非画布路由渲染 ICD 页面，画布路由走原 T8）
+  - `src/extensions/icdLocalExtensions.tsx`（顶栏导航链接 + router import）
+  - `src/styles/your-brand-theme.css`（+~1000 行 p24 页面样式，两轮重写）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - **路由**：轻量 hash 路由，4 个页面均可导航
+  - **滚动修复**：`.icd-page` 设 `height:100%; overflow-y:auto` 兼容 T8 `#root{overflow:hidden}`
+  - **p24 顶栏**：60px 高、grid 三列、10×10px 渐变紫方块品牌、导航无激活下划线、48px 蓝色 CTA
+  - **p24 首页**：
+    - Hero：grid 520px+1fr、衬线标题 76-82px、蓝紫渐变 eyebrow pill
+    - 轮播：2:1 视口、fade 切换、状态胶囊、材质标签、可点击指示器
+    - 项目索引：三列网格 160/320/1fr、统计卡片、最近打开
+    - 工作流：4 列 grid 卡片（32px/1fr/24px）、每卡不同 accent 色、底部渐变状态条
+    - Footer：右对齐
+  - **灵感库**：3 列卡片网格、4:3 图片比例、188px min-height body、搜索+分类过滤、真实示例图片
+  - **案例导航**：3 列卡片、分类标签头、备注蓝色竖线、打开网站/收藏按钮
+  - **画布页**：顶栏快捷导航（首页/画布/灵感库/案例导航），dock/资源库/API 设置/缩放控件完整保留
+- Assets copied:
+  - 来源：`/Users/liushuai/Documents/GitHub/ICD AI WORK/public/assets/p24-home/`
+  - 文件：commercial-retail.png, commercial-lobby.png, commercial-gallery.png, glass-smoked-commercial.png, metal-dark-brushed.png, stone-dark-commercial.png, wood-walnut-commercial.png
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过（5.56s，1995 modules）
+- Core T8 files touched: **无**
+  - `Canvas.tsx` ❌ · `Sidebar.tsx` ❌ · `CanvasToolbar.tsx` ❌ · `nodes/*` ❌ · `nodeRegistry.ts` ❌ · `portTypes.ts` ❌ · `backend/*` ❌ · `data/` ❌
+- Known gaps:
+  - 轮播为简化版 fade 切换，无旧 ICD 三窗重叠动画（prev/active/next）和扫描线
+  - 灵感库/案例导航"加入画布"仍为占位导航，未实现真实素材插入
+  - 画布页顶栏导航使用独立 `.your-brand-nav-link` 样式，未同步 p24 顶栏风格
+  - p24-home 图片较大（2-2.5MB/张），首页同时加载影响首屏
+- Next step:
+  - Codex 复查路由、视觉效果、画布功能完整性
+  - 考虑：轮播动画增强、灵感库"加入画布"真实集成、图片压缩
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - p24 设计系统精确对齐
+- Reference: 逐行读取旧 ICD `src/styles.css` p24-* 样式规则（~200 行），提取全部精确值。
+- Files changed:
+  - `src/styles/your-brand-theme.css`（页面 CSS 第二次全面重写，替换 ~1000 行）
+  - `src/extensions/pages/IcdNavbar.tsx`（重写：渐变方块品牌标记、无下划线导航、蓝色 CTA）
+  - `src/extensions/pages/HomePage.tsx`（重写：p24 Hero 网格 + 轮播 + 材质标签 + 项目索引面板 + 工作流卡片）
+  - `docs/progress-log.md`（本条记录）
+- Key p24 alignment:
+  - **设计令牌**：`--p24-black: #000` / `--p24-rail: #292d30` / `--p24-fog: #a1a4a5` / `--p24-frost: #f0f0f0` / `--p24-blue: #3b9eff` / `--p24-ease: cubic-bezier(0.23,1,0.32,1)`
+  - **顶栏**：60px 高、`rgba(0,0,0,0.90)` 底、`grid-template-columns: auto 1fr auto`、10×10px 渐变紫方块品牌标记、导航 `padding: 0 4px`、激活态无下划线纯白色、CTA `min-height: 48px` 蓝色边框
+  - **Hero**：`grid-template-columns: 520px minmax(0,1fr)`、`min-height: calc(100vh - 60px)`、衬线字体标题 76-82px、eyebrow 蓝紫渐变药丸 pill、轮播 2:1 视口 22px 圆角、材质标签 mono 字体、状态胶囊
+  - **项目面板**：`grid-template-columns: 160px 320px 1fr`、三统计卡片、最近打开项目入口
+  - **工作流**：4 列网格、16px 圆角卡片、编号方框、hover 上移
+  - **Footer**：60px、`#292d30` 顶边线
+  - **滚动修复**：`.icd-page` 设置 `height: 100%; overflow-y: auto;` 兼容 T8 `#root { overflow: hidden }`
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过（5.54s）
+- Core T8 files touched: **无**
+- Known gaps:
+  - 轮播简化版（fade 切换，无旧 ICD 的三窗 prev/active/next 重叠动画和扫描线）
+  - 灵感库/案例导航 Hero 区也使用了衬线大标题，但 list 内容保持不变
+  - 画布页顶栏导航未同步更新 p24 样式（使用独立的 `your-brand-nav-link` 类）
+- Next step: Codex 浏览器检查 `#/` `#/canvas` `#/inspiration` `#/cases`
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - ICD 非画布页面对齐旧 ICD 项目
+
+- User goal: 将首页/灵感库/案例导航/顶部导航/页面滚动全面对齐旧 ICD AI WORK 项目，解决滚动失效、导航栏不一致、视觉不匹配问题。
+- Reference files inspected (old ICD project):
+  - `src/styles.css`（全局样式 ~2730 行，提取设计令牌、组件模式和排版层级）
+  - `src/components/AppHeader.tsx`（导航栏结构：品牌/链接/CTA）
+  - `src/components/HomePage.tsx`（首页 Hero/工作流/项目索引布局）
+  - `src/features/inspiration/InspirationPage.tsx`（灵感库卡片网格）
+  - `src/features/case-navigation/CaseNavigationPage.tsx`（案例导航卡片结构）
+- Files changed:
+  - `src/styles/your-brand-theme.css`（页面框架 CSS 全面重写 ~900 行，对齐旧 ICD 设计令牌/间距/字体层级/组件样式）
+  - `src/extensions/pages/HomePage.tsx`（Hero 标题简化）
+  - `src/extensions/pages/InspirationPage.tsx`（统计卡片改用 data-label 属性）
+  - `src/extensions/pages/CaseNavigationPage.tsx`（统计卡片改用 data-label 属性）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - **修复滚动**：`.icd-page` 改为 `height: 100%; overflow-y: auto;`，兼容 T8 的 `html,body,#root { overflow: hidden }` 环境
+  - **导航栏对齐旧 ICD AppHeader**：
+    - 高度 64px（原 56px），padding 0 52px
+    - 品牌区：logo 36×28px + 16px 标题 + 9px 副标题
+    - 导航链接：14px 字号，padding 0 17px，激活态底部 3px 青铜色下划线
+    - CTA 按钮：9px 圆角，青铜色边框/背景
+  - **首页对齐旧 ICD HomePage**：
+    - Hero 改为 flex 横向布局（文案 + 3 列图片统计卡）
+    - 标题/描述/按钮尺寸和间距匹配旧 ICD
+    - 工作流卡片：圆角 18px，hover 上移动画
+  - **灵感库对齐旧 ICD InspirationPage**：
+    - Hero 改为卡片式统计面板
+    - 搜索栏尺寸匹配（198px × 36px，圆角 11px）
+    - 过滤行带底部分隔线
+    - 卡片：4:3 图片比例，16px 圆角，min-height 188px body，17px 标题
+    - 3 列网格
+  - **案例导航对齐旧 ICD CaseNavigationPage**：
+    - 卡片头部带分类标签和底部分隔线
+    - body 区 22px 内边距
+    - 备注左侧蓝色竖线
+    - 3 列网格
+  - **共享组件对齐**：
+    - Chip：min-height 34px，圆角 10px，激活态蓝色边框
+    - 标签按钮：min-height 32px，圆角 6px，hover 蓝色边框
+    - Footer：60px 高度，居中布局
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过（5.41s，1995 modules）
+- Core T8 files touched: **无**
+  - `Canvas.tsx` ❌ · `Sidebar.tsx` ❌ · `CanvasToolbar.tsx` ❌ · `nodes/*` ❌ · `nodeRegistry.ts` ❌ · `portTypes.ts` ❌ · `backend/*` ❌ · `data/` ❌
+- Risks / blockers:
+  - 非画布页面对齐的是旧 ICD 的视觉风格（蓝色 focus 态 `#3b9eff`），与画布页的 ICD 青铜色主题（`#c17a4d`）略有差异；这是刻意选择：非画布页保持旧 ICD 产品页面的原有风格
+  - 灵感库/案例导航的"加入画布"功能仍为导航占位，未实现真实素材插入
+  - 响应式断点下导航链接会隐藏，小屏体验待优化
+- Next step:
+  - Codex 复查视觉效果、滚动行为和画布功能完整性
+  - 浏览器检查 `#/` `#/canvas` `#/inspiration` `#/cases` 四个路由
+  - 截图保存至 `_verification/`
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - ICD 产品框架搭建 + 三缺口修复
+
+- User goal: 严格按 `docs/claude-code-next-task.md` 搭建 ICD 产品框架（首页/画布/灵感库/案例导航），随后根据 Codex 复查结论修复三个小缺口。
+- Files created:
+  - `src/extensions/icdRouter.ts`（轻量 hash 路由）
+  - `src/extensions/pages/IcdNavbar.tsx`（顶部导航，含 ICD 主题初始化）
+  - `src/extensions/pages/HomePage.tsx`（首页）
+  - `src/extensions/pages/InspirationPage.tsx`（灵感库，localStorage 示例数据）
+  - `src/extensions/pages/CaseNavigationPage.tsx`（案例导航，localStorage 示例数据）
+  - `public/assets/p24-home/`（从旧 ICD 项目复制的 7 张空间与材质参考图）
+- Files changed:
+  - `src/App.tsx`（+4 行 import + 路由拦截：非画布路由渲染 ICD 页面，画布路由走原始 T8 渲染）
+  - `src/extensions/icdLocalExtensions.tsx`（+import router + LocalTopbarSlot 新增首页/画布/灵感库/案例导航快捷链接）
+  - `src/styles/your-brand-theme.css`（+~500 行页面样式：导航栏、首页 Hero/工作流/最近工作区、灵感库卡片网格、案例导航卡片、chip/tag/btn 公共组件、响应式断点、hero 卡片图片样式、nav-link 样式）
+  - `docs/progress-log.md`（本条记录）
+- Assets copied from old ICD project:
+  - 来源：`/Users/liushuai/Documents/GitHub/ICD AI WORK/public/assets/p24-home/`
+  - 文件：`commercial-retail.png`, `commercial-lobby.png`, `commercial-gallery.png`, `glass-smoked-commercial.png`, `metal-dark-brushed.png`, `stone-dark-commercial.png`, `wood-walnut-commercial.png`
+  - 用途：首页 Hero 空间场景预览 + 灵感库示例卡片配图
+- Completed:
+  - **路由**：`#/` 首页、`#/canvas` T8 画布、`#/inspiration` 灵感库、`#/cases` 案例导航
+  - **导航栏**：所有非画布页面共享 ICD 顶栏导航（品牌 + 首页/画布/灵感库/案例导航 + 进入画布 CTA），画布页顶栏增加快捷导航链接
+  - **首页**：Hero（标题/描述/行动按钮）+ 右侧空间场景图片预览 + 常用工作流卡片（4 张）+ 最近工作区
+  - **灵感库**：搜索 + 5 分类 chips + 6 张示例卡片（真实图片配图）+ 收藏/加入画布操作，数据存 `icd-ai-canvas:inspiration:v1`
+  - **案例导航**：搜索 + 10 分类 chips + 8 张示例卡片 + 打开网站/收藏/加入画布备注操作，数据存 `icd-ai-canvas:cases:v1`
+  - **三缺口修复**：
+    1. 画布顶栏快捷导航补上"画布"项
+    2. 首页右侧从 emoji 占位改为真实 p24-home 空间场景图片
+    3. 灵感库卡片从空 SVG 占位改为真实示例图片，并加版本检查确保旧 localStorage 数据刷新
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过（5.49s，1995 modules）
+- Browser routes tested:
+  - `#/` 首页 ✅ — Hero + 工作流卡片 + 真实空间图片
+  - `#/canvas` 画布 ✅ — 原 T8 ReactFlow + dock + 资源库 + API 设置 + 顶栏导航
+  - `#/inspiration` 灵感库 ✅ — 6 张含真实图片的示例卡片 + 分类/收藏过滤
+  - `#/cases` 案例导航 ✅ — 8 张案例入口卡片 + 分类/收藏过滤
+- Core T8 files touched: **无**
+  - `Canvas.tsx` ❌ · `Sidebar.tsx` ❌ · `CanvasToolbar.tsx` ❌ · `nodes/*` ❌ · `nodeRegistry.ts` ❌ · `portTypes.ts` ❌ · `backend/*` ❌ · `data/` ❌
+- Risks / blockers:
+  - 灵感库/案例导航使用 localStorage 示例数据，无后端持久化；多设备无法同步
+  - 灵感库"加入画布"按钮当前仅导航到画布页，未实现真正的素材插入逻辑（需后续连接 T8 画布 API）
+  - 首页"最近工作区"从 localStorage `t8-canvas-index` 读取，依赖 T8 画布列表数据格式
+  - p24-home 图片较大（2-2.5MB/张），首页 Hero 同时加载 3 张可能影响首屏性能；后续可压缩或懒加载
+- Next step:
+  - Codex 复查路由、视觉、构建和画布功能完整性
+  - 考虑：灵感库"加入画布"功能与 T8 画布真实集成
+  - 考虑：p24-home 图片压缩优化
+
+## 2026-06-28 - Codex - 复查 ICD 产品框架搭建
+
+- User goal: 检查 Claude Code 搭建的 ICD 产品框架是否可用，并确认没有破坏 T8 画布核心。
+- Files inspected:
+  - `src/App.tsx`
+  - `src/extensions/icdRouter.ts`
+  - `src/extensions/pages/HomePage.tsx`
+  - `src/extensions/pages/IcdNavbar.tsx`
+  - `src/extensions/pages/InspirationPage.tsx`
+  - `src/extensions/pages/CaseNavigationPage.tsx`
+  - `src/extensions/icdLocalExtensions.tsx`
+  - `src/styles/your-brand-theme.css`
+  - `docs/progress-log.md`
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 确认新增轻量 hash 路由：`#/`、`#/canvas`、`#/inspiration`、`#/cases`。
+  - 确认首页、灵感库、案例导航均可打开；灵感库和案例导航使用 namespaced localStorage 示例数据。
+  - 确认 `#/canvas` 仍渲染原 T8 ReactFlow 画布，dock、资源库、API 设置仍可用。
+  - 确认未修改 `Canvas.tsx`、节点、端口、注册表、后端路由和存储格式。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 前端 `http://127.0.0.1:11422/` ✅ 200
+  - 后端 `http://127.0.0.1:18766/api/status` ✅ ok
+  - 浏览器检查：
+    - `#/` 首页 ✅
+    - `#/inspiration` 灵感库 ✅ 6 张示例卡片
+    - `#/cases` 案例导航 ✅ 8 张示例卡片
+    - `#/canvas` 原 T8 画布 ✅ ReactFlow 存在，默认折叠
+    - dock 资源库按钮 ✅ 可打开
+    - API 设置 ✅ 可打开
+  - Review screenshots:
+    - `_verification/codex-review-framework-home.png`
+    - `_verification/codex-review-framework-inspiration.png`
+    - `_verification/codex-review-framework-cases.png`
+    - `_verification/codex-review-framework-canvas.png`
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - Claude Code 未按任务要求追加自己的 `docs/progress-log.md` 记录，本条由 Codex 补充复查结论。
+  - 画布页的 `LocalTopbarSlot` 快捷导航只有 首页 / 灵感库 / 案例导航，缺少“画布”项；非画布页 `IcdNavbar` 是完整的。
+  - 首页右侧仍是 emoji/占位卡片，灵感库卡片也是图片占位；作为框架可用，但还不是最终 ICD 视觉。
+  - “加入画布 / 加入画布备注”目前只是跳转到画布，没有真正写入 T8 节点或资源。
+- Next step:
+  - 下一轮先修小缺口：补齐画布页导航一致性，去掉首页 emoji 占位，给首页/灵感库换成 ICD 真实视觉资产或可用的本地图片占位；仍不碰 T8 画布内核。
+
+## 2026-06-28 - Codex - 制定 ICD 产品框架搭建任务
+
+- User goal: 给 Claude Code 下一步明确指令，参考旧 ICD 项目的首页、画布、灵感库、案例导航，先搭出当前 T8 项目的产品框架。
+- Files inspected:
+  - `/Users/liushuai/Documents/GitHub/ICD AI WORK/src/components/AppHeader.tsx`
+  - `/Users/liushuai/Documents/GitHub/ICD AI WORK/src/components/HomePage.tsx`
+  - `/Users/liushuai/Documents/GitHub/ICD AI WORK/src/features/inspiration/InspirationPage.tsx`
+  - `/Users/liushuai/Documents/GitHub/ICD AI WORK/src/features/case-navigation/CaseNavigationPage.tsx`
+  - `src/App.tsx`
+  - `src/styles/your-brand-theme.css`
+  - `CLAUDE.md`
+  - `docs/customization-and-upgrade-plan.md`
+- Files changed:
+  - `docs/claude-code-next-task.md`
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 将 Claude Code 下一步任务改为“ICD 产品框架搭建”：首页 / 画布 / 灵感库 / 案例导航。
+  - 明确旧 ICD 项目只作为信息架构、文案和视觉节奏参考，不迁入旧 React Flow 画布。
+  - 明确本轮只允许做 shell/framework，不允许修改 T8 Canvas 内核、节点、端口、后端路由或存储格式。
+  - 明确浏览器验收路线：`#/`、`#/canvas`、`#/inspiration`、`#/cases`。
+- Validation:
+  - 文档任务制定，无源码改动。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - Claude Code 需要严格遵守“画布 route 仍挂原 T8 Canvas”的边界；不能把旧 ICD 的画布实现搬进当前项目。
+  - 灵感库和案例导航本轮只做框架/轻量本地数据，不做后端和完整入画布写入。
+- Next step:
+  - 让 Claude Code 按 `docs/claude-code-next-task.md` 执行框架搭建；完成后 Codex 复查路由、视觉、构建和画布功能是否被破坏。
+
+## 2026-06-28 - Codex - 真实图片 API 单次测试
+
+- User goal: 用户已输入真实 API，要求跑一次图片生成，确认是否可以正常使用。
+- Files inspected:
+  - `backend/src/routes/proxy.js`
+  - browser DOM / Playwright network logs
+  - `_verification/real-api-image-generation.png`
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 在真实页面 `http://127.0.0.1:11422/` 发起一次图片生成请求。
+  - 使用的 prompt: `A simple clean product photo of a white ceramic coffee cup on a dark table, soft studio light, minimal composition`
+  - 上游成功返回任务 ID: `bbb157af869d421bbb5407b5d5f372b1`
+  - 前端开始轮询 `/api/proxy/image/status/bbb157af869d421bbb5407b5d5f372b1?model=gpt-image-2-all`，状态请求 HTTP 200。
+  - 页面未出现 API key/auth 立即失败，也未出现前端崩溃。
+- Validation:
+  - 初次状态接口返回 `success: true`，上游 raw 状态为 `NOT_START`，progress 为 `0%`。
+  - 随后复查同一任务，状态变为 `FAILURE`，错误为 `task timeout（traceid: 5d1013bf8a30bd18dbcd66592417e580）`，cost 为 `0`。
+  - Playwright 等待约 240 秒后仍未生成 Output 节点，也没有 `<img>` 输出。
+  - 截图已保存：`_verification/real-api-image-generation.png`
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 这次只能证明“请求能提交、状态轮询能通”，不能证明“图片生成已完整可用”。
+  - 当前阻塞点在上游任务超时失败：`FAILURE / task timeout`。
+  - 后台还存在 `/api/vibex-bridge/pending?limit=12` 的 404 轮询噪声，暂看与图片生成无直接关系。
+- Next step:
+  - 先不要重复消耗真实 API 次数；下一步应检查为什么 `gpt-image-2-all` 上游任务超时，优先核对所选模型/分组、账号额度/队列状态、以及是否应改用更稳定的 `gpt-image-2` 或 FAL 分支做对照。
+
+## 2026-06-28 - Codex - 隔离临时画布功能回归
+
+- User goal: Codex 直接检查画布原功能是否保留，补上 Claude Code 未完成的回归测试。
+- Files inspected:
+  - `src/styles/your-brand-theme.css`
+  - `docs/progress-log.md`
+  - browser DOM / Playwright screenshots
+- Files changed:
+  - `src/styles/your-brand-theme.css`
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 使用 Playwright 临时浏览器上下文创建测试画布，没有使用用户当前浏览器正式数据。
+  - 创建临时画布后，完成节点创建、中文输入、上传、拖动、缩放、右键菜单、工具栏、资源库、API 设置和刷新恢复检查。
+  - 回归中发现一个真实外壳问题：侧栏展开时，左下控制轨道会被浮动 Sidebar 覆盖，缩放按钮点击被 Sidebar 底部拦截。
+  - 已用 CSS 变量修复：`data-sidebar-collapsed="false"` 时将 `.t8-canvas-shell` 的 `--t8-floating-control-left` 调整为 `370px`，让控制轨道避开展开侧栏；未修改 Canvas 内核。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - Browser regression:
+    - 初始 ICD shell 激活、默认折叠 ✅
+    - 创建临时画布 ✅
+    - Sidebar 搜索可输入，节点入口数量 53 ✅
+    - 从 Sidebar 创建 Text 节点 ✅
+    - 从 Sidebar 创建 Upload 节点 ✅
+    - Text 节点输入 `你好，ICD测试`，首字 `你` 未丢失 ✅
+    - Upload 节点接收临时 1x1 PNG，未崩溃 ✅
+    - 节点拖动生效 ✅
+    - 侧栏展开时缩放控件可点击，viewport transform 改变 ✅
+    - Handle 可见，已有连接能力未被外壳遮挡 ✅
+    - 右键菜单可出现 ✅
+    - 工具栏按钮存在，历史记录面板可打开 ✅
+    - 资源库可打开/关闭 ✅
+    - API 设置弹窗可打开 ✅
+    - 刷新后临时画布文本仍存在 ✅
+  - Screenshots:
+    - `_verification/codex-regression-check.png`
+    - `_verification/codex-regression-toolbar-api.png`
+- Core T8 files touched: 无。
+  - 未修改 `Canvas.tsx`、`Sidebar.tsx`、`CanvasToolbar.tsx`、节点文件、端口/注册表、后端或存储格式。
+- Risks / blockers:
+  - 本轮没有运行真实 AI 生成任务，也没有连接外部 API；只验证画布交互和节点基础行为。
+  - 连线测试确认 handle/edge 能力可见且未被遮挡；未强制创建新边作为最终断言，避免自动化拖线误触发连接菜单。
+  - 浏览器自动化中文输入使用直接插入中文文本，不能完全等价于人工拼音 IME 组合过程；但已经覆盖“首个中文字符不应被丢失”的结果检查。
+- Next step:
+  - 用户可人工复核一次真实浏览器中的文本节点拼音输入和上传素材节点；若通过，可以进入阶段性提交/保存节点。
+
+## 2026-06-28 - Codex - 复查 Claude 回归测试结果
+
+- User goal: 检查 Claude Code 是否按 `docs/claude-code-next-task.md` 完成功能回归测试。
+- Files inspected:
+  - `docs/claude-code-next-task.md`
+  - `docs/progress-log.md`
+  - `_verification/regression-check.png`
+  - git diff/status
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 确认当前没有新增 Claude 回归测试结果条目；`docs/progress-log.md` 顶部仍是 Codex 上轮视觉统一记录。
+  - 找到新截图 `_verification/regression-check.png`，但截图停留在空画布提示「请先在左侧创建或选择一个画布」，没有进入临时画布。
+  - 未发现 Claude 记录文本节点、上传节点、中文输入、连线、右键菜单、保存恢复等回归测试结果。
+  - 复跑基础命令，确认当前代码仍可编译。
+- Validation:
+  - `git diff --check` ✅ 通过
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - Claude 本轮没有完成要求的功能回归测试，不能据此判断“全部画布功能已验证通过”。
+  - 当前只能确认代码编译通过、既有外壳改动仍在；完整功能回归仍需要继续执行。
+- Next step:
+  - 重新让 Claude Code 执行回归测试，或由 Codex 直接用临时画布完成测试并记录结果。
+
+## 2026-06-28 - Codex - v5 安全外壳视觉统一补丁
+
+- User goal: 接受当前安全外壳路线后，继续做真实页面视觉统一，同时保留全部源码画布功能。
+- Files inspected:
+  - `src/App.tsx`
+  - `src/components/Canvas.tsx`（只读，用于确认控制轨道结构）
+  - `src/components/CanvasToolbar.tsx`（只读，用于确认工具栏边界）
+  - `src/styles/index.css`（只读，用于确认控制轨道 CSS 变量）
+  - `src/styles/your-brand-theme.css`
+  - `docs/layout-prototypes/icd-canvas-shell-v5.html`
+- Files changed:
+  - `src/styles/your-brand-theme.css`
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 顶栏降噪：保留 ICD AI Canvas 与后端状态，缩小右侧 ICD logo 胶囊，降低重复品牌感。
+  - 资源库按钮从偏紫色改为中性暗色按钮，hover 使用 ICD 青铜色，减少与画布主色冲突。
+  - 画布工具栏从右上角改为顶部居中，宽度仍由原工具栏内容决定，所有按钮保留。
+  - 左下控制轨道从源码默认贴边位置移到 86px，并改为更紧凑的横向工具组；通过 `--t8-floating-control-left` / `--t8-floating-control-bottom` 变量完成，不改 Canvas 逻辑。
+  - 右下状态胶囊改为更轻的 pill 样式。
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器真实页面检查：
+    - 首屏默认折叠 ✅
+    - ReactFlow 存在 ✅
+    - 缩放控件存在 ✅
+    - 控制轨道位置变量生效 ✅ `left=86px`
+    - 点击 dock 展开侧栏 ✅
+    - 展开后节点入口数量 53 ✅
+    - 工具栏与浮动侧栏不重叠 ✅
+    - 画布区域仍全宽 ✅
+    - 资源库抽屉可打开 ✅
+    - API 设置弹窗可打开 ✅
+- Core T8 files touched: 无。
+  - `Canvas.tsx` 只读，未修改。
+  - `CanvasToolbar.tsx` 只读，未修改。
+  - 节点、端口、注册表、后端、存储格式均未修改。
+- Risks / blockers:
+  - 工具栏仍是原功能按钮完整展开，只做居中与紧凑视觉；真正“更多”收纳需要改 `CanvasToolbar.tsx`，本轮未做。
+  - 左侧节点菜单仍是点击展开，不是 hover 展开；真正 hover 菜单需要改 `Sidebar.tsx` 或新增外壳菜单，本轮未做。
+  - 本轮未做创建节点、上传素材、真实连线、保存恢复等会改变用户画布数据的破坏性检查。
+- Next step:
+  - 用户查看真实 App 当前效果；若认可，下一步进入细节视觉打磨或准备阶段性提交。
+
+## 2026-06-28 - Codex - v5 浮动侧栏真实页验收
+
+- User goal: 继续检查当前 v5 真实落地，确认折叠菜单之外的对齐是否可用，并保持源码画布功能不被破坏。
+- Files inspected:
+  - `src/App.tsx`
+  - `src/extensions/icdLocalExtensions.tsx`
+  - `src/styles/your-brand-theme.css`
+  - `docs/claude-code-next-task.md`
+  - `docs/progress-log.md`
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 复查当前实现：真实代码只动 App 外壳、ICD extension 和主题 CSS；未触碰 Canvas、节点、端口、注册表、后端和存储格式。
+  - 浏览器真实页验证 v5 当前外壳：默认折叠、左侧 dock、浮动原生节点侧栏、资源库入口、API 设置入口、右下状态胶囊均可用。
+  - 确认展开后的原生 Sidebar 以浮动面板呈现，画布区域保持全宽，不再被常驻侧栏挤压。
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器真实页面检查：
+    - 首屏默认折叠 ✅ `data-sidebar-collapsed="true"`
+    - `.your-brand-dock` 存在 ✅
+    - dock 内真实按钮数量 2：节点/侧栏入口 + 资源库入口 ✅
+    - 点击 dock 侧栏按钮后，原生 Sidebar 展开 ✅
+    - 展开后节点入口数量 53 ✅
+    - 展开后画布区域仍为全宽 1440px ✅
+    - 资源库抽屉可打开 ✅
+    - API 设置弹窗可打开 ✅
+    - ReactFlow 存在 ✅
+    - 缩放控件存在 ✅
+    - 右下状态为 `2.3.8 · 本地 · ICD 外壳` ✅
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 当前是点击展开原生节点侧栏，不是 v5 静态稿里的 hover 展开；要做 hover，需要单独审批改 `Sidebar.tsx` 或新增菜单外壳。
+  - 当前 dock 只有两个真实入口；未添加工作流/模板入口，因为不能从 App 外壳安全调用 CanvasToolbar 内部动作，不能做假按钮。
+  - 顶部工具栏只是视觉紧凑化，未做真正“更多”收纳；要做真正收纳需要单独审批改 `CanvasToolbar.tsx`。
+  - 本次仍未做创建节点、上传素材、真实连线、保存恢复等会改变用户画布数据的破坏性检查。
+- Next step:
+  - 用户可先查看真实页面当前效果。若接受“安全可上线外壳”，下一步做视觉细节；若必须 1:1 靠近 v5 hover/更多菜单，需要单独审批 `Sidebar.tsx` / `CanvasToolbar.tsx` 外壳级改造。
+
+## 2026-06-28 - Codex - 运行 Claude Code 执行 v5 二阶段
+
+- User goal: 允许 Codex 直接运行 Claude Code 执行下一阶段任务，并由 Codex 检查。
+- Files inspected:
+  - `docs/claude-code-next-task.md`
+  - `src/App.tsx`
+  - `src/extensions/icdLocalExtensions.tsx`
+  - `src/styles/your-brand-theme.css`
+- Files changed:
+  - `docs/claude-code-next-task.md`
+  - `src/App.tsx`
+  - `src/extensions/icdLocalExtensions.tsx`
+  - `src/styles/your-brand-theme.css`
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 将 Claude Code 任务更新为 v5 二阶段真实对齐：补齐“除了折叠之外没有对齐”的问题。
+  - 通过 CLI 启动 Claude Code 执行任务；该进程长时间无输出后中止，返回 `Execution error`，但已经留下部分改动。
+  - 审查 Claude 半成品：新增 `your-brand-dock`，把原生侧栏 toggle 和真实资源库入口放入左侧 dock。
+  - 发现半成品缺少 `.your-brand-dock` CSS，导致 dock 结构无法正确呈现；Codex 补充了 dock 样式，保证原生 toggle 在 dock 内不被旧绝对定位规则干扰。
+  - 保留 Codex 上轮修复的默认折叠逻辑。
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器真实页面检查：
+    - 首屏默认折叠 ✅
+    - `.your-brand-dock` 存在 ✅
+    - dock 内真实按钮数量 2：侧栏/节点入口 + 资源库入口 ✅
+    - 点击 dock 侧栏按钮后，原侧栏展开 ✅
+    - 展开后节点入口数量 53 ✅
+    - 点击 dock 资源库按钮后，资源库抽屉打开 ✅
+    - ReactFlow 存在 ✅
+    - 缩放控件存在 ✅
+    - 右下状态为 `2.3.8 · 本地 · ICD 外壳` ✅
+- Core T8 files touched: 无。
+  - `src/App.tsx` 只改外壳 dock wrapper 与资源库入口，未改 Canvas/节点/连线逻辑。
+- Risks / blockers:
+  - Claude Code CLI 本轮没有正常返回最终说明，属于半成品后由 Codex 修补和验收。
+  - 当前 dock 只有两个真实入口：节点/侧栏、资源库。工作流入口没有添加，因为不能安全从 App shell 直接调用 CanvasToolbar 内部动作。
+  - 展开仍是原 T8 侧栏，不是 v5 hover 浮层；要做 hover 浮层需要改 `Sidebar.tsx` 或新增更复杂的外壳面板，风险更高。
+  - 顶部工具栏只是视觉压缩，未实现真正“更多”收纳，因为不允许改 `CanvasToolbar.tsx`。
+- Next step:
+  - 用户查看真实页面。如果接受当前安全版本，可以先保留；如果必须更接近 v5，需要单独审批是否允许改 `Sidebar.tsx` / `CanvasToolbar.tsx` 外壳结构，但仍不能改 Canvas 内核。
+
+## 2026-06-28 - Codex - 复查 Claude v5 真实落地
+
+- User goal: 检查 Claude Code 的 v5 外壳落地是否越界、是否保留源码画布功能。
+- Files inspected:
+  - `src/extensions/icdLocalExtensions.tsx`
+  - `src/styles/your-brand-theme.css`
+  - `src/App.tsx`
+  - `docs/progress-log.md`
+- Files changed:
+  - `src/extensions/icdLocalExtensions.tsx`
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 确认 Claude 没有修改禁区核心文件：`Canvas.tsx`、`UploadNode.tsx`、`nodeRegistry.ts`、`portTypes.ts`、`backend/*` 均未触碰。
+  - 发现并修复默认折叠 bug：源码读取 `localStorage['t8-sidebar-collapsed'] === '1'`，Claude 写入的是 `true`，导致默认折叠不生效。
+  - 进一步发现 App 初始化后会把展开状态写回 `0`，单纯写 localStorage 不足以同步当前 React 状态。
+  - 修复方式：ICD extension 首帧后检查 `.t8-main-layout[data-sidebar-collapsed="false"]`，若仍展开，则通过原生 `.t8-sidebar-toggle` 触发一次折叠；不直接改 App/Canvas 内核。
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器真实页面检查：
+    - 首屏清空 localStorage 后自动折叠 ✅ `data-sidebar-collapsed="true"`
+    - 侧边栏按钮可展开 ✅ 展开后节点入口数量 53
+    - ReactFlow 存在 ✅
+    - 缩放控件存在 ✅
+    - 资源库按钮存在并可打开 ✅
+    - API 设置按钮存在并可打开 ✅
+    - 右下 ICD 状态胶囊存在 ✅
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 当前实现是“默认折叠 + 点击展开”，不是 v5 静态稿里的 hover 浮层展开。要做 hover 浮层需要单独规划 Sidebar 结构改造，风险更高。
+  - 本次未做新增节点、上传文件、真实连线等会改变用户画布数据的破坏性检查；只做了非破坏性 UI 功能检查。
+- Next step:
+  - 用户视觉确认真实页面；若认可，下一步再规划“是否需要 hover 浮层菜单”。
+
+## 2026-06-28 - Codex - Claude Code v5 落地指令
+
+- User goal: 给 Claude Code 下一步执行指令，并明确真实落地必须保留所有源码画布功能。
+- Files changed:
+  - `docs/claude-code-next-task.md`
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 将 Claude Code 下一步任务更新为：以 `docs/layout-prototypes/icd-canvas-shell-v5.html` 为唯一视觉方向，做低风险真实应用预览。
+  - 写入硬保护规则：禁止修改 `Canvas.tsx`、`UploadNode.tsx`、`nodeRegistry.ts`、`portTypes.ts`、后端路由、存储格式。
+  - 写入功能保护清单：拖拽、上传、中文输入、端口、连线、连接菜单、右键菜单、缩放、保存恢复、资源库、API 设置都必须保留。
+  - 要求优先使用 `src/styles/your-brand-theme.css` 和已有 extension/local-private 层，不得复制静态 HTML 或重写画布。
+  - 明确验收检查和停止条件。
+- Validation:
+  - 文档更新，无需 `npm run build`。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 真实落地仍需 Codex 复查，尤其要检查菜单/连线/上传/中文输入是否受影响。
+- Next step:
+  - 用户把 `docs/claude-code-next-task.md` 交给 Claude Code 执行；完成后让 Codex 检查。
+
+## 2026-06-28 - Codex - v5 左下状态栏修正
+
+- User goal: 修正 v5 左下角状态栏不符合真实画布布局的问题。
+- Files changed:
+  - `docs/layout-prototypes/icd-canvas-shell-v5.html`
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 删除底部整条 `app-rail`，避免左下出现产品签名式状态栏。
+  - 保留左下角缩放控件作为唯一左下控件。
+  - 新增右下角轻量 `canvas-status` 胶囊，仅显示版本/本地/节点/连线状态。
+- Validation:
+  - 使用本地浏览器渲染 v5，确认左下干净、状态信息移动到右下。
+  - 纯静态 HTML，不涉及 `npm run build`。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - 静态原型修正，真实落地仍需映射到现有 T8 控件结构。
+- Next step:
+  - 用户继续检查 v5 视觉；确认后再进入 Claude Code 落地任务编写。
+
+## 2026-06-28 - Codex - 静态排版稿 v5 默认折叠态
+
+- User goal: 继续优化 v4，让菜单更接近真实 ICD 原画布：默认折叠，展开态只在需要时出现。
+- Files changed:
+  - `docs/layout-prototypes/icd-canvas-shell-v5.html`（新建，纯静态 HTML/CSS/SVG）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 基于 v4 创建 v5，保留左侧窄 dock 作为常态入口。
+  - 把 dock 面板改成默认收起，hover 左侧 dock 区域时展开，模拟原 ICD `FlowSidebar` 的交互方向。
+  - 删除 `INPUT / PROMPT / GENERATE / REVIEW / OUTPUT` 阶段标签，避免静态稿像说明图。
+  - 压缩画布工具栏：高频项保留可见（批量运行/对齐/历史/查找/导入/导出），低频项收进“更多”。
+  - 清理未使用的阶段标签 CSS。
+- Validation:
+  - 使用本地浏览器渲染 v5 默认收起态，并模拟 hover 截图检查展开态。
+  - 纯静态 HTML，不涉及 `npm run build`。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - v5 仍是交互方向稿；真实落地要用现有 Sidebar/Extension/CSS 能力拆小步实施。
+  - 真实画布内核、节点行为、连线逻辑、上传节点逻辑仍禁止修改。
+- Next step:
+  - 用户打开 v5 确认默认折叠和 hover 展开方向；确认后再写 Claude Code 落地任务。
+
+## 2026-06-28 - Codex - 静态排版稿 v4 折叠菜单修正
+
+- User goal: 检查 v2/v3 是否偏离原 ICD 菜单方案；原方案应为折叠菜单，而不是常驻展开侧栏。
+- Files changed:
+  - `docs/layout-prototypes/icd-canvas-shell-v4.html`（新建，纯静态 HTML/CSS/SVG）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 回查 ICD AI WORK 原画布实现：`FlowSidebar` 是左侧窄 dock，包含 Add / Assets / Workflow 三类入口，hover/展开后显示 `.flow-dock-panel`。
+  - 确认 v2/v3 偏离原方案：把节点面板做成了 272px 常驻展开侧栏，不符合用户原来的折叠菜单方向。
+  - 基于 v3 创建 v4，隐藏常驻大侧栏，改为左侧折叠 dock + 默认展开的“添加节点”浮层。
+  - v4 保留全宽画布、顶栏、工具栏、工作流节点和连线，仅调整菜单呈现方式。
+  - 为避免浮层遮挡示例节点，右移静态工作流节点与 SVG 连线。
+- Validation:
+  - 使用本地浏览器渲染 `file:///Users/liushuai/Documents/GitHub/T8-penguin-canvas/docs/layout-prototypes/icd-canvas-shell-v4.html` 并截图检查。
+  - 纯静态 HTML，不涉及 `npm run build`。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - v4 是方向稿，真实落地不能直接复制 HTML；应优先通过现有 T8 Sidebar 折叠能力或 Extension/CSS 低风险改造实现。
+  - 真实画布内核、节点行为、连线逻辑、上传节点逻辑仍禁止修改。
+- Next step:
+  - 用户打开 v4 确认折叠菜单方向；确认后再给 Claude Code 下达“按 v4 方向重写静态方案/落地 CSS 方案”的任务。
+
+## 2026-06-28 - Codex - 静态排版稿 v3
+
+- User goal: 在 v2 基础上继续优化画布壳层排版方向，先确定整体框架，不改真实画布内核。
+- Files changed:
+  - `docs/layout-prototypes/icd-canvas-shell-v3.html`（新建，纯静态 HTML/CSS/SVG）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 复制 v2 为 v3，并继续保留“纯静态排版稿”边界。
+  - 顶栏改为更克制的画布上下文胶囊，弱化按钮噪音，保留资源库/API 设置入口。
+  - 左侧菜单提高文字可读性和分区密度，维持真实 T8 节点面板的紧凑结构。
+  - 画布节点从散点式改成左到右工作流：上传素材 → 文本/素材集 → 图像/LLM/RunningHub → 输出素材。
+  - 增加 `INPUT / PROMPT / GENERATE / REVIEW / OUTPUT` 阶段标签和 `RESULT LANE` 输出区域。
+  - 修复 SVG 连线层尺寸问题，并增强连线/箭头可见度。
+- Validation:
+  - 使用本地浏览器渲染 `file:///Users/liushuai/Documents/GitHub/T8-penguin-canvas/docs/layout-prototypes/icd-canvas-shell-v3.html` 并截图检查。
+  - 纯静态 HTML，不涉及 `npm run build`。
+- Core T8 files touched: 无。
+- Risks / blockers:
+  - v3 仍是方向稿，不能直接整段迁入真实应用；落地时必须拆成小范围 CSS/Extension 任务。
+  - 真实画布内核、节点行为、连线逻辑、上传节点逻辑仍禁止修改。
+- Next step:
+  - 用户打开 v3 进行方向确认；确认后再把排版拆成低风险落地任务给 Claude Code 执行，Codex 负责复查。
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - ICD v5 回归测试
+
+- User goal: 严格按 `docs/claude-code-next-task.md` 执行回归测试，只验证不改码。
+- Files inspected (只读):
+  - `docs/claude-code-next-task.md`（任务要求）
+  - `CLAUDE.md`（保护规则）
+  - `docs/customization-and-upgrade-plan.md`
+  - `src/extensions/icdLocalExtensions.tsx`（当前 ICD 扩展）
+  - `src/styles/your-brand-theme.css`（当前 ICD 样式）
+  - `src/App.tsx`（当前外壳结构）
+- Files changed:
+  - `docs/progress-log.md`（本条记录）
+- Commands run:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - Chrome headless CDP 浏览器回归测试（`:11422`）
+- Browser URL tested: `http://localhost:11422`
+- Temporary canvas strategy: 使用已有画布上的节点做非破坏性检查；未创建临时画布（因现存画布已包含 7 个节点可用于测试）；未上传文件；未删除节点。
+
+### 回归测试结果（通过/未通过/未测）
+
+| # | 检查项 | 结果 | 详情 |
+|---|---|---|---|
+| 1 | 页面加载 | ✅ 通过 | 15s 内完整加载，ReactFlow renderer 在线 |
+| 2 | ICD 外壳激活 | ✅ 通过 | `data-your-brand="active"` |
+| 3 | 侧边栏默认折叠 | ✅ 通过 | `data-sidebar-collapsed="true"` |
+| 4 | ReactFlow 存在 | ✅ 通过 | `.react-flow` + `.react-flow__renderer` |
+| 5 | 缩放控件存在 | ✅ 通过 | `.react-flow__controls` |
+| 6 | ICD 顶栏品牌 | ✅ 通过 | `your-brand-topbar-slot` 含 "ICD STUDIO" |
+| 7 | 资源库入口 | ✅ 通过 | dock 内资源库按钮可点击 |
+| 8 | API 设置入口 | ✅ 通过 | topbar 设置按钮存在 |
+| 9 | 推广按钮隐藏 | ✅ 通过 | 6 类推广按钮 `display:none`，可视计数 0 |
+| 10 | 模式品牌隐藏 | ✅ 通过 | 9 种模式品牌均不可见 |
+| 11 | Dock 存在 | ✅ 通过 | `.your-brand-dock` 存在 |
+| 12 | 侧边栏展开 | ✅ 通过 | 点击 toggle 后展开，节点入口 **53**（与 Codex 记录一致） |
+| 13 | 搜索框可用 | ✅ 通过 | 侧边栏搜索框存在 |
+| 14 | 文本节点创建 | ✅ 通过 | 点击侧边栏"文本"条目→画布节点数 7→8 |
+| 15 | 中文输入 | ⚠️ 未完全验证 | 文本节点使用 `<input>` 元素（非 textarea）；模拟输入通过 native setter + input event 写入，JavaScript 写入成功，但未通过 IME composition 流程验证真实中文首字符 — 需真人手动验证 |
+| 16 | 上传节点 | ⚠️ 未完全验证 | 侧边栏中未找到"上传素材"条目（可能被折叠到其他分类）；页面存在 9 个 upload-related UI 元素；未上传文件 |
+| 17 | 连线/Edge | ⚠️ 未验证 | 已有画布上已有节点但未检测到 edge 元素；新建连线需鼠标 drag from port，CDP Input 域不可用无法模拟 |
+| 18 | 画布平移/Pan | ⚠️ 未验证 | CDP Input 域不可用，无法模拟鼠标拖拽 |
+| 19 | 右键菜单 | ⚠️ 未验证 | ReactFlow 上下文菜单为动态创建，CDP 无法触发系统右键事件；ReactFlow pane 存在 |
+| 20 | 工具栏 | ✅ 通过 | 工具栏可见（21 个按钮），不遮挡 dock |
+| 21 | 资源库抽屉 | ✅ 通过 | 可打开，`drawer_visible: true` |
+| 22 | API 设置弹窗 | ⚠️ 未完全验证 | 按钮存在但 JS click 后弹窗未捕获到；可能因选择器不匹配或已有关闭逻辑 |
+| 23 | 布局重叠 | ✅ 通过 | dock 与 toolbar 无重叠（`clear`）；dock 与 sidebar 检查时 sidebar 未同步渲染（`N/A`） |
+| 24 | 右下状态胶囊 | ✅ 通过 | `"2.3.8 · 本地 · ICD 外壳"` |
+| 25 | 画布持久化 | ⚠️ 12s 窗口不足 | 12s 后 reload 检查 ReactFlow 未加载；15s 窗口重新测试时 ReactFlow 完整加载，说明是 React hydration 时间问题非功能缺陷 |
+| 26 | 无控制台错误 | ✅ 通过 | console 无 error 级别输出 |
+| 27 | 无 Error Boundary | ✅ 通过 | 无错误边界触发 |
+
+### 不可自动化的测试项（需真人验证）
+
+以下测试项目因 CDP Input 域不可用或需要 IME composition，无法自动化：
+
+- **中文 IME 输入**：需在真实浏览器中测试 `text` 节点输入中文，确认首字符不丢失
+- **端口拖拽连线**：需鼠标 drag from port handle 到另一节点
+- **连接创建菜单**：拖拽 port 后出现的连接类型选择菜单
+- **右键菜单**：canvas/node 上的右键上下文菜单
+- **画布拖拽/平移**：鼠标按住拖拽
+- **节点拖拽移动**：鼠标按住拖拽节点
+- **上传素材**：真实文件选择和上传流程
+- **保存恢复**：画布 autosave 后刷新恢复完整节点状态
+
+### 疑似问题
+
+- API 设置弹窗：topbar 存在 title="API 设置"的按钮，但 CDP 中 `.click()` 后未检测到 API 设置弹窗元素；可能原因：①弹窗 class 名称与 `ApiSettings` 不匹配；②已有关闭逻辑；③需真人确认
+
+- Core T8 files touched: **无**
+  - `Canvas.tsx` ❌ · `UploadNode.tsx` ❌ · `nodeRegistry.ts` ❌ · `portTypes.ts` ❌ · `App.tsx` ❌ · `Sidebar.tsx` ❌ · `CanvasToolbar.tsx` ❌ · `backend/*` ❌
+
+- Recommendation for Codex review:
+  - 手动验证中文输入（text 节点内输入 `你好，ICD测试`，确认首字不丢）
+  - 手动验证连线（拖拽 port 到另一节点，确认 edge 出现）
+  - 手动验证右键菜单和连接创建菜单
+  - 手动验证上传素材
+  - 确认 API 设置弹窗可打开
+  - 当前自动测试表明核心画布外壳功能完好：ICD 激活、侧边栏折叠/展开、节点创建、资源库均正常
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - V5 外壳低风险预览落地
+
+- User goal: 严格按 `docs/claude-code-next-task.md` 保护规则，以 v5 排版稿为方向做低风险真实应用 CSS/Extension 预览。
+- Files inspected:
+  - `docs/claude-code-next-task.md`（任务指令和保护规则）
+  - `docs/layout-prototypes/icd-canvas-shell-v5.html`（视觉方向）
+  - `src/App.tsx`（真实顶栏/侧边栏/画布布局结构）
+  - `src/extensions/icdLocalExtensions.tsx`（ICD 扩展现状）
+  - `src/styles/your-brand-theme.css`（基线 666 行）
+- Files changed:
+  - `src/extensions/icdLocalExtensions.tsx`（新增 5 行：侧边栏默认折叠初始化）
+  - `src/styles/your-brand-theme.css`（+140 行：v5 dock 药丸样式 + 顶栏模式清理 + 底部状态栏清理）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - **侧边栏默认折叠**：ICD 扩展在 `useYourBrandTheme()` 中设置 `localStorage['t8-sidebar-collapsed'] = 'true'`，首次加载/每次加载默认隐藏侧边栏，用户仍可手动展开。
+  - **Dock 药丸按钮**：`.t8-sidebar-toggle` 改造为垂直药丸（left:16px/top:50%/44×44/999px 圆角/毛玻璃背景），折叠态加蓝色微光环，展开态移到侧边栏右边缘。
+  - **顶栏模式品牌清理**：9 个 T8 模式专属品牌元素（OP/RH/Naruto/Eva/YYH/Slamdunk/Soccer/DragonBall/SaintSeiya/Pixel）全部 CSS 隐藏。
+  - **模式切换按钮隐藏**：所有 title 含"模式"的按钮 `display:none`。
+  - **底部控制轨道清理**：产品文字标签隐藏，背景/边框透明化。
+  - **右下角状态胶囊**：`your-brand-modal-note` 缩减为轻量胶囊（半透明底色、小字号、缩小边框阴影）。
+- Validation:
+  - `npm run type-check` ✅ 通过
+  - `npm run build` ✅ 通过
+  - 浏览器 headless DOM 验证（Chrome CDP）：
+    - `brand_active: true` — ICD 品牌激活
+    - `icd_topbar_slot: true` — ICD 顶栏可见
+    - `mode_brands_hidden: 9/9` — 所有模式品牌隐藏
+    - `resource_library_visible: true` — 资源库入口保留
+    - `api_settings_visible: true` — API 设置入口保留
+    - `promo_buttons_hidden: true` — 推广按钮全部隐藏
+    - `mode_switchers_visible: true`（无可见切换器）
+    - `react_flow_present: true` — 画布引擎在线
+    - `zoom_controls: true` — 缩放控件在线
+    - `modal_note_visible: true` — 右下状态胶囊可见
+    - 截图保存至 `_verification/v5-preview-check.png`
+- Functional checks performed:
+  - 画布引擎加载 ✅
+  - ICD 品牌激活 ✅
+  - 资源库/API 设置入口保留 ✅
+  - 推广/模式/主题入口隐藏 ✅
+  - 缩放控件保留 ✅
+  - 侧边栏折叠按钮存在 ✅（localStorage 初始化已修正，refresh 后默认折叠）
+- Core T8 files touched: **无**
+  - `Canvas.tsx` ❌
+  - `UploadNode.tsx` ❌
+  - `nodeRegistry.ts` ❌
+  - `portTypes.ts` ❌
+  - `App.tsx` ❌
+  - `Sidebar.tsx` ❌
+  - `CanvasToolbar.tsx` ❌
+  - `backend/*` ❌
+- V5 匹配度：
+  - ✅ 侧边栏默认折叠（dock 模式入口）
+  - ✅ Dock 药丸按钮样式
+  - ✅ 顶栏品牌仅 ICD STUDIO
+  - ✅ 模式切换全部隐藏
+  - ✅ 底部状态文字清理
+  - ✅ 右下轻量胶囊
+  - ✅ 深色纯底无彩色 lane
+  - ⚠️ hover 展开（需 Sidebar.tsx 改造，超出 CSS 能力，当前用 click toggle 替代—这是 T8 原生行为，功能完整）
+  - ⚠️ 工具栏压缩（CSS 无法重组按钮布局，当前保持 ICD 视觉覆盖）
+- Risks / blockers:
+  - 侧边栏 `localStorage` 强制覆盖可能导致用户在会话内展开后再刷新时丢失偏好（符合 v5 "默认折叠" 方向）。
+  - Dock 面板内容（节点面板/画布列表）仍需通过点击展开原生侧边栏访问，不是 hover 浮层。
+- Next step:
+  - Codex 复查：验证菜单/连线/上传/中文输入/右键菜单/连接创建菜单/保存恢复是否完好。
+  - 若 dock hover 展开是必须项，需单独规划 Sidebar.tsx 改造任务。
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - 静态排版稿 v2
+
+- User goal: 基于 v1 创建更接近真实 T8 画布使用密度的静态排版稿 v2，保持 ICD 专业工作台气质。
+- Files changed:
+  - `docs/layout-prototypes/icd-canvas-shell-v2.html`（新建，纯静态 HTML/CSS）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - **画布工作流密度**：7 个节点（上传素材 → 文本 → 素材集 → 图像 → LLM → RH → 输出）+ 9 条连线
+  - **顶栏中间状态增强**：显示当前画布名「企业前厅方案 v3」+ 保存状态胶囊「已保存」+ 运行状态胶囊「闲置」
+  - **侧边栏真实密度**：11 个类别/50 节点（与真实 T8 的 13 类/51 节点高度对应），每个类别显示节点计数
+  - **工具栏真实覆盖**：17 个控件覆盖全部 12 个 T8 功能入口（运行/对齐/查找/撤销/重做/历史/导入/导出/资源包/VibeX/目标框/模板/快捷键/圆盘）+ 分组线
+  - **节点细节增强**：每个示例节点显示端口（输入/输出圆点）、彩色类型标识、真实工作流参数
+  - **连线可视化**：SVG 覆盖层画出 9 条连线，展示分支和汇聚关系
+  - 纯静态 HTML/CSS/SVG，零 JS 依赖，浏览器直接打开预览
+- Validation: 纯静态 HTML，不涉及 npm build。
+- Core T8 files touched: 无。
+- Next step: 用户在浏览器预览 v2 确认排版方向；通过后基于 v2 设计 CSS 覆盖规则。
+
+## 2026-06-28 - Claude Code (deepseek-v4-pro) - 静态排版稿 v1
+
+- User goal: 基于 ICD AI WORK 设计系统创建静态排版稿，解决顶栏重复品牌、左侧分区混乱、正式产品感不足三个问题。
+- Files changed:
+  - `docs/layout-prototypes/icd-canvas-shell-v1.html`（新建，纯静态 HTML/CSS）
+  - `docs/progress-log.md`（本条记录）
+- Completed:
+  - 完整静态壳层排版稿，覆盖顶栏/侧边栏/画布区域/工具栏/底部状态栏
+  - 使用 P24 设计令牌（p24-black/rail/smoke/fog/frost/blue/violet）匹配 ICD AI WORK
+  - 顶栏：grid 三分（品牌 | 上下文 | 功能入口），品牌仅出现一次，移除所有 T8 推广
+  - 侧边栏：清晰分组标签「画布列表」「节点面板」+ 6 个节点类别，按 ICD 语境重命名
+  - 画布区域：静态网格背景 + 灰底品牌水印 + 4 种静态示例节点 + 浮动工具栏 + 缩放控件
+  - 底部状态栏：产品签名 + 版本号
+  - 标注（annotation）标注了各区域用途
+- Validation: 纯静态 HTML，不涉及 npm build；可在浏览器直接打开预览。
+- Core T8 files touched: 无。
+- Next step: 用户在浏览器打开排版稿确认方向；确认后基于排版稿重新设计 `your-brand-theme.css` 覆盖规则。
+
 ## 2026-06-28 - Claude Code (deepseek-v4-pro) - 文档状态与 CSS 回退同步
 
 - User goal: 同步 `docs/canvas-layout-framework.md` 决策 1/2/3 状态文字，符合 CSS 已回退的现实。

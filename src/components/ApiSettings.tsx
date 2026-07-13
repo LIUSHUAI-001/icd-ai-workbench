@@ -2519,7 +2519,7 @@ export default function ApiSettingsModal({ open, onClose }: ApiSettingsModalProp
                 style={{ fontFamily: activeUiFontStack }}
               >
                 <span className="block text-[11px] font-bold">界面字体预览</span>
-                <span>贞贞无限画布 · 节点文字 12px / 14px / 16px · 缩小时看边缘是否清楚</span>
+                <span>ICD AI Canvas · 节点文字 12px / 14px / 16px · 缩小时看边缘是否清楚</span>
               </div>
             </div>
           </div>

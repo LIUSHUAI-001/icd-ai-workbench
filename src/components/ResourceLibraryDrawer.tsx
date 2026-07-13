@@ -48,6 +48,7 @@ interface ResourceLibraryDrawerProps {
   open: boolean;
   onClose: () => void;
   onInsertMaterial: (item: ResourceItem) => void | Promise<void>;
+  initialKind?: ResourceKind;
 }
 
 function formatSize(size: number) {
@@ -175,11 +176,11 @@ type CategoryDialogState =
 
 type ItemRenameDialogState = { item: ResourceItem; value: string };
 
-export default function ResourceLibraryDrawer({ open, onClose, onInsertMaterial }: ResourceLibraryDrawerProps) {
+export default function ResourceLibraryDrawer({ open, onClose, onInsertMaterial, initialKind }: ResourceLibraryDrawerProps) {
   const { theme, style } = useThemeStore();
   const isDark = theme === 'dark';
   const isPixel = style === 'pixel';
-  const [kind, setKind] = useState<ResourceKind>('image');
+  const [kind, setKind] = useState<ResourceKind>(initialKind ?? 'image');
   const [categoryId, setCategoryId] = useState('all');
   const [q, setQ] = useState('');
   const [favoriteOnly, setFavoriteOnly] = useState(false);

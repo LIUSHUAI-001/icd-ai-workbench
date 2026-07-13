@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICD AI Canvas — Shell 静态排版稿 v3</title>
+<style>
+/* ═══════════════════════════════════════════
+   ICD AI Canvas Shell v3 — P24 Design Tokens
+   ═══════════════════════════════════════════ */
+
+:root {
+  --p24-black: #000;
+  --p24-rail: #292d30;
+  --p24-smoke: #464a4d;
+  --p24-fog: #a1a4a5;
+  --p24-frost: #f0f0f0;
+  --p24-white: #fff;
+  --p24-blue: #3b9eff;
+  --p24-violet: #9281f7;
+  --p24-green: #3ad389;
+  --p24-amber: #f59e0b;
+  --p24-rose: #f472b6;
+  --p24-cyan: #22d3ee;
+  --p24-radius-card: 16px;
+  --p24-radius-pill: 999px;
+  --p24-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --icd-accent: #A66A46;
+  --icd-bg: #0D0F12;
+  --icd-surface: #1B2026;
+  --icd-surface-soft: #14181D;
+  --icd-border: rgba(255, 255, 255, 0.08);
+  --icd-border-strong: rgba(255, 255, 255, 0.13);
+  --icd-text-soft: #BAC2CC;
+  --icd-text-muted: #6E7782;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+
+html, body {
+  height: 100%;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 14px;
+  color: var(--p24-frost);
+  background: var(--p24-black);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ App Shell ═══ */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ═══ Topbar (60px) ═══ */
+.app-topbar {
+  flex-shrink: 0;
+  height: 60px;
+  border-bottom: 1px solid var(--p24-rail);
+  background: rgba(0, 0, 0, 0.94);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  z-index: 100;
+}
+
+.app-topbar-inner {
+  display: grid;
+  grid-template-columns: 260px 1fr 260px;
+  align-items: center;
+  gap: 18px;
+  height: 100%;
+  width: calc(100% - 40px);
+  margin: 0 auto;
+}
+
+/* Left: Brand */
+.app-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--p24-white);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.app-brand-mark {
+  width: 10px; height: 10px;
+  border-radius: 3px;
+  background: linear-gradient(135deg, #9281f7, #9a54dc);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+/* Center: Document context */
+.app-context {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-self: center;
+  min-width: 0;
+  padding: 4px 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.025);
+}
+.app-context-canvas-name {
+  color: var(--p24-frost);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+.app-context-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.app-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--p24-radius-pill);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.app-badge--saved {
+  border: 1px solid rgba(58,211,137,0.25);
+  color: rgba(58,211,137,0.8);
+  background: rgba(58,211,137,0.06);
+}
+.app-badge--idle {
+  border: 1px solid var(--p24-rail);
+  color: var(--p24-fog);
+}
+.app-badge--saved::before {
+  content: "";
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--p24-green);
+}
+.app-badge--idle::before {
+  content: "";
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--p24-fog);
+}
+
+/* Right: Actions */
+.app-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.app-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 13px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--p24-frost);
+  background: transparent;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: default;
+}
+.app-btn--ghost { color: var(--p24-fog); }
+.app-btn--outline { border-color: var(--p24-rail); }
+.app-btn--primary {
+  border-color: var(--p24-blue);
+  color: var(--p24-white);
+}
+.app-btn--outline {
+  background: rgba(255,255,255,0.015);
+}
+
+/* ═══ Main Layout ═══ */
+.app-main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ═══ Sidebar (272px — wider for real density) ═══ */
+.app-sidebar {
+  flex-shrink: 0;
+  width: 272px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--p24-rail);
+  background: var(--icd-surface-soft);
+}
+
+/* Search */
+.sidebar-search-wrap {
+  padding: 14px 14px 8px;
+  flex-shrink: 0;
+}
+.sidebar-search {
+  width: 100%;
+  height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--icd-border);
+  border-radius: 8px;
+  color: var(--p24-frost);
+  background: rgba(255,255,255,0.025);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+.sidebar-search::placeholder { color: var(--p24-smoke); }
+
+/* Section divider */
+.sidebar-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 14px 4px;
+  color: var(--p24-smoke);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+.sidebar-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--icd-border);
+}
+
+/* Canvas list (compact) */
+.canvas-list {
+  flex-shrink: 0;
+  padding: 2px 10px 0;
+}
+
+.canvas-list-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--p24-fog);
+  font-size: 12px;
+  cursor: default;
+}
+.canvas-list-item.is-active {
+  color: var(--p24-white);
+  background: rgba(59,158,255,0.07);
+}
+.canvas-list-item.is-active::before {
+  content: "";
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: var(--p24-blue);
+  flex-shrink: 0;
+}
+.canvas-list-add {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 8px;
+  margin: 2px 0 4px;
+  border: 1px dashed var(--icd-border);
+  border-radius: 6px;
+  color: var(--p24-smoke);
+  font-size: 11px;
+  background: transparent;
+  font-family: inherit;
+  cursor: default;
+}
+
+/* ── Node Panel (scrollable, real T8 categories) ── */
+.node-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 12px;
+}
+.node-category {
+  margin-bottom: 12px;
+}
+.node-category-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px 6px;
+  color: var(--icd-text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+.node-category-header::before {
+  content: "▾";
+  font-size: 8px;
+  color: var(--icd-text-muted);
+}
+.node-category-count {
+  margin-left: auto;
+  color: var(--icd-text-muted);
+  font-weight: 400;
+  font-size: 9px;
+}
+.node-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+}
+.node-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid var(--icd-border);
+  border-radius: 5px;
+  color: rgba(218,224,232,0.82);
+  font-size: 11.5px;
+  background: rgba(255,255,255,0.022);
+  cursor: default;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.node-chip::before {
+  content: "◆";
+  font-size: 5px;
+  flex-shrink: 0;
+}
+.node-chip--core::before     { color: #8B6DFF; }
+.node-chip--input::before    { color: var(--p24-blue); }
+.node-chip--rh::before       { color: #f4aaa0; }
+.node-chip--fal::before      { color: #a78bfa; }
+.node-chip--grok::before     { color: #6ee7b7; }
+.node-chip--codex::before    { color: var(--p24-blue); }
+.node-chip--inspiration::before { color: var(--p24-amber); }
+.node-chip--comfyui::before  { color: var(--p24-cyan); }
+.node-chip--utility::before  { color: #fb923c; }
+.node-chip--auxiliary::before { color: var(--p24-fog); }
+.node-chip--toolbox::before  { color: #f472b6; }
+.node-chip--3d::before       { color: #38bdf8; }
+
+/* Sidebar footer */
+.sidebar-footer {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--icd-border);
+  color: var(--p24-smoke);
+  font-size: 10px;
+  text-align: center;
+}
+
+/* ═══ Canvas Area ═══ */
+.app-canvas-area {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  background:
+    radial-gradient(circle at 58% 32%, rgba(59,158,255,0.025), transparent 42%),
+    radial-gradient(circle at 76% 55%, rgba(166,106,70,0.035), transparent 40%),
+    var(--icd-bg);
+}
+
+/* Grid */
+.app-canvas-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events: none;
+}
+
+/* Brand watermark */
+.app-canvas-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%,-50%);
+  color: rgba(255,255,255,0.018);
+  font-size: 58px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ═══ Floating Toolbar ═══ */
+.app-toolbar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border: 1px solid var(--icd-border-strong);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+  z-index: 10;
+}
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--p24-fog);
+  font-size: 11px;
+  font-family: inherit;
+  background: transparent;
+  cursor: default;
+  white-space: nowrap;
+}
+.toolbar-btn--primary {
+  color: var(--p24-white);
+  background: rgba(59,158,255,0.1);
+  border-color: rgba(59,158,255,0.2);
+}
+.toolbar-btn--icon {
+  width: 28px;
+  padding: 0;
+  font-size: 13px;
+}
+.toolbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 3px;
+  background: var(--icd-border);
+}
+
+/* ═══ Zoom Controls ═══ */
+.app-zoom-controls {
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  display: flex;
+  gap: 1px;
+  padding: 2px;
+  border: 1px solid var(--icd-border);
+  border-radius: 7px;
+  background: rgba(0,0,0,0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10;
+}
+.zoom-btn {
+  display: grid;
+  place-items: center;
+  width: 26px; height: 26px;
+  border: 0;
+  border-radius: 5px;
+  color: var(--p24-fog);
+  background: transparent;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: default;
+}
+
+/* ═══ Canvas Demo Nodes ═══ */
+.canvas-demo-nodes {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.demo-node {
+  position: absolute;
+  width: 182px;
+  border: 1px solid var(--icd-border-strong);
+  border-radius: 8px;
+  background: var(--icd-surface);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.38);
+  overflow: hidden;
+}
+.demo-node-header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 11px;
+  border-bottom: 1px solid var(--icd-border);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--icd-text-soft);
+  background: rgba(255,255,255,0.02);
+}
+.demo-node-header-dot {
+  width: 5px; height: 5px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.demo-node--upload .demo-node-header-dot { background: var(--p24-blue); }
+.demo-node--text   .demo-node-header-dot { background: #8B6DFF; }
+.demo-node--image  .demo-node-header-dot { background: var(--p24-amber); }
+.demo-node--llm    .demo-node-header-dot { background: var(--icd-accent); }
+.demo-node--rh     .demo-node-header-dot { background: var(--p24-cyan); }
+.demo-node--output .demo-node-header-dot { background: var(--p24-green); }
+
+.demo-node-body {
+  padding: 10px;
+  min-height: 32px;
+}
+.demo-node-body p {
+  color: var(--p24-fog);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.demo-node-media {
+  aspect-ratio: 16/10;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+.demo-node-media--upload {
+  border: 1px dashed var(--icd-border);
+  color: var(--p24-smoke);
+  background: rgba(255,255,255,0.015);
+}
+.demo-node-media--image {
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.015) 0, rgba(255,255,255,0.015) 4px, transparent 4px, transparent 8px);
+  color: var(--p24-smoke);
+}
+.demo-node-media--output {
+  border: 1px dashed rgba(58,211,137,0.18);
+  background: rgba(58,211,137,0.03);
+  color: rgba(58,211,137,0.5);
+}
+
+/* Port dots */
+.demo-node-ports {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 10px 6px;
+}
+.demo-port {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  border: 1px solid var(--icd-border-strong);
+  background: var(--icd-surface);
+}
+.demo-port--out { margin-left: auto; }
+
+/* ── Connection edges ── */
+.demo-edge {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1;
+}
+.demo-edge-line {
+  stroke: rgba(59,158,255,0.52);
+  stroke-width: 2.4;
+  fill: none;
+  filter: drop-shadow(0 0 6px rgba(59,158,255,0.18));
+}
+.demo-edge-arrow {
+  fill: rgba(59,158,255,0.62);
+}
+.demo-edge-line.is-secondary {
+  stroke: rgba(166,106,70,0.50);
+  filter: drop-shadow(0 0 6px rgba(166,106,70,0.16));
+}
+.demo-edge-line.is-output {
+  stroke: rgba(58,211,137,0.56);
+  filter: drop-shadow(0 0 6px rgba(58,211,137,0.18));
+}
+
+.canvas-stage-label {
+  position: absolute;
+  top: 64px;
+  left: 58px;
+  display: flex;
+  gap: 6px;
+  color: rgba(186,194,204,0.48);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.canvas-stage-label span {
+  padding: 3px 8px;
+  border: 1px solid rgba(255,255,255,0.055);
+  border-radius: 999px;
+  background: rgba(0,0,0,0.22);
+}
+
+.output-lane {
+  position: absolute;
+  top: 120px;
+  right: 50px;
+  width: 230px;
+  height: 548px;
+  border-left: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(90deg, rgba(58,211,137,0.025), transparent 58%);
+  pointer-events: none;
+}
+.output-lane-title {
+  position: absolute;
+  top: -26px;
+  left: 18px;
+  color: rgba(186,194,204,0.52);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+/* ═══ Bottom Rail ═══ */
+.app-rail {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 24px;
+  padding: 0 18px;
+  border-top: 1px solid var(--icd-border);
+  background: var(--p24-black);
+  color: rgba(70,74,77,0.76);
+  font-size: 10px;
+}
+.app-rail-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.app-rail-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--p24-blue);
+  opacity: 0.55;
+}
+
+/* ═══ Annotations ═══ */
+.annotation {
+  position: absolute;
+  padding: 2px 7px;
+  border: 1px dashed rgba(59,158,255,0.25);
+  border-radius: 3px;
+  color: rgba(59,158,255,0.55);
+  font-size: 9px;
+  font-family: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+  pointer-events: none;
+  z-index: 25;
+}
+.annotation--topbar { top: 6px; right: 20px; }
+.annotation--sidebar { top: 80px; left: 290px; }
+.annotation--workflow { bottom: 200px; left: 420px; }
+.annotation--toolbar { top: 50px; left: 50%; transform: translateX(-50%); }
+.annotation--footer { bottom: 3px; left: 50%; transform: translateX(-50%); }
+
+/* ── Responsive ── */
+@media (max-width: 960px) {
+  .app-sidebar { width: 228px; }
+  .app-context-canvas-name { max-width: 120px; }
+  .node-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 680px) {
+  .app-sidebar { display: none; }
+  .app-context { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     App Shell
+     ═══════════════════════════════════════════ -->
+<div class="app-shell">
+
+  <!-- ── Topbar ── -->
+  <header class="app-topbar">
+    <div class="app-topbar-inner">
+
+      <!-- Left: Brand -->
+      <a class="app-brand" href="#" aria-label="ICD STUDIO">
+        <span class="app-brand-mark" aria-hidden="true"></span>
+        <span>ICD STUDIO</span>
+      </a>
+
+      <!-- Center: Document context with save/run state -->
+      <div class="app-context">
+        <span class="app-context-canvas-name" title="企业前厅方案 v3">企业前厅方案 v3</span>
+        <span class="app-context-badges">
+          <span class="app-badge app-badge--saved">已保存</span>
+          <span class="app-badge app-badge--idle">闲置</span>
+        </span>
+      </div>
+
+      <!-- Right: Function buttons -->
+      <div class="app-actions">
+        <span class="app-btn app-btn--outline">资源库</span>
+        <span class="app-btn app-btn--outline">API 设置</span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ── Main layout ── -->
+  <div class="app-main">
+
+    <!-- ── Sidebar ── -->
+    <aside class="app-sidebar">
+
+      <!-- Search -->
+      <div class="sidebar-search-wrap">
+        <input class="sidebar-search" type="text" placeholder="搜索画布…" readonly>
+      </div>
+
+      <!-- Section: 画布列表 -->
+      <div class="sidebar-divider">画布列表</div>
+      <div class="canvas-list">
+        <div class="canvas-list-item">商业零售空间方案</div>
+        <div class="canvas-list-item is-active">企业前厅方案 v3</div>
+        <div class="canvas-list-item">展示空间效果图</div>
+        <div class="canvas-list-item">材质替换实验</div>
+        <div class="canvas-list-item">办公区概念设计</div>
+        <div class="canvas-list-add">+ 新建画布</div>
+      </div>
+
+      <!-- Section: 节点面板 -->
+      <div class="sidebar-divider">节点面板</div>
+      <div class="node-panel">
+
+        <!-- core: 8 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">核心节点<span class="node-category-count">8</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--core">文本</span>
+            <span class="node-chip node-chip--core">图像</span>
+            <span class="node-chip node-chip--core">视频</span>
+            <span class="node-chip node-chip--core">视频剪辑</span>
+            <span class="node-chip node-chip--core">SD2.0</span>
+            <span class="node-chip node-chip--core">导演分镜台</span>
+            <span class="node-chip node-chip--core">音频</span>
+            <span class="node-chip node-chip--core">LLM</span>
+          </div>
+        </div>
+
+        <!-- input: 6 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">素材资源<span class="node-category-count">6</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--input">上传素材</span>
+            <span class="node-chip node-chip--input">3D 上传</span>
+            <span class="node-chip node-chip--input">3D 预览</span>
+            <span class="node-chip node-chip--input">素材集</span>
+            <span class="node-chip node-chip--input">生成目标框</span>
+            <span class="node-chip node-chip--input">输出素材</span>
+          </div>
+        </div>
+
+        <!-- rh: 5 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">RunningHub<span class="node-category-count">5</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--rh">RH 节点</span>
+            <span class="node-chip node-chip--rh">RH 钱包</span>
+            <span class="node-chip node-chip--rh">RH 超市</span>
+            <span class="node-chip node-chip--rh">RH 工具箱</span>
+            <span class="node-chip node-chip--rh">VibeX</span>
+          </div>
+        </div>
+
+        <!-- fal + grok + codex: 4 nodes combined visual -->
+        <div class="node-category">
+          <div class="node-category-header">扩展平台<span class="node-category-count">4</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--fal">Fal 超市</span>
+            <span class="node-chip node-chip--grok">Grok Agent</span>
+            <span class="node-chip node-chip--codex">Codex CLI</span>
+            <span class="node-chip node-chip--codex">Codex 生图</span>
+          </div>
+        </div>
+
+        <!-- inspiration: 2 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">灵感之源<span class="node-category-count">2</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--inspiration">艺术风格</span>
+            <span class="node-chip node-chip--inspiration">动漫标签</span>
+          </div>
+        </div>
+
+        <!-- comfyui: 2 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">ComfyUI<span class="node-category-count">2</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--comfyui">CU 超市</span>
+            <span class="node-chip node-chip--comfyui">CU 制作工具</span>
+          </div>
+        </div>
+
+        <!-- utility: 10 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">工具节点<span class="node-category-count">10</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--utility">画板</span>
+            <span class="node-chip node-chip--utility">图像对比</span>
+            <span class="node-chip node-chip--utility">首尾帧</span>
+            <span class="node-chip node-chip--utility">循环器</span>
+            <span class="node-chip node-chip--utility">从合集获取</span>
+            <span class="node-chip node-chip--utility">文本分割</span>
+            <span class="node-chip node-chip--utility">尺寸调整</span>
+            <span class="node-chip node-chip--utility">合并</span>
+            <span class="node-chip node-chip--utility">宫格剪裁</span>
+            <span class="node-chip node-chip--utility">宫格编辑</span>
+          </div>
+        </div>
+
+        <!-- auxiliary: 4 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">辅助节点<span class="node-category-count">4</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--auxiliary">灵感</span>
+            <span class="node-chip node-chip--auxiliary">BP 蓝图</span>
+            <span class="node-chip node-chip--auxiliary">中继</span>
+            <span class="node-chip node-chip--auxiliary">去 AI 水印</span>
+          </div>
+        </div>
+
+        <!-- toolbox: 9 nodes -->
+        <div class="node-category">
+          <div class="node-category-header">工具箱<span class="node-category-count">9</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--toolbox">电影感</span>
+            <span class="node-chip node-chip--toolbox">视频运镜</span>
+            <span class="node-chip node-chip--toolbox">多角度</span>
+            <span class="node-chip node-chip--toolbox">肖像大师</span>
+            <span class="node-chip node-chip--toolbox">姿势大师</span>
+            <span class="node-chip node-chip--toolbox">聚合解析</span>
+            <span class="node-chip node-chip--toolbox">批量处理</span>
+            <span class="node-chip node-chip--toolbox">Topaz 图像</span>
+            <span class="node-chip node-chip--toolbox">Topaz 视频</span>
+          </div>
+        </div>
+
+        <!-- 3d: 1 node -->
+        <div class="node-category">
+          <div class="node-category-header">3D<span class="node-category-count">1</span></div>
+          <div class="node-grid">
+            <span class="node-chip node-chip--3d">3D 全景</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Sidebar footer -->
+      <div class="sidebar-footer">ICD STUDIO · v2.3.8</div>
+    </aside>
+
+    <!-- ── Canvas Area ── -->
+    <div class="app-canvas-area">
+
+      <!-- Grid background -->
+      <div class="app-canvas-grid"></div>
+
+      <!-- Brand watermark -->
+      <div class="app-canvas-watermark">AI CANVAS</div>
+      <div class="canvas-stage-label">
+        <span>Input</span>
+        <span>Prompt</span>
+        <span>Generate</span>
+        <span>Review</span>
+        <span>Output</span>
+      </div>
+      <div class="output-lane">
+        <span class="output-lane-title">RESULT LANE</span>
+      </div>
+
+      <!-- ═══ Floating Toolbar (matching real T8 12 functions) ═══ -->
+      <div class="app-toolbar">
+        <span class="toolbar-btn toolbar-btn--primary">▶ 批量运行</span>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-btn">对齐整理</span>
+        <span class="toolbar-btn">查找 ID</span>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-btn">↩ 撤销</span>
+        <span class="toolbar-btn">↪ 重做</span>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-btn">历史记录</span>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-btn">↓ 导入</span>
+        <span class="toolbar-btn">↑ 导出</span>
+        <span class="toolbar-btn">📦 资源包</span>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-btn">VibeX</span>
+        <span class="toolbar-btn">目标框</span>
+        <span class="toolbar-sep"></span>
+        <span class="toolbar-btn">模板</span>
+        <span class="toolbar-btn toolbar-btn--icon">⌨</span>
+        <span class="toolbar-btn toolbar-btn--icon">◉</span>
+      </div>
+
+      <!-- Zoom controls -->
+      <div class="app-zoom-controls">
+        <span class="zoom-btn">+</span>
+        <span class="zoom-btn">−</span>
+        <span class="zoom-btn" style="font-size:9px;width:auto;padding:0 5px;">82%</span>
+        <span class="zoom-btn" style="font-size:10px;">⊞</span>
+      </div>
+
+      <!-- ═══ Demo nodes: real workflow density (7 nodes) ═══ -->
+      <div class="canvas-demo-nodes">
+
+        <!-- Node 1: Upload -->
+        <div class="demo-node demo-node--upload" style="top: 156px; left: 64px;">
+          <div class="demo-node-header">
+            <span class="demo-node-header-dot"></span>上传素材
+          </div>
+          <div class="demo-node-body">
+            <div class="demo-node-media demo-node-media--upload">拖放或选择文件</div>
+          </div>
+          <div class="demo-node-ports">
+            <span class="demo-port"></span>
+            <span class="demo-port demo-port--out"></span>
+          </div>
+        </div>
+
+        <!-- Node 2: Text -->
+        <div class="demo-node demo-node--text" style="top: 150px; left: 306px;">
+          <div class="demo-node-header">
+            <span class="demo-node-header-dot"></span>文本
+          </div>
+          <div class="demo-node-body">
+            <p>现代简约风格商业空间设计，暖色调灯光方案，以木饰面和石材为主材质，强调空间层次感与材质对比。</p>
+          </div>
+          <div class="demo-node-ports">
+            <span class="demo-port"></span>
+            <span class="demo-port demo-port--out"></span>
+          </div>
+        </div>
+
+        <!-- Node 3: MaterialSet -->
+        <div class="demo-node demo-node--upload" style="top: 306px; left: 306px;">
+          <div class="demo-node-header">
+            <span class="demo-node-header-dot"></span>素材集
+          </div>
+          <div class="demo-node-body">
+            <p style="font-size:11px;color:var(--icd-text-muted);">3 张参考图<br>木饰面 · 石材 · 布料</p>
+          </div>
+          <div class="demo-node-ports">
+            <span class="demo-port"></span>
+            <span class="demo-port demo-port--out"></span>
+          </div>
+        </div>
+
+        <!-- Node 4: Image -->
+        <div class="demo-node demo-node--image" style="top: 136px; left: 560px;">
+          <div class="demo-node-header">
+            <span class="demo-node-header-dot"></span>图像
+          </div>
+          <div class="demo-node-body">
+            <div class="demo-node-media demo-node-media--image">GPT Image 2<br><span style="font-size:10px;color:var(--p24-smoke);">1024×1024 · 4 张</span></div>
+          </div>
+          <div class="demo-node-ports">
+            <span class="demo-port"></span>
+            <span class="demo-port demo-port--out"></span>
+          </div>
+        </div>
+
+        <!-- Node 5: LLM -->
+        <div class="demo-node demo-node--llm" style="top: 326px; left: 560px;">
+          <div class="demo-node-header">
+            <span class="demo-node-header-dot"></span>LLM 优化
+          </div>
+          <div class="demo-node-body">
+            <p style="font-size:11px;">
+              <span style="color:var(--p24-green);">+</span> 增强空间尺度描述<br>
+              <span style="color:var(--p24-green);">+</span> 补充灯光色温参数<br>
+              <span style="color:var(--p24-rose);">−</span> 过滤不相关材质词
+            </p>
+          </div>
+          <div class="demo-node-ports">
+            <span class="demo-port"></span>
+            <span class="demo-port demo-port--out"></span>
+          </div>
+        </div>
+
+        <!-- Node 6: RunningHub -->
+        <div class="demo-node demo-node--rh" style="top: 512px; left: 560px;">
+          <div class="demo-node-header">
+            <span class="demo-node-header-dot"></span>RunningHub
+          </div>
+          <div class="demo-node-body">
+            <p style="font-size:11px;color:var(--icd-text-muted);">
+              工作流: SDXL Interior<br>
+              迭代: 4 步<br>
+              种子: 2850134722
+            </p>
+          </div>
+          <div class="demo-node-ports">
+            <span class="demo-port"></span>
+            <span class="demo-port demo-port--out"></span>
+          </div>
+        </div>
+
+        <!-- Node 7: Output -->
+        <div class="demo-node demo-node--output" style="top: 265px; left: 850px; width: 210px;">
+          <div class="demo-node-header">
+            <span class="demo-node-header-dot"></span>输出素材
+          </div>
+          <div class="demo-node-body">
+            <div class="demo-node-media demo-node-media--output">生成结果<br><span style="font-size:10px;">1920×1080</span></div>
+          </div>
+          <div class="demo-node-ports">
+            <span class="demo-port"></span>
+            <span class="demo-port demo-port--out"></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ═══ Connection edges (SVG overlay) ═══ -->
+      <svg class="demo-edge" style="position:absolute;inset:0;pointer-events:none;z-index:1;" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow-blue" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="rgba(59,158,255,0.62)" />
+          </marker>
+          <marker id="arrow-bronze" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="rgba(166,106,70,0.58)" />
+          </marker>
+          <marker id="arrow-green" markerWidth="8" markerHeight="8" refX="6" refY="3.5" orient="auto">
+            <path d="M0,0 L7,3.5 L0,7 Z" fill="rgba(58,211,137,0.64)" />
+          </marker>
+        </defs>
+        <!-- Upload → Text -->
+        <path d="M246 205 C270 205, 278 205, 302 205" class="demo-edge-line" marker-end="url(#arrow-blue)" />
+        <!-- Upload → MaterialSet -->
+        <path d="M246 220 C276 246, 276 342, 302 352" class="demo-edge-line is-secondary" marker-end="url(#arrow-bronze)" />
+        <!-- Text → Image -->
+        <path d="M488 205 C520 205, 528 194, 556 194" class="demo-edge-line" marker-end="url(#arrow-blue)" />
+        <!-- MaterialSet → Image -->
+        <path d="M488 352 C522 326, 526 228, 556 216" class="demo-edge-line is-secondary" marker-end="url(#arrow-bronze)" />
+        <!-- Text → LLM -->
+        <path d="M488 224 C528 250, 524 374, 556 378" class="demo-edge-line" marker-end="url(#arrow-blue)" />
+        <!-- LLM → RunningHub -->
+        <path d="M742 380 C774 414, 774 546, 746 558" class="demo-edge-line is-secondary" marker-end="url(#arrow-bronze)" />
+        <!-- Image → Output -->
+        <path d="M742 204 C792 214, 804 314, 846 330" class="demo-edge-line is-output" marker-end="url(#arrow-green)" />
+        <!-- RunningHub → Output -->
+        <path d="M742 560 C802 548, 806 386, 846 370" class="demo-edge-line is-output" marker-end="url(#arrow-green)" />
+      </svg>
+
+    </div>
+
+  </div>
+
+  <!-- ── Bottom rail ── -->
+  <div class="app-rail">
+    <div class="app-rail-left">
+      <span class="app-rail-dot"></span>
+      <span>ICD STUDIO · 空间设计智能工作台</span>
+    </div>
+    <span>v2.3.8 · 本地 · 节点 7 · 连线 9</span>
+  </div>
+
+</div>
+
+</body>
+</html>
