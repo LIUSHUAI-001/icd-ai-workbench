@@ -12,7 +12,11 @@ const TASK_TYPES = new Set(['t2v', 'i2v', 'multi']);
 const TIERS = new Set(['standard', 'fast', 'mini']);
 const RATIOS = new Set(['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16', '21:9']);
 const RESOLUTIONS = new Set(['480p', '720p', '1080p', '2k', '4k', 'native1080p', 'native4k']);
-const IMAGE_MODELS = new Set(['seedream-v5-pro-t2i', 'seedream-v5-pro-i2i']);
+const IMAGE_MODEL_PAIRS = {
+  domestic: ['seedream-v5-pro-t2i', 'seedream-v5-pro-i2i'],
+  overseas: ['dola-seedream-5.0-pro-t2i', 'dola-seedream-5.0-pro-i2i'],
+};
+const IMAGE_MODELS = new Set(Object.values(IMAGE_MODEL_PAIRS).flat());
 const IMAGE_RESOLUTIONS = new Set(['1k', '2k']);
 const IMAGE_OUTPUT_FORMATS = new Set(['jpeg', 'png']);
 const HAPPYHORSE_MODELS = new Set([
@@ -21,6 +25,8 @@ const HAPPYHORSE_MODELS = new Set([
   'happyhorse-1.1-r2v',
 ]);
 const HAPPYHORSE_RESOLUTIONS = new Set(['720p', '1080p']);
+const WAN27_SPICY_MODEL = 'wan-2.7-spicy-i2v';
+const WAN27_SPICY_RESOLUTIONS = new Set(['720p', '1080p']);
 const SEED_AUDIO_MODEL = 'doubao-seed-audio-1.0';
 const SEED_AUDIO_FORMATS = new Set(['wav', 'mp3', 'pcm', 'ogg_opus']);
 const SEED_AUDIO_SAMPLE_RATES = new Set(['8000', '16000', '24000', '32000', '44100']);
@@ -121,6 +127,14 @@ function normalizeHappyHorseSeconds(value) {
   const seconds = Number(String(value ?? '4').trim());
   if (!Number.isInteger(seconds) || seconds < 3 || seconds > 15) {
     throw new Error('Happy Horse 时长只支持 3-15 秒');
+  }
+  return String(seconds);
+}
+
+function normalizeWanSeconds(value) {
+  const seconds = Number(String(value ?? '2').trim());
+  if (!Number.isInteger(seconds) || seconds < 2 || seconds > 15) {
+    throw new Error('Wan 2.7 Spicy 时长只支持 2-15 秒');
   }
   return String(seconds);
 }
@@ -483,7 +497,21 @@ function normalizeImageMetadata(request = {}) {
 async function buildImagePayload(request, apiKey, options = {}) {
   const refs = normalizeList(request.images || request.refImages);
   if (refs.length > 10) throw new Error('seedance.nz Seedream 最多支持 10 张参考图');
-  const model = refs.length ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i';
+  const requestedFamily = String(
+    request.modelFamily || request.model_family || request.model || 'domestic',
+  ).trim().toLowerCase();
+  const family = requestedFamily === 'overseas'
+    || requestedFamily === 'dola'
+    || requestedFamily.startsWith('dola-seedream-5.0-pro')
+    ? 'overseas'
+    : requestedFamily === 'domestic'
+      || requestedFamily === 'seedream'
+      || requestedFamily.startsWith('seedream-v5-pro')
+      ? 'domestic'
+      : '';
+  if (!family) throw new Error(`未知 Seedream 模型系列：${requestedFamily || '(空)'}`);
+  const modelPair = IMAGE_MODEL_PAIRS[family];
+  const model = refs.length ? modelPair[1] : modelPair[0];
   if (!IMAGE_MODELS.has(model)) throw new Error(`未知 Seedream 模型：${model}`);
   const payload = {
     model,
@@ -501,6 +529,51 @@ async function buildImagePayload(request, apiKey, options = {}) {
     }
   }
   return { payload, model, taskType: refs.length ? 'i2i' : 't2i' };
+}
+
+async function buildWanPayload(request, apiKey, options = {}) {
+  const model = String(request.model || WAN27_SPICY_MODEL).trim();
+  if (model !== WAN27_SPICY_MODEL) throw new Error(`未知 Wan 模型：${model || '(空)'}`);
+
+  const sources = normalizeList(request.images || request.refImages);
+  if (sources.length === 0) throw new Error('Wan 2.7 Spicy 必须提供 1 张首帧图');
+  const prompt = String(request.prompt || '').trim();
+  if (prompt.length > 20480) throw new Error('Wan 2.7 Spicy 提示词不能超过 20480 字符');
+  const negativePrompt = String(request.negative_prompt || request.negativePrompt || '').trim();
+  if (negativePrompt.length > 20480) throw new Error('Wan 2.7 Spicy 反向提示词不能超过 20480 字符');
+  const resolution = String(request.resolution || '720p').trim().toLowerCase();
+  if (!WAN27_SPICY_RESOLUTIONS.has(resolution)) {
+    throw new Error('Wan 2.7 Spicy 分辨率只支持 720p 或 1080p');
+  }
+  const audioUrl = String(request.audio_url || request.audioUrl || '').trim();
+  if (audioUrl && !/^https?:\/\//i.test(audioUrl)) {
+    throw new Error('Wan 2.7 Spicy audio_url 必须是 http(s) 公网 URL');
+  }
+
+  const metadata = { resolution };
+  if (negativePrompt) metadata.negative_prompt = negativePrompt;
+  if (audioUrl) metadata.audio_url = audioUrl;
+  if (request.prompt_extend === true || request.promptExtend === true) metadata.prompt_extend = true;
+  const seed = request.seed === undefined || request.seed === null || request.seed === ''
+    ? -1
+    : Number(request.seed);
+  if (!Number.isInteger(seed) || seed < -1 || seed > 2147483647) {
+    throw new Error('Wan 2.7 Spicy seed 必须是 -1 到 2147483647 的整数');
+  }
+  if (seed >= 0) metadata.seed = seed;
+
+  const imageUrl = await uploadMedia(sources[0], 'image', apiKey, {
+    ...options,
+    allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
+  });
+  const payload = {
+    model,
+    seconds: normalizeWanSeconds(request.duration ?? request.seconds),
+    metadata,
+    images: [imageUrl],
+  };
+  if (prompt) payload.prompt = prompt;
+  return { payload, model, taskType: 'i2v' };
 }
 
 async function buildHappyHorsePayload(request, apiKey, options = {}) {
@@ -558,6 +631,26 @@ async function submitHappyHorseTask(request, apiKey, options = {}) {
   if (!response.ok) throw createUpstreamError(data, response.status);
   const taskId = String(data?.id || data?.task_id || data?.data?.id || '').trim();
   if (!taskId) throw new Error('seedance.nz Happy Horse 未返回任务 ID');
+  return { taskId, model: built.model, taskType: built.taskType, raw: data };
+}
+
+async function submitWanTask(request, apiKey, options = {}) {
+  if (!String(apiKey || '').trim()) throw new Error('请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”');
+  const fetchImpl = getFetchImpl(options);
+  const baseUrl = cleanBaseUrl(options.baseUrl);
+  const built = await buildWanPayload(request, apiKey, options);
+  const response = await fetchImpl(`${baseUrl}/v1/videos`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(built.payload),
+  });
+  const data = await responseJson(response, 'seedance.nz Wan 2.7 Spicy 任务提交');
+  if (!response.ok) throw createUpstreamError(data, response.status);
+  const taskId = String(data?.id || data?.task_id || data?.data?.id || '').trim();
+  if (!taskId) throw new Error('seedance.nz Wan 2.7 Spicy 未返回任务 ID');
   return { taskId, model: built.model, taskType: built.taskType, raw: data };
 }
 
@@ -767,6 +860,7 @@ module.exports = {
   BASE_URL,
   HAPPYHORSE_MODELS,
   HAPPYHORSE_RESOLUTIONS,
+  IMAGE_MODEL_PAIRS,
   IMAGE_MODELS,
   IMAGE_RESOLUTIONS,
   PROVIDER_ID,
@@ -775,8 +869,11 @@ module.exports = {
   SEED_AUDIO_FORMATS,
   SEED_AUDIO_MODEL,
   SEED_AUDIO_SAMPLE_RATES,
+  WAN27_SPICY_MODEL,
+  WAN27_SPICY_RESOLUTIONS,
   buildAudioPayload,
   buildHappyHorsePayload,
+  buildWanPayload,
   buildPayload,
   buildImagePayload,
   deriveTaskType,
@@ -792,5 +889,6 @@ module.exports = {
   submitHappyHorseTask,
   submitImageTask,
   submitTask,
+  submitWanTask,
   uploadMedia,
 };

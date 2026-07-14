@@ -69,6 +69,40 @@ test('video node exposes Happy Horse as an isolated built-in model family', () =
   assert.match(generation, /\/api\/proxy\/video\/happyhorse\/status/);
 });
 
+test('video node exposes Wan 2.7 Spicy as an isolated built-in i2v family', () => {
+  const models = read('../src/providers/models.ts');
+  const node = read('../src/components/nodes/VideoNode.tsx');
+  const generation = read('../src/services/generation.ts');
+  const proxy = read('../backend/src/routes/proxy.js');
+
+  assert.match(models, /label: 'Wan'/);
+  assert.match(models, /value: 'wan-2\.7-spicy-i2v'/);
+  assert.match(models, /durations: \[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15\]/);
+  assert.match(node, /submitWan/);
+  assert.match(node, /Wan 2\.7 Spicy 仅支持图生视频/);
+  assert.match(node, /wanNegativePrompt/);
+  assert.match(node, /wanAudioUrl/);
+  assert.match(node, /wanPromptExtend/);
+  assert.match(generation, /\/api\/proxy\/video\/wan\/submit/);
+  assert.match(generation, /\/api\/proxy\/video\/wan\/status/);
+  assert.match(proxy, /seedanceNz\.submitWanTask/);
+});
+
+test('Seedream NZ selector distinguishes domestic and Dola overseas model families', () => {
+  const node = read('../src/components/nodes/ImageNode.tsx');
+  const generation = read('../src/services/generation.ts');
+  const provider = read('../backend/src/providers/seedanceNz.js');
+
+  assert.match(node, /Seedream v5 Pro（国内模型）/);
+  assert.match(node, /Dola Seedream 5\.0 Pro（海外模型）/);
+  assert.match(node, /dola-seedream-5\.0-pro-t2i/);
+  assert.match(node, /dola-seedream-5\.0-pro-i2i/);
+  assert.match(node, /modelFamily: seedreamNzModelFamily/);
+  assert.match(generation, /modelFamily\?: 'domestic' \| 'overseas'/);
+  assert.match(provider, /dola-seedream-5\.0-pro-t2i/);
+  assert.match(provider, /dola-seedream-5\.0-pro-i2i/);
+});
+
 test('audio node exposes Seed Audio without replacing Suno and supports image/audio references', () => {
   const node = read('../src/components/nodes/AudioNode.tsx');
   const generation = read('../src/services/generation.ts');

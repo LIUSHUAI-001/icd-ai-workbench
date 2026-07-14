@@ -176,6 +176,28 @@ test('seedance.nz builds official Seedream t2i and i2i payloads without mixing v
   assert.equal('seconds' in i2i.payload, false);
 });
 
+test('seedance.nz selects the documented Dola Seedream overseas t2i and i2i models', async () => {
+  const t2i = await seedanceNz.buildImagePayload({
+    modelFamily: 'overseas',
+    prompt: 'a cinematic lighthouse above a stormy sea',
+    resolution: '1k',
+    output_format: 'png',
+  }, 'test-key');
+  assert.equal(t2i.model, 'dola-seedream-5.0-pro-t2i');
+  assert.equal(t2i.payload.model, 'dola-seedream-5.0-pro-t2i');
+
+  const i2i = await seedanceNz.buildImagePayload({
+    model: 'dola-seedream-5.0-pro-t2i',
+    prompt: 'change the weather to a warm sunset',
+    images: ['https://assets.example.com/lighthouse.png'],
+    resolution: '2k',
+    output_format: 'jpeg',
+  }, 'test-key');
+  assert.equal(i2i.model, 'dola-seedream-5.0-pro-i2i');
+  assert.equal(i2i.payload.model, 'dola-seedream-5.0-pro-i2i');
+  assert.deepEqual(i2i.payload.images, ['https://assets.example.com/lighthouse.png']);
+});
+
 test('seedance.nz Seedream submit and query use the documented image endpoints', async () => {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const fetchImpl = async (url: string, init?: RequestInit) => {
@@ -269,6 +291,54 @@ test('seedance.nz Happy Horse submit uses /v1/videos and rejects invalid limits'
       model: 'happyhorse-1.1-r2v', duration: 2, resolution: '4k', images: [],
     }, 'test-key'),
     /分辨率只支持 720p 或 1080p|时长只支持 3-15 秒|至少需要 1 张参考图/,
+  );
+});
+
+test('seedance.nz builds and submits the documented Wan 2.7 Spicy i2v payload', async () => {
+  const built = await seedanceNz.buildWanPayload({
+    model: 'wan-2.7-spicy-i2v',
+    prompt: 'the character turns toward the camera',
+    duration: 2,
+    resolution: '1080p',
+    images: ['https://assets.example.com/first.png', 'https://assets.example.com/ignored.png'],
+    negativePrompt: 'blurry, distorted hands',
+    audioUrl: 'https://assets.example.com/music.mp3',
+    promptExtend: true,
+    seed: 42,
+  }, 'test-key');
+  assert.deepEqual(built.payload, {
+    model: 'wan-2.7-spicy-i2v',
+    prompt: 'the character turns toward the camera',
+    seconds: '2',
+    images: ['https://assets.example.com/first.png'],
+    metadata: {
+      resolution: '1080p',
+      negative_prompt: 'blurry, distorted hands',
+      audio_url: 'https://assets.example.com/music.mp3',
+      prompt_extend: true,
+      seed: 42,
+    },
+  });
+
+  const calls: string[] = [];
+  const fetchImpl = async (url: string) => {
+    calls.push(url);
+    return jsonResponse({ id: 'wan-task-1', status: 'queued' });
+  };
+  const submitted = await seedanceNz.submitWanTask({
+    model: 'wan-2.7-spicy-i2v',
+    duration: 15,
+    resolution: '720p',
+    images: ['https://assets.example.com/first.png'],
+  }, 'test-key', { baseUrl: 'https://api.seedance.nz', fetchImpl });
+  assert.equal(submitted.taskId, 'wan-task-1');
+  assert.equal(calls[0], 'https://api.seedance.nz/v1/videos');
+
+  await assert.rejects(
+    seedanceNz.buildWanPayload({
+      model: 'wan-2.7-spicy-i2v', duration: 1, resolution: '4k', images: [],
+    }, 'test-key'),
+    /必须提供 1 张首帧图|时长只支持 2-15 秒|分辨率只支持 720p 或 1080p/,
   );
 });
 

@@ -1326,6 +1326,71 @@ router.get('/video/happyhorse/status/:tid', async (req, res) => {
   }
 });
 
+router.post('/video/wan/submit', async (req, res) => {
+  const settings = loadRawSettings();
+  const apiKey = String(settings?.zhenzhenSd2ApiKey || '').trim();
+  if (!apiKey) {
+    return res.status(400).json({ success: false, error: '请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”' });
+  }
+  try {
+    const result = await seedanceNz.submitWanTask(req.body || {}, apiKey);
+    rememberTaskKey(result.taskId, apiKey, {
+      provider: 'wan-nz',
+      model: result.model,
+      taskType: result.taskType,
+    });
+    return res.json({
+      success: true,
+      data: {
+        taskId: result.taskId,
+        model: result.model,
+        taskType: result.taskType,
+        raw: result.raw,
+      },
+    });
+  } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error('proxy/video/wan/submit 错误:', error?.message || error);
+    return res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      error: error?.message || 'Wan 2.7 Spicy 请求失败',
+    });
+  }
+});
+
+router.get('/video/wan/status/:tid', async (req, res) => {
+  const settings = loadRawSettings();
+  const remembered = recallTaskMeta(req.params.tid);
+  const apiKey = String(remembered?.apiKey || settings?.zhenzhenSd2ApiKey || '').trim();
+  if (!apiKey) return res.status(400).json({ success: false, error: '缺少贞贞的平价AI工坊（国内） API Key' });
+  try {
+    const result = await seedanceNz.queryTask(req.params.tid, apiKey);
+    let videoUrl = result.videoUrl;
+    if (result.status === 'succeeded' && videoUrl) {
+      videoUrl = await saveRemoteVideo(videoUrl, seedanceNz.fetchRemote);
+    }
+    return res.json({
+      success: true,
+      data: {
+        status: result.status,
+        progress: result.progress,
+        videoUrl,
+        failReason: result.failReason,
+        model: remembered?.model || '',
+        taskType: remembered?.taskType || '',
+        raw: result.raw,
+      },
+    });
+  } catch (error) {
+    const status = Number(error?.status || 500);
+    console.error('proxy/video/wan/status 错误:', error?.message || error);
+    return res.status(status >= 400 && status < 600 ? status : 500).json({
+      success: false,
+      error: error?.message || 'Wan 2.7 Spicy 查询失败',
+    });
+  }
+});
+
 router.post('/audio/seed-audio/submit', async (req, res) => {
   const settings = loadRawSettings();
   const apiKey = String(settings?.zhenzhenSd2ApiKey || '').trim();

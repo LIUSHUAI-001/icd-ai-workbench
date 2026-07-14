@@ -215,6 +215,7 @@ export async function queryImageStatus(taskId: string, apiModel?: string): Promi
 export interface SeedreamNzSubmitRequest {
   prompt: string;
   images?: string[];
+  modelFamily?: 'domestic' | 'overseas';
   resolution?: '1k' | '2k';
   size?: string;
   output_format?: 'png' | 'jpeg';
@@ -812,6 +813,36 @@ export interface HappyHorseQueryResult {
 export async function queryHappyHorse(taskId: string): Promise<HappyHorseQueryResult> {
   const r = await fetch(`/api/proxy/video/happyhorse/status/${encodeURIComponent(taskId)}`);
   const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export interface WanSubmitRequest {
+  model: 'wan-2.7-spicy-i2v';
+  prompt?: string;
+  duration: number;
+  resolution: '720p' | '1080p';
+  images: string[];
+  negativePrompt?: string;
+  audioUrl?: string;
+  promptExtend?: boolean;
+  seed?: number;
+}
+
+export async function submitWan(req: WanSubmitRequest): Promise<{ taskId: string; model: string; taskType: string }> {
+  const r = await fetch('/api/proxy/video/wan/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await safeJsonResponse(r, 'Wan 2.7 Spicy 提交');
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export async function queryWan(taskId: string): Promise<HappyHorseQueryResult> {
+  const r = await fetch(`/api/proxy/video/wan/status/${encodeURIComponent(taskId)}`);
+  const data = await safeJsonResponse(r, 'Wan 2.7 Spicy 查询');
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;
 }

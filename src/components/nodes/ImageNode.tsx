@@ -399,6 +399,9 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const isSeedream = modelDef.paramKind === 'seedream-v5';
   const seedreamApiSource: 'zhenzhen' | 'seedance-nz' = d?.seedreamApiSource === 'seedance-nz' ? 'seedance-nz' : 'zhenzhen';
   const isSeedreamNz = isSeedream && seedreamApiSource === 'seedance-nz';
+  const seedreamNzModelFamily: 'domestic' | 'overseas' = d?.seedreamNzModelFamily === 'overseas'
+    ? 'overseas'
+    : 'domestic';
   const seedreamNzResolution: '1k' | '2k' | 'custom' = ['1k', '2k', 'custom'].includes(d?.seedreamNzResolution)
     ? d.seedreamNzResolution
     : '2k';
@@ -472,7 +475,10 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
   const materialOrder: string[] = Array.isArray(d?.materialOrder) ? d.materialOrder : [];
   const orderedImages = useOrderedMaterials(allImagesUnordered, materialOrder);
   const orderedTexts = useOrderedMaterials(visibleUpstreamTexts, materialOrder);
-  const seedreamNzUiModel = orderedImages.length > 0 ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i';
+  const seedreamNzUiModel = seedreamNzModelFamily === 'overseas'
+    ? (orderedImages.length > 0 ? 'dola-seedream-5.0-pro-i2i' : 'dola-seedream-5.0-pro-t2i')
+    : (orderedImages.length > 0 ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i');
+  const seedreamNzModelRegion = seedreamNzModelFamily === 'overseas' ? '海外模型' : '国内模型';
   const mentionMaterials = useMemo(
     () => orderedImages.slice(0, maxRefs),
     [orderedImages, maxRefs],
@@ -896,14 +902,17 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
       // deliberately isolated so the existing zhenzhen Seedream call remains unchanged.
       if (isSeedreamNz) {
         if (!zhenzhenSd2ApiKey) throw new Error('请先在 API 设置中填写“贞贞的平价AI工坊（国内） API Key”');
-        const expectedModel = allRefs.length ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i';
+        const expectedModel = seedreamNzModelFamily === 'overseas'
+          ? (allRefs.length ? 'dola-seedream-5.0-pro-i2i' : 'dola-seedream-5.0-pro-t2i')
+          : (allRefs.length ? 'seedream-v5-pro-i2i' : 'seedream-v5-pro-t2i');
         logBus.info(
-          `贞贞的平价AI工坊（国内） Seedream 提交: model=${expectedModel} 参考图=${allRefs.length} 尺寸=${seedreamNzResolution === 'custom' ? seedreamNzResolvedSize : seedreamNzResolution}`,
+          `贞贞的平价AI工坊 Seedream 提交: model=${expectedModel} ${seedreamNzModelRegion} 参考图=${allRefs.length} 尺寸=${seedreamNzResolution === 'custom' ? seedreamNzResolvedSize : seedreamNzResolution}`,
           src,
         );
         const submit = await submitSeedreamNz({
           prompt: finalPrompt,
           images: allRefs,
+          modelFamily: seedreamNzModelFamily,
           resolution: seedreamNzResolution === 'custom' ? undefined : seedreamNzResolution,
           size: seedreamNzResolution === 'custom' ? seedreamNzResolvedSize : undefined,
           output_format: seedreamOutputFormat,
@@ -1563,9 +1572,23 @@ const ImageNode = ({ id, data, selected }: NodeProps) => {
               </select>
             </div>
             {isSeedreamNz && (
-              <div className="text-[10px] leading-4 text-cyan-100/75">
-                实际模型：{seedreamNzUiModel}（按参考图自动切换）
-                {!zhenzhenSd2ApiKey && <div className="mt-1 text-amber-300">尚未配置“贞贞的平价AI工坊（国内） API Key”</div>}
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] text-white/50 block mb-1">模型地区</label>
+                  <select
+                    value={seedreamNzModelFamily}
+                    onChange={(e) => update({ seedreamNzModelFamily: e.target.value })}
+                    style={{ background: '#18181b', color: '#ffffff' }}
+                    className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-cyan-400/60"
+                  >
+                    <option value="domestic" style={{ background: '#18181b', color: '#ffffff' }}>Seedream v5 Pro（国内模型）</option>
+                    <option value="overseas" style={{ background: '#18181b', color: '#ffffff' }}>Dola Seedream 5.0 Pro（海外模型）</option>
+                  </select>
+                </div>
+                <div className="text-[10px] leading-4 text-cyan-100/75">
+                  实际模型：{seedreamNzUiModel}（{seedreamNzModelRegion}，按参考图自动切换）
+                  {!zhenzhenSd2ApiKey && <div className="mt-1 text-amber-300">尚未配置“贞贞的平价AI工坊（国内） API Key”</div>}
+                </div>
               </div>
             )}
           </div>
