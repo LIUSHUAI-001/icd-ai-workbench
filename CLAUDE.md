@@ -1,5 +1,14 @@
 # Claude Code Handoff Standard
 
+## Repository Identity
+
+- Product name: `洲际设计AI工作台`
+- Repository: `https://github.com/LIUSHUAI-001/icd-ai-workbench`
+- Local path: `/Users/liushuai/Documents/GitHub/icd-ai-workbench`
+- `origin` is the personal fork; `upstream` remains `T8mars/T8-penguin-canvas`.
+- The project was renamed from `T8-penguin-canvas` to `icd-ai-workbench` on 2026-07-14.
+- Read `docs/repository-and-upgrade-guide.md` before repository sync or handoff work.
+
 ## Project Goal
 
 Build a custom branded AI canvas product on top of the full open-source T8-penguin-canvas project.
@@ -163,6 +172,10 @@ git fetch upstream
 git checkout -b codex/upgrade-t8-版本号
 git merge upstream/main
 ```
+
+The complete repository and branch relationship is documented in
+`docs/repository-and-upgrade-guide.md`. Never treat the old local directory
+`T8-penguin-canvas` as the active workspace.
 
 After merge, inspect:
 

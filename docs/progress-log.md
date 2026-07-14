@@ -2350,3 +2350,25 @@ Copy this block for every new entry:
   - Browser visual verification has not been run yet for the new theme layer.
 - Next step:
   - Start `npm run dev`, verify the custom topbar badge/theme appears, then proceed with fastest-launch branding: product name, primary color, topbar cleanup, and hiding irrelevant T8 promotional entries.
+## 2026-07-15 - Codex - Rename Repository And Establish Upgrade Handoff
+
+- User goal: move all future work to the renamed personal repository and make upstream synchronization unambiguous.
+- Files changed:
+  - `CLAUDE.md`
+  - `docs/repository-and-upgrade-guide.md`
+  - `docs/progress-log.md`
+- Completed:
+  - Canonical local path is now `/Users/liushuai/Documents/GitHub/icd-ai-workbench`.
+  - Personal public repository is `LIUSHUAI-001/icd-ai-workbench`.
+  - `origin` points to the personal repository; `upstream` points to `T8mars/T8-penguin-canvas`.
+  - Documented the current commit, branch, daily push flow, upstream upgrade flow, validation rules, and handoff standard.
+  - Kept the T8 canvas engine and upstream merge path intact.
+- Validation:
+  - Verified `origin` and `upstream` remotes.
+  - Verified personal `main` and `codex/icd-ui-prompt-library` both point to `57dd9d7` on GitHub.
+  - Documentation-only follow-up; no canvas or backend behavior changed.
+- Core T8 files touched: No.
+- Risks / blockers:
+  - The staging repository `LIUSHUAI-001/icd-ai-workbench-staging` remains as an unused renamed placeholder and should only be deleted after explicit confirmation.
+- Next step:
+  - Continue all development from `/Users/liushuai/Documents/GitHub/icd-ai-workbench`; use a dated `codex/upgrade-t8-*` branch for upstream updates.
