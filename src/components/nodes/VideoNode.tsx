@@ -23,6 +23,8 @@ import {
   generateExternalVideo,
   submitHappyHorse,
   queryHappyHorse,
+  submitWan,
+  queryWan,
   submitVideo,
   queryVideo,
   submitVideoFal,
@@ -66,6 +68,7 @@ import { LocalNodeAddonSlot } from 'virtual:t8-local-extensions';
  *   - Grok Video(kind=grok)     — Zhenzhen Grok 1.5 New / Grok Video 1.5 FAL / 旧版 FAL / grok-video-3 / images
  *   - Sora2    (kind=sora)      — Zhenzhen API + FAL 双渠道 / Base64 参考图(≤1)
  *   - HappyHorse(kind=happyhorse)— api.seedance.nz 文生/图生/参考图生视频(≤9 图)
+ *   - Wan      (kind=wan)       — api.seedance.nz Wan 2.7 Spicy 图生视频(1 张首帧)
  *   - Seedance  (kind=seedance) — 零破坏兼容旧 veo 字段
  * 流程: submit → poll(5s 间隔) → 转存 → 展示
  */
@@ -148,6 +151,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   // 子模型(上游真实 model 名)
   const apiModel: string = d?.model && modelDef.apiModelOptions.some((o) => o.value === d.model) ? d.model : modelDef.apiModelOptions[0].value;
   const isHappyHorse = !isExternalSelected && modelDef.kind === 'happyhorse';
+  const isWan = !isExternalSelected && modelDef.kind === 'wan';
   const happyHorseMode = apiModel.endsWith('-i2v') ? 'i2v' : apiModel.endsWith('-r2v') ? 'r2v' : 't2v';
   // 各参数(跳过着调用 update 默认值)
   const ratio: string = d?.ratio || modelDef.defaultRatio;
@@ -156,6 +160,10 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   const seed: number = typeof d?.seed === 'number' ? d.seed : 0;
   const enhancePrompt: boolean = d?.enhancePrompt ?? false;
   const enableUpsample: boolean = d?.enableUpsample ?? false;
+  const wanNegativePrompt: string = typeof d?.wanNegativePrompt === 'string' ? d.wanNegativePrompt : '';
+  const wanAudioUrl: string = typeof d?.wanAudioUrl === 'string' ? d.wanAudioUrl : '';
+  const wanPromptExtend: boolean = d?.wanPromptExtend === true;
+  const wanSeed: number = Number.isInteger(d?.wanSeed) ? d.wanSeed : -1;
 
   // FAL 专属参数
   const isFal = isFalVideoModel(apiModel);
@@ -296,7 +304,9 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
     [localRefImages, localRefVideos, localRefAudios, id],
   );
   const maxMentionRefs =
-    isHappyHorse
+    isWan
+      ? 1
+      : isHappyHorse
       ? happyHorseMode === 't2v' ? 0 : happyHorseMode === 'i2v' ? 1 : 9
       : isVeoOmni
       ? 1
@@ -429,7 +439,11 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
           return;
         }
         try {
-          const r = isHappyHorse ? await queryHappyHorse(tid) : await queryVideo(tid, apiModel);
+          const r = isWan
+            ? await queryWan(tid)
+            : isHappyHorse
+              ? await queryHappyHorse(tid)
+              : await queryVideo(tid, apiModel);
           const normalizedStatus = String(r.status || '').trim().toUpperCase();
           const currentProgress = String(r.progress ?? '');
           if (!isCurrentGenerationRun(runId)) {
@@ -537,7 +551,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
     const { prompt: upstreamPrompt, imageUrls, videoUrls, audioUrls } = collectUpstream();
     const resolvedLocalPrompt = resolveMediaMentions(localPrompt, promptMentions, mentionMaterials);
     const finalPrompt = (upstreamPrompt || resolvedLocalPrompt || '').trim();
-    if (!finalPrompt && !(isHappyHorse && happyHorseMode !== 't2v')) {
+    if (!finalPrompt && !isWan && !(isHappyHorse && happyHorseMode !== 't2v')) {
       setError('未连接 text 节点也未填写 prompt');
       logBus.error('生成中止: 缺少 prompt', src);
       return;
@@ -545,6 +559,11 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
     if (isHappyHorse && happyHorseMode !== 't2v' && imageUrls.length === 0) {
       setError(`Happy Horse ${happyHorseMode} 至少需要 1 张参考图`);
       logBus.error(`生成中止: Happy Horse ${happyHorseMode} 缺少参考图`, src);
+      return;
+    }
+    if (isWan && imageUrls.length === 0) {
+      setError('Wan 2.7 Spicy 必须连接或拖入 1 张首帧图');
+      logBus.error('生成中止: Wan 2.7 Spicy 缺少首帧图', src);
       return;
     }
     if (isVeoOmni && imageUrls.length === 0) {
@@ -605,6 +624,30 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
         });
         logBus.success(`扩展平台视频完成 → ${nextVideoUrl}`, src);
         taskCompletionSound.notifyComplete(id, 'video');
+        return;
+      }
+
+      if (isWan) {
+        const firstImage = imageUrls[0];
+        logBus.info(
+          `提交 Wan 2.7 Spicy: ${apiModel} · ${duration}s · ${resolution || '720p'} · promptExtend=${wanPromptExtend}`,
+          src,
+        );
+        const result = await submitWan({
+          model: 'wan-2.7-spicy-i2v',
+          prompt: finalPrompt || undefined,
+          duration: Number(duration) || 2,
+          resolution: resolution === '1080p' ? '1080p' : '720p',
+          images: [firstImage],
+          negativePrompt: wanNegativePrompt.trim() || undefined,
+          audioUrl: wanAudioUrl.trim() || undefined,
+          promptExtend: wanPromptExtend,
+          seed: wanSeed,
+        });
+        if (!isCurrentGenerationRun(runId)) return;
+        update({ status: 'polling', taskId: result.taskId, lastPrompt: finalPrompt, progress: '0%' });
+        logBus.info(`Wan 2.7 Spicy 任务 ${result.taskId} 已提交，开始轮询`, src);
+        await startPolling(result.taskId, runId);
         return;
       }
 
@@ -824,7 +867,9 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
     if (payload.kind === 'image' && payload.url) {
       const cur = Array.isArray(d?.localRefImages) ? d.localRefImages : [];
       if (cur.indexOf(payload.url) !== -1) return;
-      const cap = isHappyHorse
+      const cap = isWan
+        ? 1
+        : isHappyHorse
         ? maxMentionRefs
         : isGrok15New
           ? 1
@@ -855,7 +900,9 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
   const refsCount = orderedImages.length + localRefImages.length;
   const videoRefsCount = orderedVideos.length + localRefVideos.length;
   const audioRefsCount = orderedAudios.length + localRefAudios.length;
-  const previewTitle = isHappyHorse
+  const previewTitle = isWan
+    ? `上游素材 · 首帧图 ${Math.min(refsCount, 1)}/1`
+    : isHappyHorse
     ? happyHorseMode === 't2v'
       ? '上游素材 · 当前模型不使用参考图'
       : `上游素材 · 参考图 ${Math.min(refsCount, maxMentionRefs)}/${maxMentionRefs}`
@@ -1250,6 +1297,55 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
           </div>
         )}
 
+        {isWan && (
+          <div className="rounded border border-orange-300/20 bg-orange-400/[0.06] p-2 space-y-2">
+            <div className="text-[10px] leading-relaxed text-white/60">
+              Wan 2.7 Spicy 仅支持图生视频，必须提供 1 张首帧图；提示词可选。
+              <div className="mt-1 text-white/35">贞贞的平价AI工坊 · 海外模型 · 2-15 秒 · 720p / 1080p</div>
+            </div>
+            <div>
+              <label className="text-[10px] text-white/50 block mb-1">反向提示词（可选）</label>
+              <textarea
+                value={wanNegativePrompt}
+                onChange={(e) => update({ wanNegativePrompt: e.target.value })}
+                placeholder="不希望出现在视频中的内容"
+                className="w-full h-12 resize-none rounded bg-white/5 border border-white/10 px-2 py-1 text-[11px] text-white outline-none focus:border-orange-300/40 placeholder:text-white/25"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-white/50 block mb-1">配乐公网 URL（可选）</label>
+              <input
+                value={wanAudioUrl}
+                onChange={(e) => update({ wanAudioUrl: e.target.value })}
+                placeholder="https://.../audio.mp3"
+                className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-orange-300/40 placeholder:text-white/25"
+              />
+            </div>
+            <div className="grid grid-cols-[1fr_110px] gap-2 items-end">
+              <label className="flex items-center gap-1.5 text-[10px] text-white/60 cursor-pointer pb-1.5">
+                <input
+                  type="checkbox"
+                  checked={wanPromptExtend}
+                  onChange={(e) => update({ wanPromptExtend: e.target.checked })}
+                  className="accent-orange-400"
+                />
+                扩写提示词
+              </label>
+              <div>
+                <label className="text-[10px] text-white/50 block mb-1">Seed（-1 随机）</label>
+                <input
+                  type="number"
+                  min={-1}
+                  max={2147483647}
+                  value={wanSeed}
+                  onChange={(e) => update({ wanSeed: Math.max(-1, Math.min(2147483647, Number(e.target.value) || 0)) })}
+                  className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-orange-300/40"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {isJimengSeedanceSelected && (
           <div className="rounded border border-white/10 bg-white/5 p-1.5 space-y-1">
             <div className="flex items-center justify-between gap-2">
@@ -1278,7 +1374,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
         )}
 
         {/* 比例(非 FAL 时显示原始控件) */}
-        {showGenericVideoControls && !isGrok15New && (
+        {showGenericVideoControls && !isGrok15New && !isWan && (
         <div className="grid grid-cols-2 gap-1.5">
           <div>
             <label className="text-[10px] text-white/50 block mb-1">比例</label>
@@ -1308,6 +1404,21 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
             </div>
           )}
         </div>
+        )}
+
+        {isWan && durationOptions.length > 0 && (
+          <div>
+            <label className="text-[10px] text-white/50 block mb-1">时长(s)</label>
+            <select
+              value={String(duration)}
+              onChange={(e) => update({ duration: Number(e.target.value) })}
+              className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+            >
+              {durationOptions.map((seconds) => (
+                <option key={seconds} value={seconds} className="bg-zinc-900">{seconds}s</option>
+              ))}
+            </select>
+          </div>
         )}
 
         {/* 分辨率(仅 grok 非FAL) */}
@@ -1391,7 +1502,7 @@ const VideoNode = ({ id, data, selected }: NodeProps) => {
         )}
 
         {/* Seed(非FAL) */}
-        {showGenericVideoControls && !isHappyHorse && (
+        {showGenericVideoControls && !isHappyHorse && !isWan && (
         <div>
           <label className="text-[10px] text-white/50 block mb-1">Seed (0=随机)</label>
           <input

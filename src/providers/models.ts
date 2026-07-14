@@ -308,7 +308,7 @@ export const NBPRO_FAL_RESOLUTIONS = ['1K', '2K', '4K'];
 
 // ========== 视频 ==========
 // kind 决定上游 payload 协议(后端会根据 model 名自动识别,前端主要用于控制参数 UI 列表)
-export type VideoKind = 'veo' | 'grok' | 'sora' | 'seedance' | 'happyhorse';
+export type VideoKind = 'veo' | 'grok' | 'sora' | 'seedance' | 'happyhorse' | 'wan';
 
 // ---- Video FAL 渠道注册表 (1:1 对齐 gpt-image-2-web runVeo3Fal / runGrokFal / runSora2Fal) ----
 export interface VideoFalEndpointDef {
@@ -514,6 +514,24 @@ export const VIDEO_MODELS: VideoModelDef[] = [
     defaultDuration: 15,
     resolutions: [],
     defaultResolution: '',
+    supportImages: true,
+    maxRefImages: 1,
+  },
+  {
+    id: 'wan-2.7-spicy',
+    label: 'Wan',
+    kind: 'wan',
+    provider: 'zhenzhen',
+    description: 'Wan 2.7 Spicy · 宽审核图生视频',
+    apiModelOptions: [
+      { value: 'wan-2.7-spicy-i2v', label: 'wan-2.7-spicy-i2v（图生视频）' },
+    ],
+    ratios: ['16:9'],
+    defaultRatio: '16:9',
+    durations: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    defaultDuration: 2,
+    resolutions: ['720p', '1080p'],
+    defaultResolution: '720p',
     supportImages: true,
     maxRefImages: 1,
   },

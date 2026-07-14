@@ -1,7 +1,58 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.5.4",
-  "lastUpdated": "2026-07-13-electron-release-v2.5.4",
+  "version": "2.5.5",
+  "lastUpdated": "2026-07-14-electron-release-v2.5.5",
+  "wan27DolaSeedreamModels": {
+    "version": "2.5.5",
+    "status": "released",
+    "date": "2026-07-14",
+    "description": "视频节点新增 Wan TAB 与 wan-2.7-spicy-i2v；图像节点 Seedream 的贞贞平价AI工坊来源新增 Dola Seedream 5.0 Pro 海外模型选择，并保留原国内模型和旧画布默认行为。",
+    "models": [
+      "wan-2.7-spicy-i2v",
+      "dola-seedream-5.0-pro-t2i",
+      "dola-seedream-5.0-pro-i2i"
+    ],
+    "capabilities": [
+      "Wan 使用独立 POST /v1/videos 与 GET /v1/videos/{task_id}：必须提供一张首帧图，提示词可选，时长 2-15 秒，分辨率 720p/1080p，并支持负面提示词、公开音频 URL、提示词扩写开关和随机/固定种子。",
+      "前端使用 /api/proxy/video/wan/submit 与 /api/proxy/video/wan/status/{task_id} 隔离 Wan 提交和轮询；成功 MP4 立即转存 T8 output，画布保存本地 URL。",
+      "图像节点 Seedream 的 api.seedance.nz 来源提供国内 Seedream v5 Pro 与海外 Dola Seedream 5.0 Pro 下拉选择；旧画布缺省继续使用国内模型，界面明确标注海外模型。",
+      "Dola 根据参考图数量自动选择 dola-seedream-5.0-pro-t2i 或 dola-seedream-5.0-pro-i2i，继续使用 POST /v1/image/generations、GET /v1/image/generations/{task_id} 和同一平价AI工坊 Key。",
+      "本地参考图先经 /v1/files/upload 取得临时公网 URL；Seedream 最多 10 张且单张不超过 10MB，Wan 只取第一张首帧图。"
+    ],
+    "verification": [
+      "Seedance NZ Provider、前端与图像代理专项测试 24/24 通过。",
+      "npm run type-check 与 npm run build 通过。",
+      "真实 dola-seedream-5.0-pro-t2i 成功返回 PNG 1,624,815 bytes，SHA256 84D11DEA7829A8069874CA9D3F5A46285B02D8A2C10A8715B8EA56BD561FC078。",
+      "真实 dola-seedream-5.0-pro-i2i 使用上一张结果作为参考图，成功返回 PNG 1,744,639 bytes，SHA256 A2A353695EB75E57A97539873CA46CFB834105BDCD23F381F4B4418FF41565BD。",
+      "真实 wan-2.7-spicy-i2v 使用上一张结果作为首帧，按 2 秒/720p 成功返回 MP4 838,695 bytes，SHA256 EEDAA53F6CBB8B2FB797EF4DFEAC6E402A068EB24E5805BD0EF51CEF8DCC861A。",
+      "实现参数同时核对 api.seedance.nz 官方 llms.txt 与本地 ComfyUI_Seedance 参考节点；测试 Key 未写入源码、设置、日志、文档、构建产物或 Git。"
+    ],
+    "releaseBoundary": "纳入 v2.5.5 Electron 自动更新版；公开 GitHub 只包含本功能、测试、版本记录与 release notes，私有 sidecar 仅注入加密安装包。"
+  },
+  "electronReleaseV255": {
+    "version": "2.5.5",
+    "status": "electron-release",
+    "date": "2026-07-14",
+    "description": "v2.5.5 Electron 自动更新版：新增 Wan 2.7 Spicy 图生视频和 Dola Seedream 5.0 Pro 海外文生图/图生图。",
+    "highlights": [
+      "视频节点新增 Wan TAB，wan-2.7-spicy-i2v 支持单张首帧、2-15 秒、720p/1080p、负面提示词、公开音频 URL、提示词扩写和 seed。",
+      "图像节点 Seedream 在 api.seedance.nz 来源下新增国内/海外模型族选择，Dola 海外模型按参考图自动切换 t2i/i2i。",
+      "旧画布继续默认国内 Seedream v5 Pro；Wan 与 Dola 使用独立明确的模型 ID 和代理路径，不影响 Happy Horse、Seedance、Seed Audio 或原 Seedream。",
+      "Electron 正式包继续 fail-closed 校验私有充值 sidecar、运行时归档、FFmpeg、PS/Figma/Chrome 插件和自动更新资产。"
+    ],
+    "verification": [
+      "三款新增模型均已使用临时测试 Key 完成真实 API 生成。",
+      "专项测试 24/24、type-check、public:check、rh-toolbox:check、生产构建和 Electron post-build 均纳入发布门槛。",
+      "测试 Key 未写入公开源码、文档、日志、构建产物或 Git。"
+    ],
+    "release": {
+      "tag": "v2.5.5",
+      "url": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.5",
+      "installer": "T8-PenguinCanvas-Setup-2.5.5.exe",
+      "blockmap": "T8-PenguinCanvas-Setup-2.5.5.exe.blockmap",
+      "metadata": "latest.yml"
+    }
+  },
   "happyHorseSeedAudio": {
     "version": "2.5.4",
     "status": "released",
