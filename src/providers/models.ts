@@ -10,8 +10,9 @@ export type ProviderType = 'zhenzhen' | 'llm-direct' | 'runninghub';
 //  - 'gpt-size'    : OpenAI 兼容,size 字段为像素串(1024x1024 等),编辑端点 multipart
 //  - 'banana-ratio': nano-banana 协议,使用 aspect_ratio + image_size(1K/2K/4K) + image[]
 //  - 'grok-image'  : Grok Image 协议,JSON /generations,参考图默认 base64 dataURL
+//  - 'seedream-v5' : Seedream V5 Pro 协议,JSON /generations,size 为像素串,image[] 可选
 //  - 'mj'          : Midjourney 协议,走专属 /api/proxy/mj/* 路由(speed_map + sref/oref)
-export type ImageParamKind = 'gpt-size' | 'banana-ratio' | 'grok-image' | 'mj';
+export type ImageParamKind = 'gpt-size' | 'banana-ratio' | 'grok-image' | 'seedream-v5' | 'mj';
 
 export interface ImageModelDef {
   id: string;             // 节点内部 id(如 'gpt-image-2')
@@ -38,9 +39,9 @@ export interface ImageModelDef {
 
 // 主项目 gpt-image-2-web 的 aspectRatio 全集(14 种 + Auto)
 const GPT_RATIOS = ['Auto', '1:1', '16:9', '4:3', '4:5', '3:2', '2:3', '3:4', '5:4', '9:16', '21:9', '1:4', '4:1', '1:8', '8:1'];
-// nano-banana-2(Flash)支持全部 14 个比例,Pro 支持精简集
-const BANANA_FLASH_RATIOS = GPT_RATIOS;
-const BANANA_PRO_RATIOS = ['Auto', '1:1', '16:9', '4:3', '4:5', '3:2', '2:3', '3:4', '5:4', '9:16', '21:9'];
+// nano-banana-2(Flash)支持全部 14 个比例并补充 9:21 竖长图,Pro 支持精简集
+const BANANA_FLASH_RATIOS = ['Auto', '1:1', '16:9', '4:3', '4:5', '3:2', '2:3', '3:4', '5:4', '9:16', '21:9', '9:21', '1:4', '4:1', '1:8', '8:1'];
+const BANANA_PRO_RATIOS = ['Auto', '1:1', '16:9', '4:3', '4:5', '3:2', '2:3', '3:4', '5:4', '9:16', '21:9', '9:21'];
 // gpt-image-2-web Grok Image Tab 的比例集合,默认参考图传入方式为 Base64
 const GROK_IMAGE_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'];
 
@@ -87,6 +88,7 @@ export const IMAGE_MODELS: ImageModelDef[] = [
     capabilities: ['t2i', 'i2i'],
     apiModelOptions: [
       { value: 'gemini-3.1-flash-image', label: 'nano-banana-2 (Flash)' },
+      { value: 'gemini-3.1-flash-lite-image', label: 'gemini-3.1-flash-lite-image' },
       { value: 'nano-banana-2-fal', label: 'nano-banana-2-fal' },
     ],
     aspectRatios: BANANA_FLASH_RATIOS,
@@ -109,6 +111,7 @@ export const IMAGE_MODELS: ImageModelDef[] = [
       { value: 'nano-banana-pro', label: 'nano-banana-pro' },
       { value: 'nano-banana-pro-2k', label: 'nano-banana-pro-2k' },
       { value: 'nano-banana-pro-4k', label: 'nano-banana-pro-4k' },
+      { value: 'gemini-3-pro-image', label: 'gemini-3-pro-image' },
       { value: 'nano-banana-pro-fal', label: 'nano-banana-pro-fal' },
     ],
     aspectRatios: BANANA_PRO_RATIOS,
@@ -137,6 +140,25 @@ export const IMAGE_MODELS: ImageModelDef[] = [
     supportsReference: true,
     maxReferenceImages: 4,
     description: 'Grok Image · 参考图 Base64',
+  },
+  {
+    id: 'seedream-v5-pro',
+    apiModel: 'seedream-v5-pro',
+    label: 'Seedream V5 Pro',
+    tabLabel: 'Seedream',
+    provider: 'zhenzhen',
+    paramKind: 'seedream-v5',
+    capabilities: ['t2i', 'i2i', 'edit'],
+    apiModelOptions: [
+      { value: 'seedream-v5-pro', label: 'seedream-v5-pro' },
+    ],
+    aspectRatios: [],
+    defaultAspectRatio: '',
+    sizes: ['1024x1024', '1536x1024', '1024x1536', '2048x2048', '4096x4096', 'custom'],
+    defaultSize: '2048x2048',
+    supportsReference: true,
+    maxReferenceImages: 10,
+    description: 'Seedream V5 Pro · 文生图/多图编辑',
   },
   // ========================================================================
   // Midjourney — 完全对齐 gpt-image-2-web/index.html runMJ L4437~L4694
@@ -286,7 +308,7 @@ export const NBPRO_FAL_RESOLUTIONS = ['1K', '2K', '4K'];
 
 // ========== 视频 ==========
 // kind 决定上游 payload 协议(后端会根据 model 名自动识别,前端主要用于控制参数 UI 列表)
-export type VideoKind = 'veo' | 'grok' | 'sora' | 'seedance';
+export type VideoKind = 'veo' | 'grok' | 'sora' | 'seedance' | 'happyhorse' | 'wan';
 
 // ---- Video FAL 渠道注册表 (1:1 对齐 gpt-image-2-web runVeo3Fal / runGrokFal / runSora2Fal) ----
 export interface VideoFalEndpointDef {
@@ -494,6 +516,44 @@ export const VIDEO_MODELS: VideoModelDef[] = [
     defaultResolution: '',
     supportImages: true,
     maxRefImages: 1,
+  },
+  {
+    id: 'wan-2.7-spicy',
+    label: 'Wan',
+    kind: 'wan',
+    provider: 'zhenzhen',
+    description: 'Wan 2.7 Spicy · 宽审核图生视频',
+    apiModelOptions: [
+      { value: 'wan-2.7-spicy-i2v', label: 'wan-2.7-spicy-i2v（图生视频）' },
+    ],
+    ratios: ['16:9'],
+    defaultRatio: '16:9',
+    durations: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    defaultDuration: 2,
+    resolutions: ['720p', '1080p'],
+    defaultResolution: '720p',
+    supportImages: true,
+    maxRefImages: 1,
+  },
+  {
+    id: 'happyhorse-1.1',
+    label: 'Happy Horse',
+    kind: 'happyhorse',
+    provider: 'zhenzhen',
+    description: 'Happy Horse 1.1 · 文生/图生/参考图生视频',
+    apiModelOptions: [
+      { value: 'happyhorse-1.1-t2v', label: 'happyhorse-1.1-t2v（文生视频）' },
+      { value: 'happyhorse-1.1-i2v', label: 'happyhorse-1.1-i2v（图生视频）' },
+      { value: 'happyhorse-1.1-r2v', label: 'happyhorse-1.1-r2v（参考图生视频）' },
+    ],
+    ratios: ['adaptive', '16:9', '9:16', '1:1', '4:3', '3:4', '21:9'],
+    defaultRatio: 'adaptive',
+    durations: [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    defaultDuration: 4,
+    resolutions: ['720p', '1080p'],
+    defaultResolution: '720p',
+    supportImages: true,
+    maxRefImages: 9,
   },
   {
     id: 'seedance-2.0',

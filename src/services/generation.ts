@@ -22,9 +22,9 @@ async function safeJsonResponse(response: Response, label: string): Promise<any>
 }
 
 export interface GenerateImageRequest {
-  model: string;          // 节点 id (gpt-image-2 / nano-banana-2 / nano-banana-pro / grok-image)
+  model: string;          // 节点 id (gpt-image-2 / nano-banana-2 / nano-banana-pro / grok-image / seedream-v5-pro)
   apiModel?: string;       // 上游真实模型名(优先使用)
-  paramKind?: 'gpt-size' | 'banana-ratio' | 'grok-image' | 'mj';
+  paramKind?: 'gpt-size' | 'banana-ratio' | 'grok-image' | 'seedream-v5' | 'mj';
   prompt: string;
   n?: number;
   // 主参数(双协议通用):
@@ -38,6 +38,8 @@ export interface GenerateImageRequest {
   // 兼容旧参数:若传了 size(像素串)则优先用、image 单张也会并入 images
   size?: string;
   image?: string;
+  response_format?: 'url' | 'b64_json';
+  output_format?: 'png' | 'jpeg';
   providerParams?: Record<string, any>;
 }
 
@@ -82,7 +84,12 @@ export interface GenerateExternalImageResult {
   imageUrls: string[];
   remoteImageUrls?: string[];
   videoUrls?: string[];
+  remoteVideoUrls?: string[];
   audioUrls?: string[];
+  remoteAudioUrls?: string[];
+  outputKinds?: Array<'image' | 'video' | 'audio' | 'text'>;
+  primaryKind?: 'image' | 'video' | 'audio' | 'text';
+  outputSaveErrors?: Array<{ kind: string; url: string; error: string }>;
   text?: string;
   taskId?: string;
   raw?: any;
@@ -104,7 +111,12 @@ export async function generateExternalImage(req: GenerateExternalImageRequest): 
     imageUrls: Array.isArray(payload.imageUrls) ? payload.imageUrls : [],
     remoteImageUrls: Array.isArray(payload.remoteImageUrls) ? payload.remoteImageUrls : undefined,
     videoUrls: Array.isArray(payload.videoUrls) ? payload.videoUrls : undefined,
+    remoteVideoUrls: Array.isArray(payload.remoteVideoUrls) ? payload.remoteVideoUrls : undefined,
     audioUrls: Array.isArray(payload.audioUrls) ? payload.audioUrls : undefined,
+    remoteAudioUrls: Array.isArray(payload.remoteAudioUrls) ? payload.remoteAudioUrls : undefined,
+    outputKinds: Array.isArray(payload.outputKinds) ? payload.outputKinds : undefined,
+    primaryKind: payload.primaryKind,
+    outputSaveErrors: Array.isArray(payload.outputSaveErrors) ? payload.outputSaveErrors : undefined,
     text: typeof payload.text === 'string' ? payload.text : undefined,
     taskId: payload.taskId,
     raw: payload.raw,
@@ -197,6 +209,33 @@ export async function queryImageStatus(taskId: string, apiModel?: string): Promi
   const data = await r.json();
   if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
   // 失败状态下 success=false 但返回 body 中仍包含 status:'failed'
+  return data.data || { status: data.success ? 'pending' : 'failed', progress: '0%', error: data?.error };
+}
+
+export interface SeedreamNzSubmitRequest {
+  prompt: string;
+  images?: string[];
+  modelFamily?: 'domestic' | 'overseas';
+  resolution?: '1k' | '2k';
+  size?: string;
+  output_format?: 'png' | 'jpeg';
+}
+
+export async function submitSeedreamNz(req: SeedreamNzSubmitRequest): Promise<ImageSubmitResult> {
+  const r = await fetch('/api/proxy/image/seedance-nz/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await safeJsonResponse(r, '贞贞的平价AI工坊（国内） Seedream 提交');
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export async function querySeedreamNz(taskId: string): Promise<ImageQueryResult> {
+  const r = await fetch(`/api/proxy/image/seedance-nz/status/${encodeURIComponent(taskId)}`);
+  const data = await safeJsonResponse(r, '贞贞的平价AI工坊（国内） Seedream 查询');
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data || { status: data.success ? 'pending' : 'failed', progress: '0%', error: data?.error };
 }
 
@@ -744,11 +783,77 @@ export async function queryVideo(taskId: string, model?: string): Promise<VideoQ
   return data.data;
 }
 
+export interface HappyHorseSubmitRequest {
+  model: 'happyhorse-1.1-t2v' | 'happyhorse-1.1-i2v' | 'happyhorse-1.1-r2v';
+  prompt?: string;
+  duration: number;
+  ratio: string;
+  resolution: '720p' | '1080p';
+  images?: string[];
+}
+
+export async function submitHappyHorse(req: HappyHorseSubmitRequest): Promise<{ taskId: string; model: string; taskType: string }> {
+  const r = await fetch('/api/proxy/video/happyhorse/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export interface HappyHorseQueryResult {
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | string;
+  progress?: string | number;
+  videoUrl?: string | null;
+  failReason?: string | null;
+}
+
+export async function queryHappyHorse(taskId: string): Promise<HappyHorseQueryResult> {
+  const r = await fetch(`/api/proxy/video/happyhorse/status/${encodeURIComponent(taskId)}`);
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export interface WanSubmitRequest {
+  model: 'wan-2.7-spicy-i2v';
+  prompt?: string;
+  duration: number;
+  resolution: '720p' | '1080p';
+  images: string[];
+  negativePrompt?: string;
+  audioUrl?: string;
+  promptExtend?: boolean;
+  seed?: number;
+}
+
+export async function submitWan(req: WanSubmitRequest): Promise<{ taskId: string; model: string; taskType: string }> {
+  const r = await fetch('/api/proxy/video/wan/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await safeJsonResponse(r, 'Wan 2.7 Spicy 提交');
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export async function queryWan(taskId: string): Promise<HappyHorseQueryResult> {
+  const r = await fetch(`/api/proxy/video/wan/status/${encodeURIComponent(taskId)}`);
+  const data = await safeJsonResponse(r, 'Wan 2.7 Spicy 查询');
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
 // ========================================================================
 // Seedance 2.0 (异步) — 完全对齐 gpt-image-2-web runSeedance / pollSeedance
 //   submit: POST /api/proxy/seedance/submit
 //   query : GET  /api/proxy/seedance/query?taskId=
 // ========================================================================
+export type SeedanceTaskProvider = 'auto' | 'seedance-nz' | 'zhenzhen-legacy';
+
 export interface SeedanceSubmitRequest {
   /** 'doubao-seedance-2-0-260128' | 'doubao-seedance-2-0-fast-260128' | 'doubao-seedance-2.0-mini' */
   model: string;
@@ -779,10 +884,19 @@ export interface SeedanceSubmitRequest {
   videos?: string[];
   /** 参考音频 URL 多个 */
   audios?: string[];
+  /** 内置 Seedance 后端；旧画布未设置时后端继续按 zhenzhen-legacy 处理。 */
+  taskProvider?: SeedanceTaskProvider;
   providerParams?: Record<string, any>;
 }
 
-export async function submitSeedance(req: SeedanceSubmitRequest): Promise<{ taskId: string }> {
+export interface SeedanceSubmitResult {
+  taskId: string;
+  taskProvider?: Exclude<SeedanceTaskProvider, 'auto'>;
+  model?: string;
+  taskType?: 't2v' | 'i2v' | 'multi';
+}
+
+export async function submitSeedance(req: SeedanceSubmitRequest): Promise<SeedanceSubmitResult> {
   const r = await fetch('/api/proxy/seedance/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -799,10 +913,17 @@ export interface SeedanceQueryResult {
   progress?: string;
   videoUrl?: string | null;
   failReason?: string | null;
+  taskProvider?: Exclude<SeedanceTaskProvider, 'auto'>;
+  model?: string;
+  taskType?: 't2v' | 'i2v' | 'multi';
 }
 
-export async function querySeedance(taskId: string): Promise<SeedanceQueryResult> {
-  const r = await fetch(`/api/proxy/seedance/query?taskId=${encodeURIComponent(taskId)}`);
+export async function querySeedance(
+  taskId: string,
+  taskProvider?: Exclude<SeedanceTaskProvider, 'auto'>,
+): Promise<SeedanceQueryResult> {
+  const providerQuery = taskProvider ? `&taskProvider=${encodeURIComponent(taskProvider)}` : '';
+  const r = await fetch(`/api/proxy/seedance/query?taskId=${encodeURIComponent(taskId)}${providerQuery}`);
   const data = await r.json();
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;
@@ -813,6 +934,7 @@ export async function querySeedance(taskId: string): Promise<SeedanceQueryResult
 // 完全对齐主项目 gpt-image-2-web 的 runSuno / runSunoCover / runSunoExtend
 // ========================================================================
 export type AudioMode = 'generate' | 'cover' | 'extend';
+export type AudioProviderMode = 'suno' | 'seed-audio';
 export interface AudioSubmitRequest {
   mode: AudioMode;
   prompt?: string;
@@ -875,6 +997,45 @@ export async function queryAudio(clipIds: string[], saveLocal: boolean = true): 
   return data.data;
 }
 
+export interface SeedAudioSubmitRequest {
+  model: 'doubao-seed-audio-1.0';
+  prompt: string;
+  speaker?: string;
+  outputFormat: 'wav' | 'mp3' | 'pcm' | 'ogg_opus';
+  sampleRate: '8000' | '16000' | '24000' | '32000' | '44100';
+  speechRate: number;
+  loudnessRate: number;
+  pitchRate: number;
+  images?: string[];
+  audioUrls?: string[];
+}
+
+export async function submitSeedAudio(req: SeedAudioSubmitRequest): Promise<{ taskId: string; model: string }> {
+  const r = await fetch('/api/proxy/audio/seed-audio/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
+export interface SeedAudioQueryResult {
+  status: 'pending' | 'running' | 'succeeded' | 'failed' | string;
+  progress?: string | number;
+  audioUrl?: string | null;
+  remoteAudioUrl?: string | null;
+  failReason?: string | null;
+}
+
+export async function querySeedAudio(taskId: string): Promise<SeedAudioQueryResult> {
+  const r = await fetch(`/api/proxy/audio/seed-audio/status/${encodeURIComponent(taskId)}`);
+  const data = await r.json();
+  if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data.data;
+}
+
 /**
  * 将本地音频上传给 Suno 并获取 clipId（用于 cover/extend 模式）。
  * 后端代理 _sunoUploadAudio 的 5 步流程。
@@ -896,16 +1057,18 @@ export async function uploadAudioForSuno(
 
 // ========================================================================
 // RunningHub 工作流(异步)
-// v1.2.9.16: 取消 rhWalletApiKey / useWallet 分路 ——
-// RH 钱包应用节点与普通 RunningHub 节点统一使用 settings.rhApiKey。
+// RH 钱包应用节点与普通 RunningHub 节点共用站点配置；国内/海外按 site 分流。
 // ========================================================================
+export type RhSite = 'cn' | 'intl';
+
 export interface RhSubmitRequest {
   webappId: string;
   nodeInfoList?: Array<{ nodeId: string; fieldName: string; fieldValue: any }>;
   instanceType?: string;
+  site?: RhSite;
 }
 
-export async function submitRh(req: RhSubmitRequest): Promise<{ taskId: string }> {
+export async function submitRh(req: RhSubmitRequest): Promise<{ taskId: string; site: RhSite; fallbackUsed?: boolean }> {
   const r = await fetch('/api/proxy/runninghub/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -921,29 +1084,31 @@ export interface RhQueryResult {
   urls: string[];
   failReason?: string | null;
   code?: number;
+  site?: RhSite;
+  fallbackUsed?: boolean;
 }
 
-export async function queryRh(taskId: string): Promise<RhQueryResult> {
-  const url = `/api/proxy/runninghub/query?taskId=${encodeURIComponent(taskId)}`;
+export async function queryRh(taskId: string, site: RhSite = 'cn'): Promise<RhQueryResult> {
+  const url = `/api/proxy/runninghub/query?taskId=${encodeURIComponent(taskId)}&site=${encodeURIComponent(site)}`;
   const r = await fetch(url);
   const data = await r.json();
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;
 }
 
-export async function cancelRh(taskId: string): Promise<{ taskId: string; raw?: any }> {
+export async function cancelRh(taskId: string, site: RhSite = 'cn'): Promise<{ taskId: string; site?: RhSite; raw?: any }> {
   const r = await fetch('/api/proxy/runninghub/cancel', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ taskId }),
+    body: JSON.stringify({ taskId, site }),
   });
   const data = await safeJsonResponse(r, 'RunningHub 取消任务');
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
   return data.data;
 }
 
-export async function fetchRhAppInfo(webappId: string): Promise<any> {
-  const url = `/api/proxy/runninghub/app-info?webappId=${encodeURIComponent(webappId)}`;
+export async function fetchRhAppInfo(webappId: string, site: RhSite = 'cn'): Promise<any> {
+  const url = `/api/proxy/runninghub/app-info?webappId=${encodeURIComponent(webappId)}&site=${encodeURIComponent(site)}`;
   const r = await fetch(url);
   const data = await r.json();
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);
@@ -954,11 +1119,11 @@ export async function fetchRhAppInfo(webappId: string): Promise<any> {
  * 上传任意本地/远程素材到 RunningHub，拿到内部 fileName。
  * 用于 RhConfigNode / RunningHubNode 中 valueType=image|video|audio 的条目提交前的资源转换。
  */
-export async function uploadRhAsset(url: string): Promise<{ fileName: string; fileType: string }> {
+export async function uploadRhAsset(url: string, site: RhSite = 'cn'): Promise<{ fileName: string; fileType: string; site?: RhSite }> {
   const r = await fetch('/api/proxy/runninghub/upload-asset', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, site }),
   });
   const data = await r.json();
   if (!r.ok || !data.success) throw new Error(data?.error || `HTTP ${r.status}`);

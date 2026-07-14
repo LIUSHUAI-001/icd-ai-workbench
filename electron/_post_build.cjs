@@ -12,6 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const PACKAGE_JSON = require(path.join(ROOT, 'package.json'));
@@ -77,9 +78,13 @@ function checkAchievementMedia() {
 function checkWebImageExtensionResources() {
   const extensionRoot = path.join(RES, 'extension', 'web-image-reverse');
   checkFile(path.join(extensionRoot, 'manifest.json'));
+  checkFile(path.join(extensionRoot, 'popup.html'));
+  checkFile(path.join(extensionRoot, 'sidepanel.html'));
+  checkFile(path.join(extensionRoot, 'scripts', 'asset-panel.js'));
   checkFile(path.join(extensionRoot, 'scripts', 'background.js'));
   checkFile(path.join(extensionRoot, 'scripts', 'content.js'));
   checkFile(path.join(extensionRoot, 'scripts', 'runninghub-bridge.js'));
+  checkFile(path.join(extensionRoot, 'styles', 'asset-panel.css'));
   checkFile(path.join(extensionRoot, 'styles', 'content.css'));
 }
 
@@ -128,6 +133,10 @@ function failSecurity(message, p) {
   process.exit(1);
 }
 
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function walkFiles(root, out = []) {
   if (!fs.existsSync(root)) return out;
   const st = fs.statSync(root);
@@ -156,12 +165,15 @@ function isSmallTextFile(p) {
 function runLocalPostBuildChecks() {
   const disabled = process.env.T8_ENABLE_LOCAL_PRIVATE === '0'
     || process.env.T8_DISABLE_LOCAL_EXTENSIONS === '1';
+  const required = process.env.T8_REQUIRE_LOCAL_PRIVATE === '1';
   const hookPath = path.join(ROOT, 'local-private', 'extensions', 'build', 'post-build.cjs');
   if (disabled) {
+    if (required) failSecurity('formal release cannot disable local private build hook:', hookPath);
     console.log('  ⚠️  local private build hook disabled by environment');
     return;
   }
   if (!fs.existsSync(hookPath)) {
+    if (required) failSecurity('formal release requires local private build hook:', hookPath);
     console.log('  ✅ no local private build hook configured');
     return;
   }
@@ -187,6 +199,28 @@ function runLocalPostBuildChecks() {
     walkFiles,
     isSmallTextFile,
   });
+}
+
+function checkRequiredLocalPrivateArtifacts() {
+  if (process.env.T8_REQUIRE_LOCAL_PRIVATE !== '1') return;
+  const requiredBackend = [
+    path.join(RES, 'backend-enc', 'local-private', 'extensions', 'backend', 'index.t8c'),
+    path.join(RES, 'backend-enc', 'local-private', 'recharge', 'backend', 'routes.t8c'),
+  ];
+  for (const file of requiredBackend) {
+    if (!fs.existsSync(file)) failSecurity('formal release missing encrypted local private backend:', file);
+    ok(file);
+  }
+
+  const forbiddenPlaintext = [
+    path.join(RES, 'backend-enc', 'local-private', 'extensions', 'backend', 'index.cjs'),
+    path.join(RES, 'backend-enc', 'local-private', 'recharge', 'backend', 'routes.cjs'),
+  ];
+  for (const file of forbiddenPlaintext) {
+    if (fs.existsSync(file)) failSecurity('formal release leaked local private backend source:', file);
+  }
+
+  console.log('  ✅ formal release local private frontend/backend artifacts verified');
 }
 
 function checkAiWatermarkRuntime() {
@@ -225,6 +259,26 @@ function checkAiWatermarkRuntime() {
   console.log('     Set T8_REQUIRE_AI_WATERMARK_RUNTIME=1 for user-release builds that must be offline/self-contained.');
 }
 
+function loadPackagedVideoTransitions() {
+  const catalogPath = path.join(RES, 'shared', 'videoTransitions.json');
+  if (!fs.existsSync(catalogPath)) {
+    missingCount += 1;
+    bad(catalogPath);
+    return [];
+  }
+  let catalog = null;
+  try {
+    catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf-8'));
+  } catch (_) {
+    failSecurity('packaged videoTransitions.json must be valid JSON:', catalogPath);
+  }
+  const transitions = Array.isArray(catalog?.transitions) ? catalog.transitions : [];
+  if (transitions.length === 0) {
+    failSecurity('packaged videoTransitions.json has no transitions:', catalogPath);
+  }
+  return transitions;
+}
+
 function checkFfmpegRuntime() {
   const runtimeRoot = path.join(RES, 'tools', 'ffmpeg');
   const binary = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
@@ -235,6 +289,60 @@ function checkFfmpegRuntime() {
     return;
   }
   ok(ffmpeg);
+  const result = spawnSync(ffmpeg, ['-hide_banner', '-h', 'filter=xfade'], { encoding: 'utf8' });
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  if (result.status !== 0 || !/wipeleft/.test(output) || !/circleopen/.test(output) || !/pixelize/.test(output)) {
+    failSecurity('packaged ffmpeg must support xfade high-quality transitions:', ffmpeg);
+  }
+  const missingTransitions = [];
+  for (const transition of loadPackagedVideoTransitions()) {
+    if (!transition || transition.quality !== 'native-xfade') continue;
+    if (!transition.xfade) {
+      missingTransitions.push(`${transition.id || 'unknown'}:missing-xfade`);
+      continue;
+    }
+    const transitionName = String(transition.xfade);
+    const supported = new RegExp(`\\b${escapeRegExp(transitionName)}\\b`).test(output);
+    if (!supported) missingTransitions.push(`${transition.id || transitionName}:${transitionName}`);
+  }
+  if (missingTransitions.length > 0) {
+    failSecurity(`packaged ffmpeg missing native xfade transitions from catalog: ${missingTransitions.join(', ')}`, ffmpeg);
+  }
+  console.log('  ✅ ffmpeg xfade high-quality transitions verified against packaged catalog');
+}
+
+function checkFfprobeRuntime() {
+  const runtimeRoot = path.join(RES, 'tools', 'ffmpeg');
+  const binary = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+  const ffprobe = path.join(runtimeRoot, binary);
+  if (!fs.existsSync(ffprobe)) {
+    missingCount += 1;
+    bad(ffprobe);
+    return;
+  }
+  ok(ffprobe);
+  const result = spawnSync(ffprobe, [
+    '-v', 'error',
+    '-f', 'lavfi',
+    '-i', 'testsrc=size=16x16:rate=1:duration=0.1',
+    '-show_streams',
+    '-show_format',
+    '-of', 'json',
+  ], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    failSecurity('packaged ffprobe must support JSON probing:', ffprobe);
+  }
+  let parsed = null;
+  try {
+    parsed = JSON.parse(result.stdout || '{}');
+  } catch (_) {
+    failSecurity('packaged ffprobe returned invalid JSON:', ffprobe);
+  }
+  const streams = Array.isArray(parsed?.streams) ? parsed.streams : [];
+  if (!streams.some((stream) => stream && stream.codec_type === 'video')) {
+    failSecurity('packaged ffprobe JSON probe did not expose a video stream:', ffprobe);
+  }
+  console.log('  ✅ packaged ffprobe JSON probe verified');
 }
 
 function checkParseHubRuntime() {
@@ -274,6 +382,18 @@ function checkFigmaBridgeRuntime() {
   checkFile(path.join(root, 'plugin', 'manifest.json'));
   checkFile(path.join(root, 'plugin', 'code.js'));
   checkFile(path.join(root, 'plugin', 'ui.html'));
+}
+
+function checkPhotoshopBridgeResources() {
+  const root = path.join(RES, 'tools', 'photoshop-bridge', 'plugin');
+  checkFile(path.join(root, 'manifest.json'));
+  checkFile(path.join(root, 'index.html'));
+  checkFile(path.join(root, 'style.css'));
+  checkFile(path.join(root, 'js', 'boot.js'));
+  checkFile(path.join(root, 'js', 'state.js'));
+  checkFile(path.join(root, 'js', 'net.js'));
+  checkFile(path.join(root, 'js', 'ps.js'));
+  checkFile(path.join(root, 'js', 'app.js'));
 }
 
 function checkUpdateArtifacts() {
@@ -475,6 +595,9 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'routes', 'topaz.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'vibexBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'routes', 'videoOps.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'batchTags.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'photoshopBridge.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'routes', 'webAssets.t8c'));
   checkNoLocalVibexRoute();
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'media.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'achievements', 'store.t8c'));
@@ -490,6 +613,8 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'providers', 'volcengine.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'providers', 'comfyui.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'providers', 'jimengCli.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'providers', 'seedanceNz.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'providers', 'runninghubSite.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'tools', 'aiWatermark', 'runner.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'tools', 'aiWatermark', 'media.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'tools', 'topaz', 'runner.t8c'));
@@ -498,12 +623,17 @@ function main() {
   checkFile(path.join(RES, 'backend-enc', 'utils', 'figmaBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'parseHubBridge.t8c'));
   checkFile(path.join(RES, 'backend-enc', 'utils', 'runtimeArchive.t8c'));
+  checkFile(path.join(RES, 'backend-enc', 'utils', 'safeRemoteMediaFetch.t8c'));
 
   console.log('\n[2] 前端 dist:');
   checkFile(path.join(RES, 'frontend', 'index.html'));
   checkFile(path.join(RES, 'frontend', 'assets'));
+  checkFile(path.join(RES, 'frontend', 'assets', 'face-expression', 't8-ict-neutral-head-v1.glb'));
+  checkFile(path.join(RES, 'frontend', 'assets', 'face-expression', 'asset-manifest.json'));
+  checkFile(path.join(RES, 'frontend', 'assets', 'face-expression', 'LICENSE-ICT-FaceKit.txt'));
   checkWebImageExtensionResources();
   checkFile(path.join(RES, 'shared', 'achievementManifest.json'));
+  checkFile(path.join(RES, 'shared', 'videoTransitions.json'));
   checkFrontendAsset('classic-one-summer-day-', '.mp3');
   checkFrontendAsset('pixel-theme-of-sss-', '.mp3');
   checkFrontendAsset('op-battle-scars-', '.mp3');
@@ -519,6 +649,7 @@ function main() {
   checkFrontendAsset('dragonball-shenron-cha-la-head-cha-la-', '.mp3');
   checkFrontendAsset('saint-seiya-pegasus-fantasy-', '.mp3');
   checkFrontendAsset('saint-seiya-hades-last-holy-war-', '.mp3');
+  checkFrontendAsset('garden-defense-grasswalk-', '.mp3');
   checkAchievementMedia();
 
   console.log('\n[3] 清除可能混入的明文后端源码:');
@@ -526,12 +657,14 @@ function main() {
 
   console.log('\n[4] 本地私有扩展分发检查:');
   runLocalPostBuildChecks();
+  checkRequiredLocalPrivateArtifacts();
 
   console.log('\n[5] 去AI水印 sidecar runtime:');
   checkAiWatermarkRuntime();
 
   console.log('\n[6] ffmpeg sidecar runtime:');
   checkFfmpegRuntime();
+  checkFfprobeRuntime();
 
   console.log('\n[7] ParseHub bridge/runtime:');
   checkParseHubRuntime();
@@ -539,19 +672,22 @@ function main() {
   console.log('\n[8] Figma bridge/plugin:');
   checkFigmaBridgeRuntime();
 
-  console.log('\n[9] RH工具箱制作器分发检查:');
+  console.log('\n[9] Photoshop bridge/plugin:');
+  checkPhotoshopBridgeResources();
+
+  console.log('\n[10] RH工具箱制作器分发检查:');
   checkNoRhToolboxMaker();
 
-  console.log('\n[10] RH工具箱发布清单分发检查:');
+  console.log('\n[11] RH工具箱发布清单分发检查:');
   checkRhToolboxReleaseManifest();
 
-  console.log('\n[11] FAL应用制作工具分发检查:');
+  console.log('\n[12] FAL应用制作工具分发检查:');
   checkNoFalToolboxMaker();
 
-  console.log('\n[12] GitHub 自动更新资产:');
+  console.log('\n[13] GitHub 自动更新资产:');
   checkUpdateArtifacts();
 
-  console.log('\n[13] resources/ 完整结构:');
+  console.log('\n[14] resources/ 完整结构:');
   listDir(RES);
 
   if (missingCount > 0) {

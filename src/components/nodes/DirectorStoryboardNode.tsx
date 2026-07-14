@@ -24,12 +24,14 @@ import {
 import {
   querySeedance,
   submitSeedance,
+  type SeedanceTaskProvider,
   uploadFile,
 } from '../../services/generation';
 import * as api from '../../services/api';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
 import { useMaterialDropTarget } from '../../hooks/useMaterialDropTarget';
 import { useThemeStore } from '../../stores/theme';
+import { useApiKeysStore } from '../../stores/apiKeys';
 import { logBus } from '../../stores/logs';
 import { taskCompletionSound } from '../../stores/taskCompletionSound';
 import { useDragMaterialStore, type MaterialPayload } from '../../stores/dragMaterial';
@@ -67,13 +69,19 @@ import {
   type DirectorStoryboardShot,
 } from '../../utils/directorStoryboard';
 import { materialMentionKey, type MediaMention } from './mediaMentions';
+import {
+  LEGACY_SEEDANCE_MODEL_OPTIONS,
+  LEGACY_SEEDANCE_RATIO_OPTIONS,
+  LEGACY_SEEDANCE_RESOLUTION_OPTIONS,
+  SEEDANCE_NZ_MODEL_OPTIONS,
+  SEEDANCE_NZ_NATIVE_RESOLUTION_OPTIONS,
+  SEEDANCE_NZ_RATIO_OPTIONS,
+  SEEDANCE_NZ_RESOLUTION_OPTIONS,
+  isSeedanceBuiltinSource,
+  isSeedanceNzStandardModel,
+  type SeedanceBuiltinSource,
+} from '../../config/seedance';
 
-const MODEL_OPTIONS = [
-  { value: 'doubao-seedance-2-0-fast-260128', label: 'seedance-2-0-fast' },
-  { value: 'doubao-seedance-2-0-260128', label: 'seedance-2-0' },
-];
-const RATIO_OPTIONS = ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '9:21', 'adaptive'];
-const RESOLUTION_OPTIONS = ['480p', '720p', 'native1080p', '1080p', '2k', '4k'];
 const FRAME_MODE_OPTIONS = [
   { value: 'auto', label: '多参考图' },
   { value: 'first', label: '首帧' },
@@ -89,6 +97,7 @@ type JobUiResult = {
   title?: string;
   shotId?: string;
   taskId?: string | null;
+  taskProvider?: Exclude<SeedanceTaskProvider, 'auto'> | null;
   videoUrl?: string | null;
   error?: string | null;
   progress?: string;
@@ -295,6 +304,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
   const isDark = theme === 'dark';
   const isPixel = themeStyle === 'pixel';
   const d = (data as any) || {};
+  const hasSeedanceNzKey = useApiKeysStore((state) => !!String(state.settings.zhenzhenSd2ApiKey || '').trim());
   const src = `director:${id.slice(0, 6)}`;
 
   const shots = useMemo(
@@ -335,9 +345,26 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
   );
   const hasBusyBridge = bridges.some((bridge) => isBridgeBusy(bridge));
   const isBusy = status === 'submitting' || status === 'polling' || hasBusyBridge;
-  const model = String(d.model || MODEL_OPTIONS[0].value);
-  const ratio = String(d.ratio || '16:9');
-  const resolution = String(d.resolution || '480p');
+  const savedBuiltinSource = String(d.seedanceApiSource || '');
+  const builtinSource: SeedanceBuiltinSource = isSeedanceBuiltinSource(savedBuiltinSource)
+    ? savedBuiltinSource
+    : 'zhenzhen-legacy';
+  const effectiveTaskProvider: Exclude<SeedanceTaskProvider, 'auto'> = builtinSource === 'auto'
+    ? (hasSeedanceNzKey ? 'seedance-nz' : 'zhenzhen-legacy')
+    : builtinSource;
+  const isSeedanceNzSelected = effectiveTaskProvider === 'seedance-nz';
+  const legacyModel = String(d.model || LEGACY_SEEDANCE_MODEL_OPTIONS[0].value);
+  const seedanceNzModel = String(d.seedanceNzModel || 'fast');
+  const model = isSeedanceNzSelected ? seedanceNzModel : legacyModel;
+  const modelOptions = isSeedanceNzSelected ? SEEDANCE_NZ_MODEL_OPTIONS : LEGACY_SEEDANCE_MODEL_OPTIONS;
+  const ratioOptions = isSeedanceNzSelected ? SEEDANCE_NZ_RATIO_OPTIONS : LEGACY_SEEDANCE_RATIO_OPTIONS;
+  const resolutionOptions = isSeedanceNzSelected
+    ? (isSeedanceNzStandardModel(seedanceNzModel) ? SEEDANCE_NZ_NATIVE_RESOLUTION_OPTIONS : SEEDANCE_NZ_RESOLUTION_OPTIONS)
+    : LEGACY_SEEDANCE_RESOLUTION_OPTIONS;
+  const savedRatio = String(d.ratio || '16:9');
+  const ratio = ratioOptions.includes(savedRatio as any) ? savedRatio : '16:9';
+  const savedResolution = String(d.resolution || '480p');
+  const resolution = resolutionOptions.includes(savedResolution as any) ? savedResolution : '720p';
   const generateAudio = d.generateAudio !== false;
   const returnLastFrame = d.returnLastFrame === true;
   const watermark = d.watermark === true;
@@ -473,6 +500,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
   );
   const runSettings = useMemo(() => ({
     model,
+    taskProvider: builtinSource,
     ratio,
     resolution,
     generateAudio,
@@ -481,7 +509,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
     webSearch,
     seed,
     providerParams,
-  }), [model, ratio, resolution, generateAudio, returnLastFrame, watermark, webSearch, seed, providerParams]);
+  }), [model, builtinSource, ratio, resolution, generateAudio, returnLastFrame, watermark, webSearch, seed, providerParams]);
   const currentShotPlan = useMemo(
     () => buildDirectorStoryboardRunPlan(shots, runSettings, {
       upstreamPrompt,
@@ -1129,6 +1157,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
     setJobPatch(job, {
       status: videoUrl ? 'success' : (existing.status === 'error' ? 'error' : 'polling'),
       taskId,
+      taskProvider: existing.taskProvider || bridge.taskProvider || null,
       videoUrl,
       error: videoUrl ? null : (existing.error || bridge.error || null),
       progress: videoUrl ? '100%' : (existing.progress || '待查询'),
@@ -1174,33 +1203,68 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
       await Promise.all(recoverable.map(async ([job, result]) => {
         if (!result?.taskId) return;
         try {
-          const query = await querySeedance(result.taskId);
+          const query = await querySeedance(result.taskId, result.taskProvider || undefined);
           if (query.status === 'succeeded' && query.videoUrl) {
             setJobPatch(job, {
               status: 'success',
               taskId: result.taskId,
+              taskProvider: query.taskProvider || result.taskProvider || null,
               videoUrl: query.videoUrl,
               error: null,
               progress: '100%',
             });
             if (job.kind === 'bridge') {
               const bridgeIdFromJob = job.id.replace(/^bridge-/, '');
-              patchBridge(bridgeIdFromJob, { status: 'success', videoUrl: query.videoUrl, error: null, taskId: result.taskId });
+              patchBridge(bridgeIdFromJob, {
+                status: 'success',
+                videoUrl: query.videoUrl,
+                error: null,
+                taskId: result.taskId,
+                taskProvider: query.taskProvider || result.taskProvider || null,
+              });
             } else {
-              patchShot(job.shotId, { status: 'success', videoUrl: query.videoUrl, error: null, taskId: result.taskId });
+              patchShot(job.shotId, {
+                status: 'success',
+                videoUrl: query.videoUrl,
+                error: null,
+                taskId: result.taskId,
+                taskProvider: query.taskProvider || result.taskProvider || null,
+              });
             }
           } else if (query.status === 'failed') {
             const error = query.failReason || '任务失败';
-            setJobPatch(job, { status: 'error', taskId: result.taskId, error, progress: '失败' });
+            setJobPatch(job, {
+              status: 'error',
+              taskId: result.taskId,
+              taskProvider: result.taskProvider || null,
+              error,
+              progress: '失败',
+            });
             if (job.kind === 'bridge') {
-              patchBridge(job.id.replace(/^bridge-/, ''), { status: 'error', error, taskId: result.taskId });
+              patchBridge(job.id.replace(/^bridge-/, ''), {
+                status: 'error',
+                error,
+                taskId: result.taskId,
+                taskProvider: result.taskProvider || null,
+              });
             } else {
-              patchShot(job.shotId, { status: 'error', error, taskId: result.taskId });
+              patchShot(job.shotId, {
+                status: 'error',
+                error,
+                taskId: result.taskId,
+                taskProvider: result.taskProvider || null,
+              });
             }
           }
         } catch (error: any) {
           const message = error?.message || '重新获取失败';
-          setJobPatch(job, { status: 'error', taskId: result.taskId, error: message, progress: '失败' });
+          setJobPatch(job, {
+            status: 'error',
+            taskId: result.taskId,
+            taskProvider: result.taskProvider || null,
+            error: message,
+            progress: '失败',
+          });
         }
       }));
     }
@@ -1221,12 +1285,33 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
     );
     setJobPatch(job, { status: 'submitting', error: null, progress: '提交中' });
     const submitted = await submitSeedance(job.payload);
-    setJobPatch(job, { status: 'polling', taskId: submitted.taskId, progress: '15%' });
+    const submittedProvider = submitted.taskProvider || effectiveTaskProvider;
+    setJobPatch(job, {
+      status: 'polling',
+      taskId: submitted.taskId,
+      taskProvider: submittedProvider,
+      progress: '15%',
+    });
+    if (job.kind === 'bridge') {
+      patchBridge(job.id.replace(/^bridge-/, ''), {
+        status: 'polling',
+        taskId: submitted.taskId,
+        taskProvider: submittedProvider,
+        error: null,
+      });
+    } else {
+      patchShot(job.shotId, {
+        status: 'polling',
+        taskId: submitted.taskId,
+        taskProvider: submittedProvider,
+        error: null,
+      });
+    }
     logBus.info(`${job.title} taskId=${submitted.taskId} 已提交，进入轮询`, src);
 
     for (let elapsed = 1; elapsed <= maxPoll; elapsed += 1) {
       await sleep(pollInt * 1000, signal);
-      const result = await querySeedance(submitted.taskId);
+      const result = await querySeedance(submitted.taskId, submittedProvider);
       const pct = Math.min(95, Math.round(15 + (elapsed * 80) / maxPoll));
       if (result.status === 'succeeded' && result.videoUrl) {
         logBus.success(`${job.title} 完成 → ${result.videoUrl}`, src);
@@ -1238,6 +1323,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
       setJobPatch(job, {
         status: 'polling',
         taskId: submitted.taskId,
+        taskProvider: result.taskProvider || submittedProvider,
         progress: result.progress || `${pct}%`,
       });
       if (elapsed === 1 || elapsed % 3 === 0) {
@@ -1964,14 +2050,55 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
 
       <div className="space-y-2 p-3">
         <div className="grid grid-cols-4 gap-1.5">
-          <select value={model} onChange={(event) => update({ model: event.target.value })} className="nodrag rounded border px-2 py-1 text-[11px] outline-none col-span-2" style={inputStyle}>
-            {MODEL_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          <select
+            value={builtinSource}
+            onChange={(event) => {
+              const nextSource = event.target.value as SeedanceBuiltinSource;
+              const nextUsesSeedanceNz = nextSource === 'seedance-nz' || (nextSource === 'auto' && hasSeedanceNzKey);
+              update({
+                seedanceApiSource: nextSource,
+                ratio: nextUsesSeedanceNz && savedRatio === '9:21' ? '9:16' : savedRatio,
+                resolution: nextUsesSeedanceNz && savedResolution === 'native4K' ? 'native4k' : savedResolution,
+              });
+            }}
+            className="nodrag col-span-4 rounded border px-2 py-1 text-[11px] outline-none"
+            style={inputStyle}
+            title="Seedance API 来源"
+          >
+            <option value="auto">主力 API（自动：优先国内平价工坊）</option>
+            <option value="seedance-nz">贞贞的平价AI工坊（国内） · api.seedance.nz</option>
+            <option value="zhenzhen-legacy">贞贞的AI工坊（海外） · ai.t8star.org</option>
+          </select>
+        </div>
+        {isSeedanceNzSelected && !hasSeedanceNzKey && (
+          <div className="rounded border px-2 py-1 text-[10px]" style={{ borderColor: 'var(--t8-warning, #f59e0b)', color: 'var(--t8-warning, #f59e0b)' }}>
+            尚未配置“贞贞的平价AI工坊（国内） API Key”，请先到 API 设置填写。
+          </div>
+        )}
+        <div className="grid grid-cols-4 gap-1.5">
+          <select
+            value={model}
+            onChange={(event) => {
+              const nextModel = event.target.value;
+              update({
+                [isSeedanceNzSelected ? 'seedanceNzModel' : 'model']: nextModel,
+                resolution: isSeedanceNzSelected
+                  && !isSeedanceNzStandardModel(nextModel)
+                  && String(resolution).startsWith('native')
+                  ? '720p'
+                  : resolution,
+              });
+            }}
+            className="nodrag rounded border px-2 py-1 text-[11px] outline-none col-span-2"
+            style={inputStyle}
+          >
+            {modelOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
           </select>
           <select value={ratio} onChange={(event) => update({ ratio: event.target.value })} className="nodrag rounded border px-2 py-1 text-[11px] outline-none" style={inputStyle}>
-            {RATIO_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+            {ratioOptions.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
           <select value={resolution} onChange={(event) => update({ resolution: event.target.value })} className="nodrag rounded border px-2 py-1 text-[11px] outline-none" style={inputStyle}>
-            {RESOLUTION_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+            {resolutionOptions.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </div>
 
@@ -1984,10 +2111,12 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
             <input type="checkbox" checked={returnLastFrame} onChange={(event) => update({ returnLastFrame: event.target.checked })} />
             末帧
           </label>
-          <label className="flex items-center gap-1 text-[10px]" style={mutedStyle}>
-            <input type="checkbox" checked={watermark} onChange={(event) => update({ watermark: event.target.checked })} />
-            水印
-          </label>
+          {!isSeedanceNzSelected ? (
+            <label className="flex items-center gap-1 text-[10px]" style={mutedStyle}>
+              <input type="checkbox" checked={watermark} onChange={(event) => update({ watermark: event.target.checked })} />
+              水印
+            </label>
+          ) : <span className="text-[10px]" style={mutedStyle}>原生协议</span>}
           <input
             type="number"
             value={seed}
@@ -2004,7 +2133,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
           data={d}
           update={update}
           context={{
-            providerSource: 'zhenzhen',
+            providerSource: effectiveTaskProvider,
             providerModel: model,
             model,
             apiModel: model,
@@ -2197,7 +2326,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
                   title="单镜头模型，留空继承全局"
                 >
                   <option value="">继承模型</option>
-                  {MODEL_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  {modelOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                 </select>
                 <select
                   value={activeShot.ratioOverride || ''}
@@ -2207,7 +2336,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
                   title="单镜头比例，留空继承全局"
                 >
                   <option value="">继承比例</option>
-                  {RATIO_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  {ratioOptions.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
                 <select
                   value={activeShot.resolutionOverride || ''}
@@ -2217,7 +2346,7 @@ const DirectorStoryboardNode = ({ id, data, selected }: NodeProps) => {
                   title="单镜头分辨率，留空继承全局"
                 >
                   <option value="">继承分辨率</option>
-                  {RESOLUTION_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  {resolutionOptions.map((item) => <option key={item} value={item}>{item}</option>)}
                 </select>
               </div>
             </div>

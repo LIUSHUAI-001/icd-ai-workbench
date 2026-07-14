@@ -32,13 +32,14 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'grok-oauth-agent', 'codex-cli-agent',
   'resize', 'upscale', 'grid-crop', 'grid-editor', 'remove-bg', 'combine', 'image-compare', 'drawing-board',
   'panorama-3d',
+  'face-expression-3d',
   'frame-extractor', 'frame-pair',
   'upload',
   // v1.2.8 循环器 / 从合集获取
-  'loop', 'pick-from-set',
+  'loop', 'random-route', 'pick-from-set',
   // v1.4.6: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
   'cinematic', 'video-motion',
-  'portrait-master', 'pose-master', 'aggregate-parser', 'batch-processor',
+  'portrait-master', 'pose-master', 'aggregate-parser', 'batch-processor', 'batch-tagger',
   'topaz-image-upscale', 'topaz-video-upscale',
   'remove-ai-watermark',
 ]);

@@ -34,6 +34,7 @@ import { useRunBusStore } from '../stores/runBus';
 import { useGroupBusStore, GROUP_COLORS, DEFAULT_GROUP_NAME } from '../stores/groupBus';
 import { useRadialMenuStore } from '../stores/radialMenu';
 import { topologicalSort } from '../utils/topologicalSort';
+import { excludeRandomRouteBranchDescendants } from '../utils/randomRoute';
 import { installGlobalWheelBlockObserver } from '../utils/wheelBlock';
 // v1.2.10.5: 节点落点防重叠解析器 (单节点/整组双模式 + 兜底+toast+飞镜)
 import {
@@ -128,6 +129,7 @@ import {
 } from '../utils/videoEdit';
 import { buildGenerationHistoryDataKey, collectGenerationHistory, countGenerationHistoryItems } from '../utils/generationHistory';
 import { validateUploadMediaFile } from '../utils/uploadMediaValidation';
+import { defaultFaceExpressionState } from '../utils/faceExpression3D';
 import {
   CREATIVE_TARGET_NODE_TYPE,
   buildCreativeTargetResult,
@@ -141,6 +143,11 @@ import {
   buildVibeXSendNodeSpecs,
   normalizeVibeXResultPayload,
 } from '../utils/vibexBridge';
+import {
+  PHOTOSHOP_MESSAGE_CONTRACT,
+  buildPhotoshopSendNodeSpecs,
+  normalizePhotoshopResultPayload,
+} from '../utils/photoshopBridge';
 import * as api from '../services/api';
 import { logBus } from '../stores/logs';
 import CanvasToolbar from './CanvasToolbar';
@@ -153,6 +160,7 @@ import MaterialDragOverlay from './MaterialDragOverlay';
 import ThemeMusicToggle from './ThemeMusicToggle';
 import CreativeDeskLayer from './CreativeDeskLayer';
 import FarmCanvasLayer, { type FarmCanvasFloatingFeedback } from './FarmCanvasLayer';
+import GardenDefenseExperience from '../features/garden-defense/GardenDefenseExperience.tsx';
 import DragonBallRadar from './DragonBallRadar';
 import SaintSeiyaSanctuary from './SaintSeiyaSanctuary';
 import TetrisPanel from './TetrisPanel';
@@ -821,6 +829,15 @@ function withFarmNodeVisualState(node: Node): Node {
   return { ...node, className };
 }
 
+function withGardenDefenseNodeVisualState(node: Node): Node {
+  if (node.type === 'groupBox' || node.type === 'bulkPhantom') return node;
+  const visualState = farmNodeVisualStateFromData(node.data);
+  const currentClassName = typeof node.className === 'string' ? node.className : '';
+  const className = `${currentClassName} t8-garden-node-state is-garden-node-${visualState}`.trim();
+  if (className === currentClassName) return node;
+  return { ...node, className };
+}
+
 function normalizeEdgeCutKind(kind: unknown): EdgeCutFeedbackKind {
   if (kind === 'rope' || kind === 'water' || kind === 'path') return kind;
   return 'generic';
@@ -1047,6 +1064,7 @@ const RHToolsNode = lazyCanvasNode(() => import('./nodes/RHToolsNode'), 'RHTools
 const RHToolboxNode = lazyCanvasNode(() => import('./nodes/RHToolboxNode'), 'RHToolboxNode');
 const FalToolboxNode = lazyCanvasNode(() => import('./nodes/FalToolboxNode'), 'FalToolboxNode');
 const Model3DPreviewNode = lazyCanvasNode(() => import('./nodes/Model3DPreviewNode'), 'Model3DPreviewNode');
+const FaceExpression3DNode = lazyCanvasNode(() => import('./nodes/FaceExpression3DNode'), 'FaceExpression3DNode');
 const GrokOAuthAgentNode = lazyCanvasNode(() => import('./nodes/GrokOAuthAgentNode'), 'GrokOAuthAgentNode');
 const CodexCliAgentNode = lazyCanvasNode(() => import('./nodes/CodexCliAgentNode'), 'CodexCliAgentNode');
 const CodexImageConjureNode = lazyCanvasNode(() => import('./nodes/CodexImageConjureNode'), 'CodexImageConjureNode');
@@ -1067,6 +1085,7 @@ const PoseMasterNode = lazyCanvasNode(() => import('./nodes/PoseMasterNode'), 'P
 const Panorama3DNode = lazyCanvasNode(() => import('./nodes/Panorama3DNode'), 'Panorama3DNode');
 const AggregateParserNode = lazyCanvasNode(() => import('./nodes/AggregateParserNode'), 'AggregateParserNode');
 const BatchProcessorNode = lazyCanvasNode(() => import('./nodes/BatchProcessorNode'), 'BatchProcessorNode');
+const BatchTaggerNode = lazyCanvasNode(() => import('./nodes/BatchTaggerNode'), 'BatchTaggerNode');
 const TopazImageUpscaleNode = lazyCanvasNode(() => import('./nodes/TopazImageUpscaleNode'), 'TopazImageUpscaleNode');
 const TopazVideoUpscaleNode = lazyCanvasNode(() => import('./nodes/TopazVideoUpscaleNode'), 'TopazVideoUpscaleNode');
 const IdeaNode = lazyCanvasNode(() => import('./nodes/IdeaNode'), 'IdeaNode');
@@ -1082,6 +1101,7 @@ const BrowserNode = lazyCanvasNode(() => import('./nodes/BrowserNode'), 'Browser
 const FrameExtractorNode = lazyCanvasNode(() => import('./nodes/FrameExtractorNode'), 'FrameExtractorNode');
 const FramePairNode = lazyCanvasNode(() => import('./nodes/FramePairNode'), 'FramePairNode');
 const LoopNode = lazyCanvasNode(() => import('./nodes/LoopNode'), 'LoopNode');
+const RandomRouteNode = lazyCanvasNode(() => import('./nodes/RandomRouteNode'), 'RandomRouteNode');
 const PickFromSetNode = lazyCanvasNode(() => import('./nodes/PickFromSetNode'), 'PickFromSetNode');
 const TextSplitNode = lazyCanvasNode(() => import('./nodes/TextSplitNode'), 'TextSplitNode');
 const MaterialSetNode = lazyCanvasNode(() => import('./nodes/MaterialSetNode'), 'MaterialSetNode');
@@ -1121,6 +1141,7 @@ const SPECIFIC_NODES: Record<string, any> = {
   ...(import.meta.env?.DEV ? { 'rh-toolbox-maker': RHToolboxMakerNode } : {}),
   'fal-toolbox': FalToolboxNode,
   'model-3d-preview': Model3DPreviewNode,
+  'face-expression-3d': FaceExpression3DNode,
   'model-3d-upload': UploadNode,
   'grok-oauth-agent': GrokOAuthAgentNode,
   'codex-cli-agent': CodexCliAgentNode,
@@ -1143,6 +1164,7 @@ const SPECIFIC_NODES: Record<string, any> = {
   'frame-extractor': FrameExtractorNode,
   'frame-pair': FramePairNode,
   loop: LoopNode,
+  'random-route': RandomRouteNode,
   'pick-from-set': PickFromSetNode,
   'text-split': TextSplitNode,
   'material-set': MaterialSetNode,
@@ -1168,6 +1190,7 @@ const SPECIFIC_NODES: Record<string, any> = {
   'pose-master': PoseMasterNode,
   'aggregate-parser': AggregateParserNode,
   'batch-processor': BatchProcessorNode,
+  'batch-tagger': BatchTaggerNode,
   'topaz-image-upscale': TopazImageUpscaleNode,
   'topaz-video-upscale': TopazVideoUpscaleNode,
   'panorama-3d': Panorama3DNode,
@@ -1293,6 +1316,8 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   edit: { mode: 'edit', model: 'gpt-image-2', aspectRatio: '1:1', sizeLevel: '1K', referenceImages: [] },
   'video-edit': { ...DEFAULT_VIDEO_EDIT_DATA, clips: [], settings: { ...DEFAULT_VIDEO_EDIT_DATA.settings }, job: { ...DEFAULT_VIDEO_EDIT_DATA.job } },
   seedance: {
+    seedanceApiSource: 'auto',
+    seedanceNzModel: 'fast',
     model: 'doubao-seedance-2-0-fast-260128',
     duration: 5,
     ratio: '16:9',
@@ -1307,6 +1332,8 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     frameMode: 'auto',
   },
   'director-storyboard': {
+    seedanceApiSource: 'auto',
+    seedanceNzModel: 'fast',
     model: 'doubao-seedance-2-0-fast-260128',
     ratio: '16:9',
     resolution: '480p',
@@ -1406,6 +1433,28 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     batchProcessorRetryCount: 1,
     batchProcessorContinueOnError: true,
     batchProcessorQuality: 90,
+    status: 'idle',
+    error: '',
+  },
+  'batch-tagger': {
+    batchTagItems: [],
+    batchTagResults: [],
+    batchTagProgress: { total: 0, done: 0, ok: 0, fail: 0, running: 0, pending: 0, percent: 0, status: 'idle' },
+    batchTagMode: 'tags',
+    batchTagProviderSource: 'zhenzhen',
+    batchTagProviderId: '',
+    batchTagProviderModel: 'gpt-4o-mini',
+    batchTagVideoMode: 'frames',
+    batchTagFrameCount: 8,
+    batchTagMaxTags: 30,
+    batchTagFormats: ['txt'],
+    batchTagConcurrency: 2,
+    batchTagRetryCount: 1,
+    batchTagContinueOnError: true,
+    batchTagOverwrite: false,
+    batchTagPrompt: '',
+    outputText: '',
+    metadata: null,
     status: 'idle',
     error: '',
   },
@@ -1662,6 +1711,16 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     error: '',
     size: { w: 520, h: 440 },
   },
+  'face-expression-3d': {
+    faceExpression3DState: defaultFaceExpressionState(),
+    imageUrl: '',
+    imageUrls: [],
+    urls: [],
+    metadata: null,
+    status: 'idle',
+    error: '',
+    size: { w: 520, h: 520 },
+  },
   'comfyui-store': {
     comfyuiStoreProviderId: '',
     comfyuiStoreCategoryId: 'all',
@@ -1674,9 +1733,14 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
     taskId: '',
     imageUrl: '',
     imageUrls: [],
+    videoUrl: '',
     videoUrls: [],
+    audioUrl: '',
     audioUrls: [],
     outputText: '',
+    outputKinds: [],
+    primaryKind: '',
+    outputSaveErrors: [],
     error: '',
   },
   'comfyui-app-maker': {
@@ -1745,6 +1809,17 @@ const INITIAL_DATA: Record<string, Record<string, any>> = {
   } : {}),
   // 循环器: 默认串联 + image kind
   loop: { mode: 'serial', kind: 'image', outputs: [], progress: { done: 0, total: 0, ok: 0, fail: 0 } },
+  // 随机路由: 默认 10 个输出口，每次随机放行 1 个分支。
+  'random-route': {
+    randomRouteTotalOutputs: 10,
+    randomRoutePassCount: 1,
+    randomRouteActiveHandles: [],
+    randomRouteLastOrder: [],
+    randomRouteLastOkCount: 0,
+    randomRouteLastFailCount: 0,
+    status: 'idle',
+    error: '',
+  },
   // 从合集获取: 默认 image + 第 1 个
   'pick-from-set': { pickKind: 'image', pickIndex: 1 },
   'image-compare': { mode: 'slider', align: 'contain', split: 50, opacity: 50, threshold: 24 },
@@ -1877,12 +1952,13 @@ const EXECUTABLE_NODE_TYPES = new Set<string>([
   'grok-oauth-agent', 'codex-cli-agent', 'codex-image-conjure',
   'resize', 'upscale', 'grid-crop', 'grid-editor', 'remove-bg', 'combine', 'image-compare', 'drawing-board',
   'panorama-3d',
+  'face-expression-3d',
   'frame-extractor', 'frame-pair',
   'upload',
   // v1.2.8 工具节点 (循环器 / 从合集获取)
-  'loop', 'pick-from-set',
+  'loop', 'random-route', 'pick-from-set',
   // v1.4.8: 工具箱文本节点也可点击 RUN 直接外挂 OutputNode
-  'cinematic', 'video-motion', 'multi-angle-visual', 'portrait-master', 'pose-master', 'aggregate-parser', 'batch-processor',
+  'cinematic', 'video-motion', 'multi-angle-visual', 'portrait-master', 'pose-master', 'aggregate-parser', 'batch-processor', 'batch-tagger',
   'topaz-image-upscale', 'topaz-video-upscale',
   'remove-ai-watermark',
 ]);
@@ -1903,25 +1979,26 @@ const WEB_IMAGE_EXTENSION_MESSAGE_CONTRACT = {
   source: 't8-web-image-extension',
 } as const;
 
-type WebImageExtensionSendMode = 'prompt' | 'image' | 'both';
+type WebImageExtensionSendMode = 'prompt' | 'image' | 'both' | 'reference';
 
 interface WebImageExtensionPayload {
   messageId?: string;
   mode?: WebImageExtensionSendMode | string;
   prompt?: string;
-  images?: Array<string | { url?: string; imageUrl?: string; name?: string; mime?: string; size?: number }>;
+  images?: Array<string | { url?: string; imageUrl?: string; name?: string; mime?: string; size?: number; width?: number; height?: number; sourceUrl?: string; pageUrl?: string }>;
   imageUrls?: string[];
   sourceImageUrl?: string;
   pageUrl?: string;
   pageTitle?: string;
   source?: string;
+  webAssetItems?: Array<{ url?: string; imageUrl?: string; name?: string; mime?: string; size?: number; width?: number; height?: number; sourceUrl?: string; pageUrl?: string }>;
 }
 
 type BasicMediaKind = Exclude<MediaKind, 'model3d'>;
 
 function normalizeWebImageSendMode(value: unknown): WebImageExtensionSendMode {
   const mode = String(value || '').trim();
-  return mode === 'prompt' || mode === 'image' || mode === 'both' ? mode : 'both';
+  return mode === 'prompt' || mode === 'image' || mode === 'both' || mode === 'reference' ? mode : 'both';
 }
 
 function cleanWebImageText(value: unknown, maxLen = 8000): string {
@@ -1929,7 +2006,7 @@ function cleanWebImageText(value: unknown, maxLen = 8000): string {
 }
 
 function webImagePayloadImages(payload: WebImageExtensionPayload): MediaItem[] {
-  const raw = Array.isArray(payload.images) ? payload.images : payload.imageUrls;
+  const raw = Array.isArray(payload.images) ? payload.images : Array.isArray(payload.webAssetItems) ? payload.webAssetItems : payload.imageUrls;
   const seen = new Set<string>();
   const out: MediaItem[] = [];
   for (const item of Array.isArray(raw) ? raw : []) {
@@ -1945,7 +2022,24 @@ function webImagePayloadImages(payload: WebImageExtensionPayload): MediaItem[] {
       size: typeof item === 'string' ? 0 : item.size || 0,
     });
   }
-  return out.slice(0, 12);
+  return out.slice(0, 50);
+}
+
+function webAssetPayloadMetadata(payload: WebImageExtensionPayload) {
+  const raw = Array.isArray(payload.webAssetItems) ? payload.webAssetItems : Array.isArray(payload.images) ? payload.images : [];
+  return raw
+    .filter((item) => !!item && typeof item === 'object')
+    .map((item: any) => ({
+      url: String(item.url || item.imageUrl || '').slice(0, 4096),
+      name: String(item.name || '').slice(0, 200),
+      mime: String(item.mime || '').slice(0, 120),
+      size: Math.max(0, Number(item.size) || 0),
+      width: Math.max(0, Number(item.width) || 0),
+      height: Math.max(0, Number(item.height) || 0),
+      sourceUrl: String(item.sourceUrl || '').slice(0, 4096),
+      pageUrl: String(item.pageUrl || payload.pageUrl || '').slice(0, 2048),
+    }))
+    .slice(0, 50);
 }
 
 function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNodeSpec[] {
@@ -1956,6 +2050,23 @@ function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNode
   const pageUrl = cleanWebImageText(payload.pageUrl, 2048);
   const pageTitle = cleanWebImageText(payload.pageTitle, 200);
   const specs: SendNodeSpec[] = [];
+  const imageItems = webImagePayloadImages(payload);
+  if (mode === 'reference' && imageItems.length > 0) {
+    specs.push({
+      type: 'upload',
+      data: {
+        ...createUploadDataFromItems('image', imageItems),
+        label: `网页采集 · ${imageItems.length} 张`,
+        sendSource: 'web-asset-importer',
+        source: 'web-asset-importer',
+        webAssetImporter: true,
+        webAssetItems: webAssetPayloadMetadata(payload),
+        webAssetPageUrl: pageUrl,
+        webAssetPageTitle: pageTitle,
+      },
+    });
+    return specs;
+  }
   if (mode === 'prompt' && prompt) {
     specs.push({
       type: 'text',
@@ -1971,7 +2082,6 @@ function buildWebImageSendNodeSpecs(payload: WebImageExtensionPayload): SendNode
       },
     });
   }
-  const imageItems = webImagePayloadImages(payload);
   if ((mode === 'image' || mode === 'both') && imageItems.length > 0) {
     specs.push({
       type: 'output',
@@ -2995,6 +3105,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   const isDragonBall = visualStyle === 'dragon-ball';
   const isTetris = visualStyle === 'tetris';
   const isFarmStory = visualStyle === 'farm-story';
+  const isGardenDefense = visualStyle === 'garden-defense';
   const farmDevToolsEnabled = isFarmStory && import.meta.env.DEV;
   const themeTokens = getTemplateMode(currentTemplate, theme).tokens;
   const { screenToFlowPosition, setCenter, getViewport, setViewport, fitView } = useReactFlow();
@@ -3056,6 +3167,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   const farmContinuousFeedbackBatchRef = useRef<FarmContinuousFeedbackBatch | null>(null);
   const webImageImportMessageIdsRef = useRef<Set<string>>(new Set());
   const vibeXImportMessageIdsRef = useRef<Set<string>>(new Set());
+  const photoshopImportMessageIdsRef = useRef<Set<string>>(new Set());
   const edgeCutFeedbackTimersRef = useRef<Map<string, number>>(new Map());
   const edgeConnectFeedbackTimersRef = useRef<Map<string, number>>(new Map());
   const farmAchievementEventIdsRef = useRef<Set<string>>(new Set());
@@ -3520,8 +3632,9 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     radialMenuRef.current = radialMenu;
   }, [radialMenu]);
 
-  const annotateFarmPortHandles = useCallback(() => {
-    if (!isFarmStory || typeof document === 'undefined') return;
+  const annotateThemedPortHandles = useCallback(() => {
+    if ((!isFarmStory && !isGardenDefense) || typeof document === 'undefined') return;
+    const ariaTheme = isGardenDefense ? 'garden-defense' : 'farm-story';
     const nodeById = new Map(nodesRef.current.map((node) => [node.id, node]));
     document.querySelectorAll<HTMLElement>('.react-flow__handle').forEach((handleEl) => {
       const nodeId =
@@ -3537,7 +3650,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       if (!portType) {
         handleEl.removeAttribute('data-t8-port-type');
         handleEl.removeAttribute('data-t8-port-label');
-        if (handleEl.getAttribute('data-t8-port-aria') === 'farm-story') {
+        if (['farm-story', 'garden-defense'].includes(handleEl.getAttribute('data-t8-port-aria') || '')) {
           handleEl.removeAttribute('aria-label');
           handleEl.removeAttribute('data-t8-port-aria');
         }
@@ -3545,35 +3658,35 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       }
       handleEl.setAttribute('data-t8-port-type', portType);
       handleEl.setAttribute('data-t8-port-label', PORT_LABEL[portType]);
-      handleEl.setAttribute('data-t8-port-aria', 'farm-story');
+      handleEl.setAttribute('data-t8-port-aria', ariaTheme);
       handleEl.setAttribute('aria-label', `${PORT_LABEL[portType]}${rawHandleType === 'source' ? '输出' : '输入'}端口`);
     });
-  }, [isFarmStory]);
+  }, [isFarmStory, isGardenDefense]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined;
-    const clearFarmPortHandles = () => {
+    const clearThemedPortHandles = () => {
       document.querySelectorAll<HTMLElement>('.react-flow__handle[data-t8-port-type]').forEach((handleEl) => {
         handleEl.removeAttribute('data-t8-port-type');
         handleEl.removeAttribute('data-t8-port-label');
-        if (handleEl.getAttribute('data-t8-port-aria') === 'farm-story') {
+        if (['farm-story', 'garden-defense'].includes(handleEl.getAttribute('data-t8-port-aria') || '')) {
           handleEl.removeAttribute('aria-label');
           handleEl.removeAttribute('data-t8-port-aria');
         }
       });
     };
-    if (!isFarmStory) {
-      clearFarmPortHandles();
+    if (!isFarmStory && !isGardenDefense) {
+      clearThemedPortHandles();
       return undefined;
     }
-    annotateFarmPortHandles();
+    annotateThemedPortHandles();
     const root = document.querySelector('.react-flow') || document.body;
-    const observer = new MutationObserver(() => annotateFarmPortHandles());
+    const observer = new MutationObserver(() => annotateThemedPortHandles());
     observer.observe(root, { childList: true, subtree: true });
     return () => {
       observer.disconnect();
     };
-  }, [annotateFarmPortHandles, isFarmStory, nodes]);
+  }, [annotateThemedPortHandles, isFarmStory, isGardenDefense, nodes]);
 
   const suppressRadialContextMenu = useCallback(() => {
     radialContextMenuSuppressedUntilRef.current = Date.now() + RADIAL_MENU_CONTEXT_SUPPRESS_MS;
@@ -4641,9 +4754,12 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         return false;
       }
 
-      const selectedTarget = nodesRef.current.find((node) => node.selected && node.type === CREATIVE_TARGET_NODE_TYPE);
+      const incomingMode = normalizeWebImageSendMode(payload.mode);
+      const selectedTarget = incomingMode === 'reference'
+        ? undefined
+        : nodesRef.current.find((node) => node.selected && node.type === CREATIVE_TARGET_NODE_TYPE);
       if (selectedTarget) {
-        const mode = normalizeWebImageSendMode(payload.mode);
+        const mode = incomingMode;
         const prompt = cleanWebImageText(payload.prompt);
         const imageItems = webImagePayloadImages(payload);
         if ((mode === 'image' || mode === 'both') && imageItems.length > 0) {
@@ -4785,6 +4901,73 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     return () => window.removeEventListener('message', handleVibeXMessage);
   }, [importVibeXPayload]);
 
+  const importPhotoshopPayload = useCallback((input: unknown, sourceLabel = 'Photoshop') => {
+      const data = input && typeof input === 'object' ? input as Record<string, any> : {};
+      const payload = normalizePhotoshopResultPayload(data.payload || data);
+      if (!payload) {
+        logBus.warn(`${sourceLabel} 没有发送可识别的图像或提示词`, 'Photoshop');
+        return false;
+      }
+      const messageId = String(payload.messageId || data.messageId || '').trim().slice(0, 180);
+      if (messageId) {
+        if (photoshopImportMessageIdsRef.current.has(messageId)) return false;
+      }
+
+      const specs = buildPhotoshopSendNodeSpecs(payload);
+      if (specs.length === 0) {
+        logBus.warn(`${sourceLabel} 回传没有可创建的素材节点`, 'Photoshop');
+        return false;
+      }
+
+      const flowEl = document.querySelector('.react-flow') as HTMLElement | null;
+      const rect = flowEl?.getBoundingClientRect();
+      const base = screenToFlowPosition(
+        rect
+          ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+          : { x: window.innerWidth / 2, y: window.innerHeight / 2 },
+      );
+      const newNodes = materialNodesFromSpecs(specs, nodesRef.current, base, {
+        signature: `photoshop:${messageId || Date.now()}`,
+        mode: 'output',
+        sourceCanvasId: activeId,
+        sourceNodeIds: [],
+      });
+      const assignedNewNodes = assignActiveNodeSerials(newNodes, nodesRef.current);
+      const focusCenter = centerOfMaterialNodes(assignedNewNodes);
+      if (activeId && focusCenter) {
+        const { zoom } = getViewport();
+        pendingSendFocusRef.current = {
+          canvasId: activeId,
+          center: focusCenter,
+          zoom: Math.min(Math.max(zoom || 0.9, 0.72), 1.05),
+        };
+      }
+      setNodes([...nodesRef.current.map((node) => ({ ...node, selected: false })), ...assignedNewNodes]);
+      registerPlacementShelfNodes(assignedNewNodes, '发送');
+      if (messageId) {
+        photoshopImportMessageIdsRef.current.add(messageId);
+        if (photoshopImportMessageIdsRef.current.size > 80) {
+          photoshopImportMessageIdsRef.current = new Set([...photoshopImportMessageIdsRef.current].slice(-40));
+        }
+      }
+      logBus.success(`已从 ${sourceLabel} 发送 ${assignedNewNodes.length} 个节点到当前画布`, 'Photoshop');
+      return true;
+  }, [activeId, assignActiveNodeSerials, getViewport, registerPlacementShelfNodes, screenToFlowPosition]);
+
+  useEffect(() => {
+    const handlePhotoshopMessage = (event: MessageEvent) => {
+      const data = event.data || {};
+      if (
+        data.type !== PHOTOSHOP_MESSAGE_CONTRACT.type ||
+        data.source !== PHOTOSHOP_MESSAGE_CONTRACT.source
+      ) return;
+      importPhotoshopPayload(data, 'Photoshop');
+    };
+
+    window.addEventListener('message', handlePhotoshopMessage);
+    return () => window.removeEventListener('message', handlePhotoshopMessage);
+  }, [importPhotoshopPayload]);
+
   useEffect(() => {
     let disposed = false;
     let timerId: number | null = null;
@@ -4823,6 +5006,54 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       if (timerId != null) window.clearTimeout(timerId);
     };
   }, [importVibeXPayload, importWebImagePayload]);
+
+  useEffect(() => {
+    let disposed = false;
+    let timerId: number | null = null;
+
+    const settleMessage = async (message: any, imported: boolean, error?: unknown) => {
+      const messageId = String(message?.payload?.messageId || message?.messageId || '').trim();
+      if (!messageId) return;
+      const endpoint = error ? 'fail' : 'complete';
+      await fetch(`/api/photoshop-bridge/messages/${encodeURIComponent(messageId)}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(error ? { error: error instanceof Error ? error.message : String(error) } : { imported }),
+      }).catch(() => undefined);
+    };
+
+    const drain = async () => {
+      try {
+        const res = await fetch('/api/photoshop-bridge/pending?limit=12', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json().catch(() => null);
+          const messages = Array.isArray(json?.data?.messages) ? json.data.messages : [];
+          for (const message of messages) {
+            if (
+              message?.type === PHOTOSHOP_MESSAGE_CONTRACT.type &&
+              message?.source === PHOTOSHOP_MESSAGE_CONTRACT.source
+            ) {
+              try {
+                const imported = importPhotoshopPayload(message, 'Photoshop');
+                await settleMessage(message, imported);
+              } catch (err) {
+                await settleMessage(message, false, err);
+              }
+            }
+          }
+        }
+      } catch {
+        // Photoshop UXP bridge is optional; retry quietly when it is unavailable.
+      }
+      if (!disposed) timerId = window.setTimeout(drain, 2200);
+    };
+
+    drain();
+    return () => {
+      disposed = true;
+      if (timerId != null) window.clearTimeout(timerId);
+    };
+  }, [importPhotoshopPayload]);
 
   useEffect(() => {
     const stopRadialPointerEvent = (event: PointerEvent | MouseEvent) => {
@@ -5867,6 +6098,32 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     return message;
   }, [sendModal]);
 
+  const handleSendMaterialsToPhotoshop = useCallback(async () => {
+    if (!sendModal || sendModal.materials.length === 0) throw new Error('没有可发送到 Photoshop 的素材');
+    const imageMaterials = sendModal.materials.filter((item) => item.kind === 'image' && item.url);
+    if (imageMaterials.length === 0) throw new Error('Photoshop 只接收图像素材，请先选择图像输出或上传素材');
+    const result = await api.sendToPhotoshop({
+      materials: imageMaterials.map((item) => ({
+        id: item.id,
+        kind: item.kind,
+        url: item.url,
+        text: item.text,
+        name: item.name,
+      })),
+      tags: ['T8', '贞贞画布', 'Photoshop'],
+      sourceCanvasId: activeId || undefined,
+      sourceLabel: sendModal.sourceLabel || 'T8 画布',
+    });
+    if (!result.success) {
+      const message = result.error || '发送到 Photoshop 失败，请确认 T8 Photoshop Link 面板已连接';
+      logBus.warn(message, 'Photoshop');
+      throw new Error(message);
+    }
+    const message = `已发送 ${result.data.sent || imageMaterials.length} 张图像到 Photoshop 队列，请保持 T8 Photoshop Link 面板连接${result.data.commandId ? `（任务 ${result.data.commandId}）` : ''}`;
+    logBus.success(message, 'Photoshop');
+    return message;
+  }, [activeId, sendModal]);
+
   const handleCanvasPointerMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     lastCanvasPointerRef.current = { x: e.clientX, y: e.clientY };
   }, []);
@@ -6167,7 +6424,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   // 通用: 在指定节点子集上拓扑排序 + 串行调 runBus
   const runNodesByOrder = useCallback(
     async (subNodes: Node[], subEdges: Edge[]) => {
-      const order = topologicalSort(subNodes, subEdges, EXECUTABLE_NODE_TYPES);
+      const plannedSubgraph = excludeRandomRouteBranchDescendants(subNodes, subEdges);
+      const order = topologicalSort(plannedSubgraph.nodes, plannedSubgraph.edges, EXECUTABLE_NODE_TYPES);
       if (order.length === 0) return 0;
       cancelRunRef.current = false;
       setIsRunning(true);
@@ -6208,7 +6466,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
 
   const handleRunAll = useCallback(async () => {
     if (isRunning) return;
-    const order = topologicalSort(nodes, edges, EXECUTABLE_NODE_TYPES);
+    const plannedSubgraph = excludeRandomRouteBranchDescendants(nodes, edges);
+    const order = topologicalSort(plannedSubgraph.nodes, plannedSubgraph.edges, EXECUTABLE_NODE_TYPES);
     if (order.length === 0) {
       alert('画布上没有可执行节点');
       return;
@@ -8166,7 +8425,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     // v1.2.9.9: 'loop' 也加入 — 循环器自身不产出最终结果 (累积已由下游 EXEC→OutputNode 链路接管),
     //          autoOutput 若给 LoopNode 自动建 OutputNode 会让用户看到 “循环器自己生了 N 个素材” 的错误体验。
     // PoseMaster 自己负责写入单张/合集 OutputNode；通用 autoOutput 再处理会把批量合集拆出重复单体。
-    const SKIP_TYPES = new Set(['output', 'groupBox', 'bulkPhantom', 'upload', 'material-set', 'pick-from-set', 'loop', 'pose-master']);
+    // random-route 写入 imageUrl/prompt 等字段只是为了透传给命中的下游分支，不代表它自己生成了输出素材。
+    const SKIP_TYPES = new Set(['output', 'groupBox', 'bulkPhantom', 'upload', 'material-set', 'pick-from-set', 'loop', 'random-route', 'pose-master']);
 
     const toAddNodes: Node[] = [];
     const toAddEdges: Edge[] = [];
@@ -8188,6 +8448,27 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         source?.type === 'model-3d-preview' &&
         target?.type === 'model-3d-preview' &&
         target.id.startsWith('model-3d-preview-auto-')
+      ) {
+        toRemoveNodeIds.add(target.id);
+      }
+    }
+
+    // Clean up v2.4.4 random-route auto outputs: the router only passes input
+    // materials into selected branches, so older output-auto nodes are stale.
+    for (const edge of edges) {
+      if (!edge.id.startsWith('e-auto-')) continue;
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      const td: any = target?.data || {};
+      const totalIncoming = edges.filter((item) => item.target === edge.target).length;
+      const hasOutgoing = edges.some((item) => item.source === edge.target);
+      if (
+        source?.type === 'random-route' &&
+        target?.type === 'output' &&
+        target.id.startsWith('output-auto-') &&
+        totalIncoming === 1 &&
+        !hasOutgoing &&
+        td.userMoved !== true
       ) {
         toRemoveNodeIds.add(target.id);
       }
@@ -8529,6 +8810,67 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
       }
 
       if (items.length === 0) {
+        newSigPatches.push([n.id, outputSig]);
+        continue;
+      }
+
+      // ComfyUI 应用可以在一次运行中同时返回多种媒体。自动输出保持一个聚合节点，
+      // 让图片 / 视频 / 音频 / 文本继续作为同一组工作流结果传递；用户手动连接的
+      // 其他 OutputNode 不做删除或拆分。
+      if (t === 'comfyui-store') {
+        const downstream = edges
+          .filter((edge) => edge.source === n.id)
+          .map((edge) => {
+            const target = nodes.find((node) => node.id === edge.target);
+            if (!target || target.type !== 'output') return null;
+            const incoming = edges.filter((candidate) => candidate.target === target.id).length;
+            const hasOutgoing = edges.some((candidate) => candidate.source === target.id);
+            const auto = target.id.startsWith('output-auto-') && edge.id.startsWith('e-auto-');
+            return { target, edge, auto, removable: auto && incoming === 1 && !hasOutgoing && (target.data as any)?.userMoved !== true };
+          })
+          .filter(Boolean) as Array<{ target: Node; edge: Edge; auto: boolean; removable: boolean }>;
+        const keeper = downstream.find((item) => !item.auto) || downstream[0];
+        const aggregateData = {
+          pickKind: undefined,
+          pickIndex: undefined,
+          aggregateSource: 'comfyui-store',
+          imageUrl: imgs[0] || '',
+          imageUrls: imgs,
+          videoUrl: vids[0] || '',
+          videoUrls: vids,
+          audioUrl: auds[0] || '',
+          audioUrls: auds,
+          outputText: texts.join('\n'),
+          text: texts.join('\n'),
+          outputKinds: Array.isArray(d.outputKinds) ? d.outputKinds : [],
+          primaryKind: d.primaryKind || items[0]?.kind || 'image',
+        };
+        if (keeper) {
+          setNodes((prev) => prev.map((node) => node.id === keeper.target.id
+            ? { ...node, data: { ...(node.data as any), ...aggregateData } }
+            : node));
+        } else {
+          const sourceRect = rectOf(n);
+          const outputSize = defaultSizeOf('output');
+          const desired = [{
+            x: (n.position?.x ?? 0) + sourceRect.w + 80,
+            y: (n.position?.y ?? 0) + sourceRect.h / 2 - outputSize.h / 2,
+            w: outputSize.w,
+            h: outputSize.h,
+          }];
+          const offset = placeBatchNodes(desired, [...nodes, ...pendingPlacedNodes], { source: 'placement:auto-comfyui-output', gap: 0 });
+          const newId = `output-auto-${n.id}-${Date.now()}-aggregate-${Math.random().toString(36).slice(2, 6)}`;
+          const aggregateNode: Node = {
+            id: newId,
+            type: 'output',
+            position: { x: desired[0].x + offset.dx, y: desired[0].y + offset.dy },
+            data: aggregateData,
+            selected: false,
+          } as Node;
+          toAddNodes.push(aggregateNode);
+          pendingPlacedNodes.push(aggregateNode);
+          toAddEdges.push({ id: `e-auto-${newId}`, source: n.id, target: newId, type: 'deletable' } as Edge);
+        }
         newSigPatches.push([n.id, outputSig]);
         continue;
       }
@@ -9109,7 +9451,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
 
   const isDark = theme === 'dark';
   const isPixel = style === 'pixel';
-  const isDecorativeEdgeVisual = isSlamdunk || isSoccer || isDragonBall || isTetris || isFarmStory;
+  const isDecorativeEdgeVisual = isSlamdunk || isSoccer || isDragonBall || isTetris || isFarmStory || isGardenDefense;
   const heavyEdgeMotion = isDecorativeEdgeVisual && edges.length >= EDGE_MOTION_HEAVY_EDGE_COUNT;
   const edgeMotionReduced = isDecorativeEdgeVisual && (viewportMoving || nodeDragging);
   const edgeMotionMode = isDecorativeEdgeVisual ? (edgeMotionReduced ? 'reduced' : 'scoped') : undefined;
@@ -9197,8 +9539,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
     });
   }, [farmMiniMapRouteHint, farmMiniMapRouteHintCountLabel, farmMiniMapRouteHintMarker, flashFarmObject, getFarmViewportCenter, getViewport, pushFarmFloatingFeedback, setCenter]);
   const renderedNodes = useMemo(
-    () => (isFarmStory ? nodes.map(withFarmNodeVisualState) : nodes),
-    [isFarmStory, nodes],
+    () => (isFarmStory ? nodes.map(withFarmNodeVisualState) : isGardenDefense ? nodes.map(withGardenDefenseNodeVisualState) : nodes),
+    [isFarmStory, isGardenDefense, nodes],
   );
   const farmMiniMapHeavySurface = isFarmStory
     && ((farmCanvas.objects.length + farmCanvas.animals.length) >= FARM_MINIMAP_HEAVY_OBJECT_COUNT
@@ -9514,9 +9856,15 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
             <span aria-hidden="true" data-farm-toolbar-priority-dot="true" />
           </button>
         )}
+        <GardenDefenseExperience
+          visualStyle={visualStyle}
+          canvasId={activeId}
+          viewportMoving={viewportMoving}
+          nodeDragging={nodeDragging}
+        />
         <TetrisPanel
-            visualStyle={visualStyle}
-            viewportMoving={viewportMoving}
+          visualStyle={visualStyle}
+          viewportMoving={viewportMoving}
           nodeDragging={nodeDragging}
         />
         <DragonBallRadar
@@ -9805,9 +10153,11 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
             setCenter(position.x, position.y, { zoom, duration: 400 });
           }}
           style={{
-            width: isFarmStory ? 214 : isOp ? 144 : isNaruto ? 182 : isEva ? 258 : isYyh ? 224 : isSlamdunk ? 214 : isSoccer ? 224 : isDragonBall ? 192 : undefined,
-            height: isFarmStory ? 136 : isOp ? 144 : isNaruto ? 122 : isEva ? 172 : isYyh ? 144 : isSlamdunk ? 128 : isSoccer ? 136 : isDragonBall ? 192 : undefined,
+            width: isGardenDefense ? 224 : isFarmStory ? 214 : isOp ? 144 : isNaruto ? 182 : isEva ? 258 : isYyh ? 224 : isSlamdunk ? 214 : isSoccer ? 224 : isDragonBall ? 192 : undefined,
+            height: isGardenDefense ? 144 : isFarmStory ? 136 : isOp ? 144 : isNaruto ? 122 : isEva ? 172 : isYyh ? 144 : isSlamdunk ? 128 : isSoccer ? 136 : isDragonBall ? 192 : undefined,
             background: isFarmStory
+              ? themeTokens.panelBg
+              : isGardenDefense
               ? themeTokens.panelBg
               : isOp
               ? themeTokens.panelBg
@@ -9826,6 +10176,8 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
               : isDark ? 'rgba(20,20,22,.9)' : 'rgba(255,255,255,.9)',
             border: isFarmStory
               ? `3px solid ${themeTokens.secondary}`
+              : isGardenDefense
+              ? `4px solid ${themeTokens.edge}`
               : isOp
               ? `4px double ${themeTokens.textMain}`
               : isNaruto
@@ -9841,11 +10193,13 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
               : isDragonBall
                   ? `3px solid ${themeTokens.warning}`
                 : `1px solid ${isDark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)'}`,
-            borderRadius: isFarmStory ? 10 : isOp ? 999 : isNaruto ? '18px 18px 12px 12px' : isEva ? 8 : isYyh ? 12 : isSlamdunk ? 10 : isSoccer ? 12 : isDragonBall ? 999 : 8,
-            right: isFarmStory ? 24 : isOp ? 24 : isNaruto ? 24 : isEva ? 24 : isYyh ? 24 : isSlamdunk ? 24 : isSoccer ? 24 : isDragonBall ? 28 : undefined,
-            bottom: isFarmStory ? 32 : isOp ? 42 : isNaruto ? 40 : isEva ? 24 : isYyh ? 28 : isSlamdunk ? 32 : isSoccer ? 32 : isDragonBall ? 34 : undefined,
+            borderRadius: isGardenDefense ? 7 : isFarmStory ? 10 : isOp ? 999 : isNaruto ? '18px 18px 12px 12px' : isEva ? 8 : isYyh ? 12 : isSlamdunk ? 10 : isSoccer ? 12 : isDragonBall ? 999 : 8,
+            right: isGardenDefense ? 24 : isFarmStory ? 24 : isOp ? 24 : isNaruto ? 24 : isEva ? 24 : isYyh ? 24 : isSlamdunk ? 24 : isSoccer ? 24 : isDragonBall ? 28 : undefined,
+            bottom: isGardenDefense ? 34 : isFarmStory ? 32 : isOp ? 42 : isNaruto ? 40 : isEva ? 24 : isYyh ? 28 : isSlamdunk ? 32 : isSoccer ? 32 : isDragonBall ? 34 : undefined,
             boxShadow: isFarmStory
               ? `0 0 0 5px ${themeTokens.warning}, 5px 5px 0 ${themeTokens.edge}, 0 18px 46px rgba(76,49,20,.24)`
+              : isGardenDefense
+              ? `0 0 0 5px ${themeTokens.warning}, 6px 7px 0 ${themeTokens.edge}, 0 20px 48px rgba(54,39,16,.3)`
               : isOp
               ? `0 0 0 7px ${themeTokens.warning}, 5px 5px 0 ${themeTokens.textMain}`
               : isNaruto
@@ -9862,11 +10216,11 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
                   ? `0 0 0 5px ${themeTokens.secondary}, 5px 5px 0 ${themeTokens.textMain}, 0 18px 46px rgba(0,0,0,.28), inset 0 0 34px ${themeTokens.warning}33`
               : undefined,
             cursor: 'pointer',
-            overflow: isFarmStory || isOp || isNaruto || isEva || isYyh || isSlamdunk || isSoccer || isDragonBall ? 'hidden' : undefined,
+            overflow: isGardenDefense || isFarmStory || isOp || isNaruto || isEva || isYyh || isSlamdunk || isSoccer || isDragonBall ? 'hidden' : undefined,
             display: (viewportMoving || nodeDragging) && heavyCanvasSurface ? 'none' : undefined,
           }}
-          maskColor={isFarmStory ? 'rgba(111,191,74,.22)' : isOp ? 'rgba(15,124,140,.28)' : isNaruto ? 'rgba(255,91,31,.22)' : isEva ? 'rgba(156,255,0,.18)' : isYyh ? 'rgba(67,247,255,.16)' : isSlamdunk ? 'rgba(240,123,34,.22)' : isSoccer ? 'rgba(18,107,216,.22)' : isDragonBall ? 'rgba(255,176,0,.22)' : isDark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.6)'}
-          nodeColor={() => (isFarmStory ? themeTokens.secondary : isOp ? themeTokens.secondary : isNaruto ? themeTokens.accent : isEva ? themeTokens.danger : isYyh ? themeTokens.success : isSlamdunk ? themeTokens.accent : isSoccer ? themeTokens.accent : isDragonBall ? themeTokens.warning : isDark ? '#a1a1aa' : '#52525b')}
+          maskColor={isGardenDefense ? 'rgba(255,216,83,.2)' : isFarmStory ? 'rgba(111,191,74,.22)' : isOp ? 'rgba(15,124,140,.28)' : isNaruto ? 'rgba(255,91,31,.22)' : isEva ? 'rgba(156,255,0,.18)' : isYyh ? 'rgba(67,247,255,.16)' : isSlamdunk ? 'rgba(240,123,34,.22)' : isSoccer ? 'rgba(18,107,216,.22)' : isDragonBall ? 'rgba(255,176,0,.22)' : isDark ? 'rgba(0,0,0,.6)' : 'rgba(255,255,255,.6)'}
+          nodeColor={() => (isGardenDefense ? themeTokens.warning : isFarmStory ? themeTokens.secondary : isOp ? themeTokens.secondary : isNaruto ? themeTokens.accent : isEva ? themeTokens.danger : isYyh ? themeTokens.success : isSlamdunk ? themeTokens.accent : isSoccer ? themeTokens.accent : isDragonBall ? themeTokens.warning : isDark ? '#a1a1aa' : '#52525b')}
         />
         {farmMiniMapVisible && (
           <div
@@ -10216,6 +10570,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
         onSaveToResource={handleSaveSendMaterialsToResource}
         onSendToEagle={handleSendMaterialsToEagle}
         onSendToFigma={handleSendMaterialsToFigma}
+        onSendToPhotoshop={handleSendMaterialsToPhotoshop}
       />
 
       {/* 右键菜单(框选 右键 或 节点右键) */}

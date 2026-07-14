@@ -26,7 +26,7 @@ const config = {
   // 服务器
   HOST: process.env.HOST || '127.0.0.1',
   PORT: process.env.PORT || 18766, // 注意:与主项目 18765 错开
-  APP_VERSION: '2.3.8',
+  APP_VERSION: '2.5.5',
   NODE_ENV: process.env.NODE_ENV || (IS_PACKAGED ? 'production' : 'development'),
   IS_PACKAGED,
 
@@ -55,12 +55,16 @@ const config = {
   THUMBNAIL_QUALITY: 80,
 
   // 业务配置
-  MAX_FILE_SIZE: 20 * 1024 * 1024,
+  // 上传素材节点不设置应用层大小上限；0 表示交给磁盘和系统自身约束。
+  MAX_FILE_SIZE: 0,
 
   // 三套 API Key 默认值(均可在 settings 中覆盖)
   // 贞贞工坊 / LLM 独立 Key 强制走 https://ai.t8star.org
   ZHENZHEN_BASE_URL: 'https://ai.t8star.org',
+  // 贞贞 SD2 独立链路，只用于 api.seedance.nz 的 Seedance 2.0 API。
+  ZHENZHEN_SD2_BASE_URL: 'https://api.seedance.nz',
   RH_BASE_URL: 'https://www.runninghub.cn',
+  RH_INTL_BASE_URL: 'https://www.runninghub.ai',
 
   // v1.2.10.2: 全局生成素材自动保存到本地的默认路径
   //   用户可在「API 设置 → 文件自动保存路径」覆盖。

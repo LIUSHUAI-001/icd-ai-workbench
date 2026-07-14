@@ -173,6 +173,28 @@ test('Collapsed sidebar reserves the top-left toggle lane for theme overlays', (
   assert.match(saintCss, /\.t8-main-layout\[data-sidebar-collapsed="true"\] \.t8-saint-sanctuary \{[\s\S]*left:\s*var\(--t8-sidebar-collapsed-content-left, 54px\) !important/);
 });
 
+test('RH light theme normalizes legacy dark node internals', () => {
+  const css = read('../src/styles/theme-rh.css');
+
+  assert.match(css, /RH light legacy node adapter v1/);
+  assert.match(
+    css,
+    /html\[data-theme-visual="rh"\]\[data-theme-mode="light"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) > div:first-child \{[\s\S]*background:\s*var\(--t8-bg-node\) !important;[\s\S]*color:\s*var\(--t8-text-main\) !important;/,
+  );
+  assert.match(
+    css,
+    /html\[data-theme-visual="rh"\]\[data-theme-mode="light"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) \[class~="text-white"\]/,
+  );
+  assert.match(
+    css,
+    /html\[data-theme-visual="rh"\]\[data-theme-mode="light"\] \.react-flow__node:not\(\.react-flow__node-groupBox\) \[class\*="bg-white\/5"\]:not\(input\):not\(textarea\):not\(select\)/,
+  );
+  assert.match(
+    css,
+    /html\[data-theme-visual="rh"\]\[data-theme-mode="light"\] \.react-flow__node-llm \.llm-chat-panel \{[\s\S]*background:\s*color-mix\(in srgb, var\(--t8-bg-panel\) 94%, var\(--t8-accent\) 4%\) !important;/,
+  );
+});
+
 test('Farm Story handle hover keeps ReactFlow anchor transform untouched', () => {
   const css = read('../src/styles/theme-farm-story.css');
   const farmHandleHoverRule = css.match(/html\[data-theme-visual="farm-story"\] \.react-flow__handle:hover\s*\{[^}]*\}/)?.[0] ?? '';
@@ -274,11 +296,11 @@ test('Farm Story theme mounts canvas chrome, sidebar icons, cuts, minimap, and t
   assert.match(canvas, /nodes=\{renderedNodes\}/);
   assert.match(canvas, /function farmPortTypeFromHandleId/);
   assert.match(canvas, /function inferFarmHandlePortType/);
-  assert.match(canvas, /const annotateFarmPortHandles = useCallback/);
+  assert.match(canvas, /const annotateThemedPortHandles = useCallback/);
   assert.match(canvas, /data-t8-port-type/);
   assert.match(canvas, /data-t8-port-label/);
   assert.match(canvas, /data-t8-port-aria/);
-  assert.match(canvas, /new MutationObserver\(\(\) => annotateFarmPortHandles\(\)\)/);
+  assert.match(canvas, /new MutationObserver\(\(\) => annotateThemedPortHandles\(\)\)/);
   assert.match(canvas, /PORT_LABEL\[portType\]/);
   assert.match(edge, /type FarmEdgeKind = 'rope' \| 'water' \| 'path'/);
   assert.match(edge, /function farmEdgeKindFromPortType/);
@@ -364,8 +386,8 @@ test('Farm Story theme mounts canvas chrome, sidebar icons, cuts, minimap, and t
   assert.match(canvas, /onRefreshResourceDecor=\{loadFarmResourceDecorItems\}/);
   assert.match(canvas, /onSelectResourceDecor=\{handleFarmSelectResourceDecor\}/);
   assert.match(canvas, /<FarmStoryPanel[\s\S]*visualStyle=\{visualStyle\}/);
-  assert.match(canvas, /width:\s*isFarmStory \? 214/);
-  assert.match(canvas, /maskColor=\{isFarmStory \? 'rgba\(111,191,74,\.22\)'/);
+  assert.match(canvas, /width:\s*isGardenDefense \? 224 : isFarmStory \? 214/);
+  assert.match(canvas, /maskColor=\{isGardenDefense \? 'rgba\(255,216,83,\.2\)' : isFarmStory \? 'rgba\(111,191,74,\.22\)'/);
   assert.match(canvas, /const FARM_MINIMAP_MARKER_LIMIT = 140/);
   assert.match(canvas, /const FARM_MINIMAP_HEAVY_OBJECT_COUNT = 500/);
   assert.match(canvas, /layoutFarmMiniMapMarkers\(farmMiniMapMarkers, nodes\)/);

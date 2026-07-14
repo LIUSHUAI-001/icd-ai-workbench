@@ -54,7 +54,7 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   // 视频节点默认模型仍只使用 text/image；选择即梦 CLI Seedance 时会消费 video/audio 参考。
   // 端口表是静态的，需提前允许四类输入，避免用户切到即梦 CLI 后无法连线。
   video: { inputs: ['text', 'image', 'video', 'audio'], outputs: ['video'] },
-  'video-edit': { inputs: ['video'], outputs: ['video'] },
+  'video-edit': { inputs: ['video'], outputs: ['video', 'audio'] },
   // SD2.0 (Seedance 2.0) 同时支持:
   //   text  → prompt
   //   image → reference_image / first_frame / last_frame
@@ -63,7 +63,7 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   seedance: { inputs: ['text', 'image', 'video', 'audio'], outputs: ['video'] },
   // 导演分镜台: 内部把多个分镜并发调度到 Seedance2.0, 每个完成的视频即时输出, 同时输出分镜文本摘要。
   'director-storyboard': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['video', 'text'] },
-  audio: { inputs: ['text', 'audio'], outputs: ['audio'] },
+  audio: { inputs: ['text', 'image', 'audio'], outputs: ['audio'] },
   llm: { inputs: ['text', 'image', 'video'], outputs: ['text'] },
 
   // ========== RH ==========
@@ -88,6 +88,7 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   'fal-toolbox': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio', 'model3d'] },
   // 3D 模型预览: 接收 Fal 超市等 3D 模型 URL，输出当前视角快照图。
   'model-3d-preview': { inputs: ['model3d'], outputs: ['image'] },
+  'face-expression-3d': { inputs: ['model3d', 'image', 'metadata'], outputs: ['image', 'metadata'] },
   // 3D 素材上传: 专门上传本地 glb/gltf/obj/stl/fbx/usdz/zip 模型。
   'model-3d-upload': { inputs: [], outputs: ['model3d'] },
 
@@ -128,6 +129,8 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   // 循环器 (v1.2.8): 接受 4 类素材集合 → 按 kind 输出下游驱动 (串联/并联)
   // 输出默认按 kind 递多类型 (any 允许接任意下游执行节点)
   loop: { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
+  // 随机路由: 任意上游素材透传到 N 个动态输出口，运行时只触发命中的分支。
+  'random-route': { inputs: ['any'], outputs: ['any'] },
   // 从合集获取 (v1.2.8): 从上游集合中选中单一素材 → 输出按 kind 变化
   'pick-from-set': { inputs: ['text', 'image', 'video', 'audio'], outputs: ['text', 'image', 'video', 'audio'] },
   // 文本分割: 长文本/上游文本 → 多段 textSegments, 下游按多文本集合消费
@@ -160,6 +163,8 @@ export const NODE_PORTS: Record<string, NodePorts> = {
   'aggregate-parser': { inputs: ['text'], outputs: ['text', 'image', 'video', 'audio'] },
   // 批量素材处理: 只在节点内处理/归档/反馈，不对外输出素材，避免批量完成后自动铺满画布。
   'batch-processor': { inputs: ['image', 'video', 'audio', 'model3d'], outputs: [] },
+  // 批量打标: 收集图像/视频素材，输出文本/元数据结果供下游或 sidecar 保存。
+  'batch-tagger': { inputs: ['image', 'video', 'text'], outputs: ['text', 'metadata'] },
   // Topaz 本地高清化: 仅调用用户本机已安装的 Topaz 软件，不内置第三方商业程序。
   'topaz-image-upscale': { inputs: ['image'], outputs: ['image'] },
   'topaz-video-upscale': { inputs: ['video'], outputs: ['video'] },

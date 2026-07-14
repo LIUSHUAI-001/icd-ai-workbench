@@ -18,6 +18,33 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-15 - Codex - 隔离升级 T8 v2.5.5
+
+- User goal: 将上游 T8 v2.5.5 更新到洲际设计 AI 工作台，同时保留 ICD 首页、导航、主题、产品页面、私有适配器和用户数据。
+- Files changed:
+  - 在 `codex/upgrade-t8-v2.5.5` 分支合并 `upstream/main`，吸收 v2.3.9 至 v2.5.5 的前端、节点、后端、Electron、扩展和测试更新。
+  - 手工解决 `package-lock.json`、`src/App.tsx`、`src/components/nodes/MentionPromptInput.tsx`、`src/styles/index.css`、`vite.config.ts`、`vite.config.js` 冲突。
+  - `backend/src/config.js`：将健康检查版本标识同步为 `2.5.5`。
+  - `tests/themeRegistry.test.ts`：同步上游已泛化为 Farm Story / Garden Defense 的端口标注与 MiniMap 断言名称。
+  - `docs/repository-and-upgrade-guide.md`、`docs/progress-log.md`：更新仓库、升级分支和本次验证记录。
+- Completed:
+  - 保留 `src/extensions/*`、`src/styles/your-brand-theme.css`、`virtual:t8-local-extensions`、`LocalTopbarSlot` / `LocalModalSlot` 和 ICD 路由。
+  - 前后端版本统一为 `2.5.5`；现有 1 个画布、4 个节点、连线和输出素材可读取，未创建或删除用户数据。
+  - 新增能力包含 Seedance / Seedream、RunningHub / ComfyUI 更新、批量打标、随机路由、3D 人脸、Garden Defense、Web 素材与 Photoshop Bridge 等上游功能。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - 选定 6 个关键测试文件共 70 项：70 passed、0 failed ✅
+  - `git diff --check` ✅
+  - 前端 `http://127.0.0.1:11422/` HTTP 200；后端 `/api/status` 返回 `ok: true`、`version: 2.5.5` ✅
+  - 浏览器验收：首页、提示词库、设计资源库、现有画布、资源库抽屉、API 设置均正常；无浏览器 error / warning ✅
+- Core T8 files touched: 是。上游合并更新了 `src/components/Canvas.tsx`、`src/config/nodeRegistry.ts`、`backend/src/server.js`、`backend/src/routes/*`；冲突处理未用上游文件覆盖 ICD 定制层。
+- Risks / blockers:
+  - 项目没有 `npm test` 脚本；`tests/themeRegistry.test.ts` 的完整独立运行在通过前置断言后出现上游静态正则长时间运行，已终止，未计入 70 项通过结果。
+  - `npm install` 报告 18 项依赖漏洞（1 low、1 moderate、14 high、2 critical）；未运行可能引入破坏性升级的 `npm audit fix --force`。
+  - 为保护现有数据，本轮没有创建临时节点或执行真实付费生成；画布节点新增、连线和真实生成仍需用户在升级分支体验确认。
+- Next step: 用户在 `codex/upgrade-t8-v2.5.5` 分支体验现有工作流；确认无回归后，再将升级分支合并到 `main` 并推送 GitHub。
+
 ## 2026-07-14 - Codex - 全项目 UI 审查后的首屏密度调整
 
 - User goal: 根据完整 UI 审查结果，继续优化提示词库，并保持画布内核不变。

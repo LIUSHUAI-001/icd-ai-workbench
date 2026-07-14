@@ -10,13 +10,13 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 My favorite girl Go YounJung
 # 洲际设计AI工作台 · icd-ai-workbench
 
-> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.3.8
+> AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.5.5
 >
 > GitHub：<https://github.com/LIUSHUAI-001/icd-ai-workbench>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
-![status](https://img.shields.io/badge/version-v2.3.8-brightgreen) ![node](https://img.shields.io/badge/node-%E2%89%A518-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
+![status](https://img.shields.io/badge/version-v2.5.5-brightgreen) ![node](https://img.shields.io/badge/node-56-blue) ![react](https://img.shields.io/badge/react-19-61dafb) ![electron](https://img.shields.io/badge/electron-33-47848f) ![license](https://img.shields.io/badge/license-MIT-yellow)
 
 ---
 
@@ -35,10 +35,28 @@ My favorite girl Go YounJung
 
 ## ✨ 功能亮点
 
-- 🎨 **53 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集
+- 🎨 **56 个节点**，覆盖文本 / 图像 / 视频 / 音频 / LLM / RunningHub / ComfyUI / 3D / 工具 / 辅助 / 工具箱 / 输出预览 / 上传素材 / 素材集 / 批量打标 / 随机路由
 - 🧺 **画布级批量导入 + 素材合集打散**：上传节点支持一次选择多张图 / 多个视频 / 多段音频；也可直接把剪贴板或文件拖到画布，同类型多素材自动形成合集，上传和输出合集都可一键打散为多个独立素材节点
+- 🎬 **v2.5.5 Wan / Dola Seedream 海外模型自动更新版**：视频节点新增 Wan TAB 和 `wan-2.7-spicy-i2v`，支持单张首帧、2-15 秒、720p/1080p、负面提示词、音频 URL、提示词扩写与 seed；图像节点 Seedream 新增 Dola Seedream 5.0 Pro 海外模型选择，按参考图自动切换 t2i/i2i，旧画布继续默认国内模型。
+- 🐎 **v2.5.4 Happy Horse / Seed Audio / 3D 白模自动更新版**：视频节点新增 Happy Horse 文生视频、单图生视频和多参考图生视频，音频节点新增 Doubao Seed Audio；3D 表情编辑器使用离线 ICT FaceKit 中性人类白模和 52 通道，支持照片比例校准及精确图片输出；教程同步新增第十六弹，贞贞国内/海外平台名称统一。
+- 🌐 **v2.5.3 双站 API 与网页素材采集自动更新版**：RunningHub 国内/海外双 Key 与站点路由、贞贞 SD2 的 Seedance/Seedream、ComfyUI 多类型聚合输出、Chrome 网页素材 Popup/Side Panel 批量采集和顶部 API 获取入口正式发布；Electron 发布新增必需私有 sidecar 强制校验，缺失即阻断。
+- 🌻 **v2.5.2 庭院守卫沉浸大屏自动更新版**：植物大战僵尸主题的庭院守卫新增类似俄罗斯方块主题的沉浸大屏按钮，战局不重载、按视口自适应放大并支持 Esc 退出；顶部“画布教程”同步新增教程第十五弹 Bilibili / YouTube 链接。
+- 🌻 **v2.5.1 庭院守卫 + Seedream 自动更新版**：新增第 14 套庭院守卫主题和按需加载的 Phaser 塔防面板，支持阳光、植物冷却、15 关、升级、局面恢复、鼠标离开自动暂停与主题默认音乐；图像节点新增 Seedream V5 Pro，支持文生图、多图编辑、PNG/JPEG、预设及自定义尺寸和最多 10 张参考图。
+- 🧭 **v2.5.0 随机路由 / 即梦 CLI / PS 与打标自动更新版**：随机路由新增“并发生成 / 顺序生成”模式，默认并发触发本次随机命中的多路下游；即梦 CLI 适配 v1.4.10，图像生成支持 `generate_num` 1-10，视频补齐 `seedance2.0mini`、`seedance2.0_vip` 4K 和 Seedance 1.x 新命名兼容；批量打标补齐图图打标器入口、最近打标文件定位和全部绝对路径查看；画布发送到 Photoshop 改为带状态确认的队列，PS 插件可正确打开前端地址并渲染资产缩略图。
+- 🌻 **庭院守卫主题 + 大画布塔防**：新增第 14 套强识别主题，使用原创植物、入侵者、战场和木质藤蔓 UI 覆盖顶栏、侧栏、节点、连线、MiniMap 与上下文菜单；1280×720 Phaser 战场直接位于无限画布世界坐标中，包含 5×9 草坪、阳光、8 种植物、8 种入侵者、15 关、清道器、昼夜波次、叶章升级、图鉴、局面恢复和原创音效。Phaser 按主题懒加载，普通主题不承担运行时体积。
+- 🎬 **v2.4.9 视频剪辑音频与导演分镜 mini 自动更新版**：视频剪辑合成在拖动片段并加入转场后，源视频音频会跟随 xfade / acrossfade 时间线压缩，不再按旧位置二次混音导致声音重叠、位移或最后一段无声；独立音频仍会叠加到保留的原声上。导演分镜台同步补齐 `seedance-2.0-mini` 模型选项，和 SD2.0 节点保持一致；本版继续校验 Photoshop 插件随 Electron 安装包分发。
+- 🧩 **v2.4.8 插件安装与素材工作流自动更新版**：顶部在“画布教程”左侧新增独立“插件安装”入口，集中说明 Photoshop UXP、Figma Bridge 和网页图片反推插件安装路径；批量打标补齐单项删除、LLM/Vision 预设、自定义模型、TXT/JSON 互斥、原素材目录保存和 Ideogram-4 JSON；上传 / 输出视频素材新增首尾帧获取、英伟达极速超分和 FlashVsr 质量超分；PS 插件升级到 0.1.3，增加启动诊断、资产分页和 UXP 面板尺寸护栏，并随 Electron 包一并校验打包。
+- 🖌️ **v2.4.7 Photoshop 联动 UI 热修自动更新版**：修复 `T8 Photoshop Link` 面板紧凑宽度下 `刷新 / 连接` 按钮文字被挤成竖排的问题，并补强插件 UI 自动化，覆盖资产库、生成、设置、PS 当前画面上传回 T8、画布发送到 PS 命令置入和生成后置入 PS。
+- 🖌️ **v2.4.6 Photoshop 联动热修自动更新版**：修复 `T8 Photoshop Link` 在 Photoshop UXP Manifest v5 下访问 `http://127.0.0.1:18766` 被 `Permission denied / Manifest entry not found` 拦截的问题，插件 manifest 改为带协议和端口的本机白名单；同时支持 18766-18776 本机端口 fallback，避免旧后端占用 18766 时新版桌面端退到后续端口后插件仍连错。
+- 🖌️ **v2.4.5 Photoshop 联动自动更新版**：新增 `T8 Photoshop Link` UXP 插件与 `/api/photoshop-bridge` 本机桥接，PS 图层可发送回当前画布，画布图像素材也可排队置入当前 PS 文档；插件内支持浏览 T8 最近输出 / 上传 / 资源库图像，并复用扩展 API 图像模型做生成或参考图编辑。Electron 打包会携带 `resources\tools\photoshop-bridge\plugin` 并校验 `photoshopBridge.t8c`，同时修复随机路由透传素材时误自动生成独立输出素材节点的问题。
+- 🎲 **v2.4.4 随机路由与输入体验自动更新版**：新增“随机路由”工具节点，支持 `total_outputs` 1-100 动态输出口和 `random_pass_count` 精确随机命中，未命中分支不会进入运行队列；上传多视频合集的打散按钮保持常显；图像等节点的富文本 Prompt 针对微信输入法组合输入清理泄漏拼音，避免多出字母。
+- 📦 **v2.4.3 上传素材无限制自动更新版**：上传素材节点移除 20MB 应用层大小限制，后端 `/api/files/upload` 不再给 multer 设置 `fileSize`，大体积本地素材上传只受磁盘、系统和运行环境约束；节点不再提示“文件超过上传上限 20MB，请压缩后重试”。
 - 👁️ **上传 / 输出图像原图悬停预览**（v1.8.7）：上传素材与输出素材的图像卡片在 hover 时显示小眼睛按钮，鼠标停在按钮上可按 100% 原尺寸预览，超出视口时自动等比收进可见区域，输出素材入口位于图像对比按钮下方
 - 🧾 **提示词模板库媒体套件**（v2.1.2）：图像 / 视频 / 音频 / 文本素材可从节点右键直接保存到提示词模板库，连同原 Prompt、标题、标签和配套媒体一起沉淀；右键保存时可选择或新建模板分类，模板库支持分类新增 / 删除 / 重命名，预览采用懒加载并支持图像 100% 查看
+- 🏷️ **v2.4.2 批量打标节点自动更新版**：工具箱新增“批量打标”节点，支持图像 / 视频多文件、文件夹、拖拽和上游素材批量进入队列，调用贞贞 LLM 独立 Key或扩展 API 视觉模型生成 TAG、自然语言、短句或 JSON，并按原素材文件名前缀保存 `.txt` / `.json` 到 `output/batch-tags`；ModelScope 推荐并实测 `Qwen/Qwen3-VL-235B-A22B-Instruct`。
+- 🧩 **v2.4.1 Agnes 专用图像编辑热修自动更新版**：扩展 API 平台里的 Agnes AI 专用适配器按官方文生图 / 图生图文档保持 `/v1/images/generations` JSON，图像编辑参考图统一写入 `extra_body.image`，`imageUrls` / `imageUrl` / `image` 等入口别名都会正确传给上游，避免专用 Agnes 图像编辑 503 或退化为无参考图生成。
+- 🧩 **v2.4.0 Agnes 图像编辑与生成停止自动更新版**：Agnes 在扩展 OpenAI 兼容配置下的图像编辑按官方文档改走 `/v1/images/generations` JSON 与 `extra_body.image`，避免误打 `/v1/images/edits` multipart 导致 503；提示词库和素材右键分类新增 / 重命名改为 Electron 内联表单；图像、视频、SD2.0 节点生成中可停止本地轮询并立即重新发起新任务。
+- 🍌 **v2.3.9 Gemini 官方图像与完整剪辑台自动更新版**：图像节点新增 `gemini-3.1-flash-lite-image` 与 `gemini-3-pro-image`，两者走 Gemini 官方 `generateContent` 图像格式并兼容异步任务返回；OpenAI 兼容扩展支持 `/v1/images/edits` 参考图编辑；资源库“我的资产”支持先选分类再上传本地文件；完整视频剪辑台补齐宽屏实底布局、63 个转场、ffprobe/xfade 打包校验与任务异常反馈。
 - 🎬 **v2.3.8 视频剪辑与创作者工作流自动更新版**：新增核心「视频剪辑」节点，支持多视频上传/上游导入/跨画布追加、缩略图时间线、裁剪排序、片段拆分、转场滤镜、音频策略、异步 ffmpeg 合成、取消任务、下载成片和输出给下游；批量素材处理 RH 并发扩展到 1-10，并同步第十四弹教程、Gemini 正式模型名和左下角模型说明。
 - 🧩 **v2.3.7 网页反推 Electron 回传修复版**：Chrome 网页图片反推插件在 Electron 安装包场景下会优先通过本地桥接把提示词 / 图片 / 图文结果送回正在运行的桌面画布，不再误开 `127.0.0.1` 错误页；同时保留发送到当前选中生成目标框的回填逻辑。
 - 🧩 **v2.3.6 工作台与批量处理体验自动更新版**：VibeX 工作台顶部补充 Chrome 插件安装目录和说明，插件 manifest 升级到 1.1.0；批量素材处理改成一次只启用一种策略，并在并发执行时显示每个素材的等待 / 处理 / 完成 / 失败状态；左下角模型注意事项补充 Seedance2.0 mini、原生4K 和预扣退补说明。Electron 安装包继续带上网页图片反推插件目录 `resources/extension/web-image-reverse/`。
@@ -70,7 +88,8 @@ My favorite girl Go YounJung
 - 🏷️ **生成提示词 @ 素材提及 + 大编辑器**：图像 / 视频 / SD2.0 / 音频 / LLM / RunningHub / RH 钱包应用 / RH 超市文本参数可输入 `@` 选择当前上游素材，输入框内显示统一对齐的小预览 chip，提交时稳定解析为 `@image1` / `@video1` / `@audio1`；聚焦提示词框按 `Alt+Enter` 或点击放大按钮可打开全局大编辑器，`Ctrl+Enter` 完成、`Esc` 取消。
 - 🏅 **主题成就与有效时长**：按主题记录有效使用时长、特色节点事件、资源保存与工作流保存，解锁勋章和影片馆占位奖励；奖励影片素材未提供前会显示“待解锁 / 影片素材待提供”，不写入提示词、短链、Cookie 或资源 URL 等敏感内容。
 - 🧱 **俄罗斯方块主题 + 小游戏**：新增第 12 套强识别 Tetris Canvas 主题，浅色为奶白彩块，深色为街机霓虹；右上角快捷栏默认展开 10×20 俄罗斯方块小游戏，支持 7-bag、公平出块、幽灵落点、暂存、硬降、99 级递增、最高分保存，鼠标离开 / 窗口失焦 / 画布拖动时自动暂停，键盘只在游戏区域 hover 或 focus 时接管。
-- 🌾 **牧场物语主题 + 全画布养成层**：新增第 13 套强识别 Farm Story Canvas 主题，包含木牌节点、牧场地图底纹、农具端口、麻绳 / 水渠 / 田埂连线、镰刀剪线、牧场 MiniMap 标记和左侧牧场 HUD；当前按 roadmap 分阶段开发，已接入开垦、播种、浇水、收获、订单、建筑、装饰、动物、NPC、天气、节庆、惊喜事件、漂亮度和成就摘要。
+- 🌾 **牧场物语主题 + 全画布养成层**：新增第 13 套强识别 Farm Story Canvas 主题，作为牧场物语主题十三套内置模板中的完整养成主题，包含木牌节点、牧场地图底纹、农具端口、麻绳 / 水渠 / 田埂连线、镰刀剪线、牧场 MiniMap 标记和左侧牧场 HUD；当前按 roadmap 分阶段开发，已接入开垦、播种、浇水、收获、订单、建筑、装饰、动物、NPC、天气、节庆、惊喜事件、漂亮度和成就摘要。
+- 🌻 **庭院守卫主题 + 大画布战斗层**：新增第 14 套强识别 Garden Defense 主题，战斗区域随无限画布一起平移缩放，不占用右下角小地图；支持阳光经济、植物冷却、8+8 单位、15 关战役、昼夜、特殊能力、首领、5 级升级、长期档案与每画布战局存档。
 - 🧰 **ComfyUI / RH 工具箱 / 云上传增强**：ComfyUI 内置基础文生图样例和导入检查清单，后端把缺模型、缺节点、未启动、workflow 校验失败等错误转成可执行提示；默认只允许本机 ComfyUI，可信远端可通过单实例高危开关或 `T8_COMFYUI_ALLOW_REMOTE=1` 开启；RH 工具箱生成图像 / 视频 / 文本 / 音频快捷接入位；COS / OSS 上传失败会返回签名、权限、Bucket / Region、网络等结构化排查建议。
 - 📝 **文本节点自由缩放**：文本节点四角拖拽可独立调整宽高，输出端口固定贴合右侧中点，并在尺寸变化后刷新 ReactFlow internals，避免连线和端口脱离
 - 🔗 **RH 文本 NodeID 绑定**（v1.9.0）：文本节点可填写 RH 节点序号，RunningHub / RH 钱包应用 / RH 超市会按应用参数里的 RH nodeId 自动匹配上游文本；节点内也能手动选择绑定文本，冲突和错误序号会保留清晰状态提示
@@ -97,6 +116,16 @@ My favorite girl Go YounJung
 `npm run figma:bridge` 和 `tools\figma-bridge\start-figma-bridge.cmd` 仍保留为排障入口；只有设置了 `T8_FIGMA_BRIDGE_AUTOSTART=0` 禁用自动启动时，才需要手动运行。
 
 图像会以 Figma 图片图层插入，文本会以文本图层插入；视频和音频会以引用卡片形式插入，方便保留素材地址。
+
+### Photoshop Bridge 本机联动
+
+`发送到 Photoshop` 和 `T8 Photoshop Link` 面板通过 T8 后端本机队列通信，不需要把素材发到第三方中转：
+
+1. 打开 Adobe UXP Developer Tool，点击 Add Plugin，选择 `tools\photoshop-bridge\plugin\manifest.json`；打包版位置是应用目录 `resources\tools\photoshop-bridge\plugin\manifest.json`。
+2. 在 Photoshop 中运行 `T8 Photoshop Link` 面板，并保持 T8 后端 / 桌面端打开。
+3. 从 T8 的发送素材弹窗点击 `发送到 Photoshop`，图像会进入 PS 队列并自动置入当前文档；也可以在 PS 面板里导出当前图层 / 文档回到当前画布。
+
+PS 面板包含 `资产 / 生成 / 设置` 三个页签：资产页可浏览最近输出、上传素材和资源库图像；生成页复用 T8 扩展 API 图像模型，支持文生图和带当前图层参考图的图像编辑，结果可自动回传画布。
 - 🧍 **肖像大师**：工具箱新增捏人 Prompt 设计器，内置 9 大类词库，每个小参数 100 个可选词条，支持不选、锁定、权重、自定义补充、Avatar 分层方向预览、角色库收藏、JSON 导入导出、资源库角色分类、跨画布发送配置 / Prompt、高级随机、风格随机包、种子复现和批量输出文本节点 / 文本素材集
 - 🧍‍♂️ **姿势大师**：支持 100 种常用姿势、多人骨架、MediaPipe 识别、手部控制、A/B 关键帧、姿势库、批量分镜，并可在节点内切换线稿 / OpenPose / COCO 预览与运行输出；OpenPose/COCO keypoints JSON 可单独导出给 ComfyUI / ControlNet 复用
 - 🧪 **Grok Image / Sora2 FAL / Grok Video FAL / 即梦 CLI Seedance**：图像节点新增 Grok Image TAB；视频节点模型类型默认 `Grok Video → Veo → Sora2`，Veo 分类默认 `veo-omni-10s`，Grok Video TAB 默认 `Grok Video 1.5 (FAL)`，图像传入默认 base64，最多 1 张参考图且不发送比例参数；选择即梦 CLI Seedance 时支持 9 张图像、3 个视频、3 段音频参考，旧版 Grok FAL / Sora2 FAL 仍保留兼容入口
@@ -110,7 +139,7 @@ My favorite girl Go YounJung
 - 🖱️ **右键画布快速添加节点**：菜单列出 7 个高频节点（upload / text / image / video / seedance / audio / llm）
 - 🎯 **框选自动菜单**：≥2 节点框选后自动弹出操作面板（组执行 / 复制 / 快复制 / 删除 / 打组）
 - ⏪ **Undo / Redo / 复制粘贴 / 导入导出 / 工作流模板** 完整画布交互
-- 🌗 **主题模板系统**：科技风 / 像素糖果风 / OP 风格 / RH 风格 / 火影忍者风格 / EVA 风格 / 幽游白书风格 / 灌篮高手风格 / 足球小将风格 / 七龙珠风格 / 圣斗士风格 / 俄罗斯方块主题 / 牧场物语主题十三套内置模板，支持浅色 / 深色、导入导出、编辑保存、自定义路径与默认静音主题音乐；牧场物语主题提供全画布种植、建造、装饰和经营反馈层，俄罗斯方块主题提供方块拼接画布、方块化 MiniMap、scoped 方块连线和可玩的右上角小游戏，圣斗士风格提供十二宫 / 冥界篇双主题，七龙珠风格提供胶囊设备面板、神龙雷达画布与气功波连线，幽游白书肖像大师隐藏模式会自动切换专用隐藏音乐
+- 🌗 **主题模板系统**：科技风 / 像素糖果风 / OP 风格 / RH 风格 / 火影忍者风格 / EVA 风格 / 幽游白书风格 / 灌篮高手风格 / 足球小将风格 / 七龙珠风格 / 圣斗士风格 / 俄罗斯方块主题 / 牧场物语主题 / 庭院守卫主题十四套内置模板，支持浅色 / 深色、导入导出、编辑保存、自定义路径与默认静音主题音乐；庭院守卫把 1280×720 塔防战场放入大画布世界坐标，牧场物语提供全画布种植经营层，俄罗斯方块提供可玩的右上角小游戏，圣斗士风格提供十二宫 / 冥界篇双主题
 - 🧭 **主题悬浮控件统一**：小图标按钮使用固定语义类，避免 OP / 像素等强风格按钮膨胀；火影小地图、控制条和音乐按钮对齐到与 RH 一致的底部悬浮体验
 - 🎭 **公开主题设计规范**：见 [`docs/theme-design-guide.md`](docs/theme-design-guide.md)，用户可按规范制作、导入和分享更好看的主题画布
 - 🖥️ **终端日志面板**：底部抽屉式实时日志，对齐主项目 logBus 协议
@@ -195,8 +224,8 @@ T8_COMFYUI_ALLOW_REMOTE: "1"
 | 层 | 技术 |
 |---|---|
 | 前端框架 | React 19 · TypeScript 5 · Vite 6 |
-| 样式 | Tailwind CSS 3 · CSS Modules · 主题模板（科技风 / 像素糖果风 / OP 风格 / RH 风格 / 火影忍者风格 / EVA 风格 / 幽游白书风格 / 灌篮高手风格 / 足球小将风格 / 七龙珠风格 / 圣斗士风格 / 俄罗斯方块主题 / 牧场物语主题） |
-| 画布引擎 | @xyflow/react 12 · zustand 5 · lucide-react |
+| 样式 | Tailwind CSS 3 · CSS Modules · 主题模板（科技风 / 像素糖果风 / OP 风格 / RH 风格 / 火影忍者风格 / EVA 风格 / 幽游白书风格 / 灌篮高手风格 / 足球小将风格 / 七龙珠风格 / 圣斗士风格 / 俄罗斯方块主题 / 牧场物语主题 / 庭院守卫主题） |
+| 画布引擎 | @xyflow/react 12 · Phaser 3（庭院守卫按需加载）· zustand 5 · lucide-react |
 | 后端 | Node.js · Express · sharp（图像处理） · multer（上传） |
 | 桌面端 | Electron 33 |
 | AI 上游 | 贞贞工坊（图像/视频/Suno）· RunningHub · 任意 OpenAI 兼容 LLM |

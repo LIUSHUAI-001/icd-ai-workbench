@@ -18,6 +18,7 @@ import {
   reorderDirectorStoryboardReference,
   runDirectorStoryboardJobs,
   sanitizeDirectorBridgePromptPresets,
+  sanitizeDirectorStoryboardBridges,
   sanitizeDirectorStoryboardShots,
   type DirectorStoryboardJob,
 } from '../src/utils/directorStoryboard.ts';
@@ -253,7 +254,7 @@ test('director storyboard exposes the same zhenzhen group binding addon used by 
   assert.match(node, /const providerParams = useMemo\(/);
   assert.match(node, /\(\) => \(\(d\?\.providerParams && typeof d\.providerParams === 'object'\) \? d\.providerParams : \{\}\)/);
   assert.match(node, /providerParams,/);
-  assert.match(node, /<LocalNodeAddonSlot[\s\S]*nodeType="director-storyboard"[\s\S]*providerSource:\s*'zhenzhen'[\s\S]*providerKind:\s*'seedance'/);
+  assert.match(node, /<LocalNodeAddonSlot[\s\S]*nodeType="director-storyboard"[\s\S]*providerSource:\s*effectiveTaskProvider[\s\S]*providerKind:\s*'seedance'/);
 });
 
 test('director storyboard node keeps ports visible and makes timeline resizing draggable', () => {
@@ -312,7 +313,10 @@ test('director storyboard bridge UI is edited per shot pair instead of a global 
 
 test('director storyboard active shot can override global model ratio and resolution', () => {
   const node = read('../src/components/nodes/DirectorStoryboardNode.tsx');
+  const models = read('../src/config/seedance.ts');
 
+  assert.match(models, /doubao-seedance-2\.0-mini/);
+  assert.match(models, /seedance-2\.0-mini/);
   assert.match(node, /镜头覆盖/);
   assert.match(node, /activeShot\.modelOverride \|\| ''/);
   assert.match(node, /activeShot\.ratioOverride \|\| ''/);
@@ -440,6 +444,47 @@ test('buildDirectorStoryboardRunPlan passes provider params through every Seedan
   const plan = buildDirectorStoryboardRunPlan(shots, settings);
 
   assert.deepEqual(plan.map((job) => job.payload.providerParams), [providerParams, providerParams]);
+});
+
+test('director storyboard binds seedance.nz provider to shot and bridge payloads', () => {
+  const settings = {
+    model: 'global-mini',
+    taskProvider: 'seedance-nz' as const,
+    ratio: '16:9',
+    resolution: '480p',
+    generateAudio: false,
+    returnLastFrame: false,
+    watermark: false,
+    webSearch: false,
+    seed: -1,
+  };
+  const shots = sanitizeDirectorStoryboardShots([
+    { id: 's1', title: 'S1', durationSec: 4, prompt: 'first shot', localRefImages: ['a.png'] },
+    { id: 's2', title: 'S2', durationSec: 4, prompt: 'second shot', localRefImages: ['b.png'] },
+  ]);
+  const shotPlan = buildDirectorStoryboardRunPlan(shots, settings);
+  const bridges = sanitizeDirectorStoryboardBridges([{
+    id: 'b-s1-s2',
+    fromShotId: 's1',
+    toShotId: 's2',
+    durationSec: 4,
+    prompt: 'bridge',
+    sourceMode: 'manual-image',
+    firstFrameUrl: '/files/input/first.png',
+    lastFrameUrl: '/files/input/last.png',
+  }], shots);
+  const bridgePlan = buildDirectorStoryboardBridgeRunPlan(bridges, shots, settings);
+
+  assert.ok(shotPlan.every((job) => job.payload.taskProvider === 'seedance-nz'));
+  assert.equal(bridgePlan[0].payload.taskProvider, 'seedance-nz');
+});
+
+test('director storyboard UI exposes automatic, seedance.nz and legacy built-in sources', () => {
+  const node = read('../src/components/nodes/DirectorStoryboardNode.tsx');
+  assert.match(node, /主力 API（自动：优先国内平价工坊）/);
+  assert.match(node, /贞贞的平价AI工坊（国内） · api\.seedance\.nz/);
+  assert.match(node, /贞贞的AI工坊（海外） · ai\.t8star\.org/);
+  assert.match(node, /taskProvider: submittedProvider/);
 });
 
 test('director bridge run plan uses prepared first and last frames instead of shot reference images', async () => {
@@ -659,9 +704,9 @@ test('director storyboard bridge generation is per-pair and refresh can recover 
   assert.match(node, /const refreshStoryboardOutputs = async \(options: \{ bridgeId\?: string \} = \{\}\) =>/);
   assert.match(node, /const targetJobId = targetBridgeId \? `bridge-\$\{targetBridgeId\}` : ''/);
   assert.match(node, /syncBridgeResultFromState\(bridge, job\)/);
-  assert.match(node, /querySeedance\(result\.taskId\)/);
+  assert.match(node, /querySeedance\(result\.taskId, result\.taskProvider \|\| undefined\)/);
   assert.match(node, /filter\(\(\[, result\]\) => result\?\.taskId && !result\.videoUrl\)/);
-  assert.match(node, /patchBridge\(bridgeIdFromJob, \{ status: 'success', videoUrl: query\.videoUrl/);
+  assert.match(node, /patchBridge\(bridgeIdFromJob, \{[\s\S]*status: 'success',[\s\S]*videoUrl: query\.videoUrl/);
   assert.match(node, /activeBridgeResult\.taskId[\s\S]*activeBridge\.taskId[\s\S]*activeBridgeResult\.videoUrl[\s\S]*activeBridge\.videoUrl/);
   assert.match(node, /const isActiveBridgeLocallyPolling = bridgeAbortRefs\.current\.has\(activeBridge\.id\)/);
   assert.match(node, /disabled=\{!canRefreshActiveBridgeOutput \|\| isActiveBridgeLocallyPolling\}/);
