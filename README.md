@@ -8,11 +8,11 @@ https://www.runninghub.cn/?inviteCode=rh-v1121
 
 <img src="https://github.com/T8mars/Comfyui-zhenzhen/blob/main/pic/1.png" width="30%" alt="My favorite girl">
 My favorite girl Go YounJung
-# 🐧 贞贞的无限画布（企鹅共创版） · T8-penguin-canvas
+# 洲际设计AI工作台 · icd-ai-workbench
 
 > AI 节点画布工作流工具 · Web + Electron 桌面端｜v2.3.8
 >
-> GitHub：<https://github.com/T8mars/T8-penguin-canvas>
+> GitHub：<https://github.com/LIUSHUAI-001/icd-ai-workbench>
 
 一个面向 AI 创作的 **节点式画布**：拖拽节点、连线编排、生成图像 / 视频 / 音频、调用 LLM、串接 RunningHub 工作流，叠加批量执行、智能对齐、打组、主题模板与终端日志。Web 浏览器和桌面端均可使用。
 
@@ -127,8 +127,8 @@ My favorite girl Go YounJung
 ### 安装
 
 ```bash
-git clone https://github.com/T8mars/T8-penguin-canvas.git
-cd T8-penguin-canvas
+git clone https://github.com/LIUSHUAI-001/icd-ai-workbench.git
+cd icd-ai-workbench
 npm install
 cd backend && npm install && cd ..
 ```

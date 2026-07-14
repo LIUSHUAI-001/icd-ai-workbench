@@ -22,7 +22,7 @@ function localExtensionsPlugin() {
   };
 }
 
-// T8-penguin-canvas Vite 配置
+// 洲际设计AI工作台 Vite 配置
 // 端口策略:前端 11422 / 后端 18766(避开主项目 5176/18765 与常见 51xx 占用)
 export default defineConfig({
   plugins: [react(), localExtensionsPlugin()],
@@ -93,6 +93,6 @@ export default defineConfig({
   },
   define: {
     __APP_VERSION__: JSON.stringify('2.3.8'),
-    __APP_NAME__: JSON.stringify('T8-penguin-canvas'),
+    __APP_NAME__: JSON.stringify('洲际设计AI工作台'),
   },
 });

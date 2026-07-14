@@ -1,19 +1,19 @@
 {
-  "name": "t8-penguin-canvas",
+  "name": "icd-ai-workbench",
   "private": false,
   "version": "2.3.8",
   "type": "module",
   "main": "electron/main.cjs",
-  "description": "T8-penguin-canvas — AI 节点画布工作流工具（Web + Electron 桌面端）",
+  "description": "洲际设计AI工作台 — AI 节点画布工作流工具（Web + Electron 桌面端）",
   "author": "T8mars",
   "license": "MIT",
-  "homepage": "https://github.com/T8mars/T8-penguin-canvas",
+  "homepage": "https://github.com/LIUSHUAI-001/icd-ai-workbench",
   "repository": {
     "type": "git",
-    "url": "https://github.com/T8mars/T8-penguin-canvas.git"
+    "url": "https://github.com/LIUSHUAI-001/icd-ai-workbench.git"
   },
   "bugs": {
-    "url": "https://github.com/T8mars/T8-penguin-canvas/issues"
+    "url": "https://github.com/LIUSHUAI-001/icd-ai-workbench/issues"
   },
   "keywords": [
     "ai",
@@ -84,7 +84,7 @@
   },
   "build": {
     "appId": "cn.t8star.penguin-canvas",
-    "productName": "T8-PenguinCanvas",
+    "productName": "洲际设计AI工作台",
     "directories": {
       "output": "dist_electron",
       "buildResources": "electron/build-resources"
@@ -202,8 +202,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "T8mars",
-        "repo": "T8-penguin-canvas",
+        "owner": "LIUSHUAI-001",
+        "repo": "icd-ai-workbench",
         "releaseType": "release"
       }
     ],
