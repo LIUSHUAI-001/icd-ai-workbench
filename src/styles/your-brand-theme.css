@@ -532,6 +532,8 @@ html[data-your-brand="active"] .t8-node {
 
 /* --- 抽屉面板 --- */
 html[data-your-brand="active"] .resource-library-drawer {
+  left: 78px !important;
+  right: auto !important;
   background: #14181D !important;
   color: #F2F4F7 !important;
   border-left-color: rgba(255, 255, 255, 0.08) !important;

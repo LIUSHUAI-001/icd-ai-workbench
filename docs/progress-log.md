@@ -18,6 +18,22 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-16 - Codex - 修正资源库抽屉展开位置
+
+- User goal: 修复左侧快捷菜单中的资源库展开后跑到窗口最右侧的问题。
+- Files changed:
+  - `src/styles/your-brand-theme.css`：在 ICD 主题下将资源库抽屉定位到左侧快捷菜单右边。
+  - `docs/progress-log.md`：记录本次修复和验证结果。
+- Completed: 资源库抽屉从窗口最右侧移到左侧 `78px`，与快捷菜单右边缘保留 `8px` 间距；上游资源库组件和交互逻辑保持不变。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测 1280×720 画布：快捷菜单范围 `16–70px`，资源库范围 `78–518px`，页面无 console error ✅
+- Core T8 files touched: 无。仅修改 ICD 品牌主题 CSS，未修改资源库组件、画布内核、节点、后端或数据。
+- Risks / blockers: 当前定位按桌面画布布局设置；后续若专门适配窄屏，需要再增加移动端抽屉宽度和边距规则。
+- Next step: 用户继续体验资源库和工作流入口；如工作流抽屉需要不同宽度，再按实际使用反馈调整。
+
 ## 2026-07-16 - Codex - 隐藏上游推广快捷入口
 
 - User goal: 隐藏画布顶部对当前定制工作台无用的“图图打标器”“API获取”“插件安装”三个上游新增入口。
