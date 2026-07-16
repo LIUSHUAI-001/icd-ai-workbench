@@ -55,6 +55,7 @@ function isShortcutTypingTarget(target: EventTarget | null): boolean {
 }
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 't8-sidebar-collapsed';
+const SHOW_UPSTREAM_PROMO_SHORTCUTS = false;
 const ZHAOTUTU_TAGGER_TRAINER_URL = 'https://zhaotutu.xyz';
 const ZHAOTUTU_TAGGER_TRAINER_LABEL = '最好的打标和模型训练工具-图图打标及训练器：点击获取';
 const API_ACQUISITION_LINKS = [
@@ -1147,6 +1148,8 @@ function App() {
           )}
         </div>
         <div className="flex items-center gap-1">
+          {SHOW_UPSTREAM_PROMO_SHORTCUTS && (
+            <>
           {/* 「图图打标器」推广按钮: 放在插件安装左侧, 点击后展示说明与获取链接 */}
           <div ref={zhaotutuWrapRef} className="relative">
             <button
@@ -1419,6 +1422,9 @@ function App() {
               </div>
             )}
           </div>
+
+            </>
+          )}
 
           {/* 「画布教程」教程合集按钮: 放在最新应用左侧, 方便新用户按版本学习 */}
           <div ref={canvasTutorialWrapRef} className="relative">

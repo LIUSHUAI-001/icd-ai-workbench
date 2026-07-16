@@ -18,6 +18,23 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-16 - Codex - 隐藏上游推广快捷入口
+
+- User goal: 隐藏画布顶部对当前定制工作台无用的“图图打标器”“API获取”“插件安装”三个上游新增入口。
+- Files changed:
+  - `src/App.tsx`：增加 `SHOW_UPSTREAM_PROMO_SHORTCUTS` 开关并关闭三个顶部快捷入口。
+  - `docs/progress-log.md`：记录本次调整与验证结果。
+- Completed: 三个入口已从画布顶部隐藏；对应上游实现仍保留，后续可一键恢复；画布教程、其他常用入口和底层功能未删除。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `node --test tests/canvasTutorialPluginInstall.test.ts`：3 passed、0 failed ✅
+  - `git diff --check` ✅
+  - 浏览器实测 `http://127.0.0.1:11422/#/canvas`：三个顶部入口均不可见，页面无 console error ✅
+- Core T8 files touched: `src/App.tsx` 仅调整画布外层顶部入口；未修改 `Canvas.tsx`、节点注册、后端、存储格式或用户数据。
+- Risks / blockers: 上游快捷入口代码仍保留为关闭状态，未来同步上游时需要继续保留该产品开关。
+- Next step: 用户继续体验当前画布；若确认其他上游宣传入口也无用，再逐项隐藏，避免一次性误删有价值功能。
+
 ## 2026-07-15 - Codex - 隔离升级 T8 v2.5.5
 
 - User goal: 将上游 T8 v2.5.5 更新到洲际设计 AI 工作台，同时保留 ICD 首页、导航、主题、产品页面、私有适配器和用户数据。
