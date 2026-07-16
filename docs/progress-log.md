@@ -18,6 +18,22 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-16 - Codex - 区分左侧菜单展开方式
+
+- User goal: 左侧快捷菜单仅第一个侧边栏按钮悬停自动展开；资源库和工作流必须点击后才展开。
+- Files changed:
+  - `src/App.tsx`：移除资源库、工作流按钮的 `onMouseEnter` 和 `onPointerEnter`，保留点击事件；第一个侧边栏按钮的悬停事件保持不变。
+  - `docs/progress-log.md`：记录本次交互调整和验证结果。
+- Completed: 资源库和工作流经过时不再误展开，点击仍可正常打开对应抽屉；第一个按钮仍保留原有自动展开代码。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测：资源库悬停不展开、点击展开；工作流悬停不展开、点击展开；页面无 console error ✅
+- Core T8 files touched: `src/App.tsx` 仅修改 ICD 左侧快捷菜单事件绑定；未修改画布内核、资源库组件、节点、后端或数据。
+- Risks / blockers: 无。
+- Next step: 用户继续体验三个左侧按钮的展开节奏；如需调整第一个菜单的自动收起延迟，再单独修改 `220ms` 定时。
+
 ## 2026-07-16 - Codex - 修正资源库抽屉展开位置
 
 - User goal: 修复左侧快捷菜单中的资源库展开后跑到窗口最右侧的问题。

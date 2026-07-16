@@ -2311,8 +2311,6 @@ function App() {
             type="button"
             className="your-brand-dock__btn"
             title="资源库"
-            onMouseEnter={() => openResourceDrawer('default')}
-            onPointerEnter={() => openResourceDrawer('default')}
             onClick={() => openResourceDrawer('default')}
           >
             <Library size={14} />
@@ -2321,8 +2319,6 @@ function App() {
             type="button"
             className="your-brand-dock__btn"
             title="工作流"
-            onMouseEnter={() => openResourceDrawer('workflow')}
-            onPointerEnter={() => openResourceDrawer('workflow')}
             onClick={() => openResourceDrawer('workflow')}
           >
             <Workflow size={14} />
