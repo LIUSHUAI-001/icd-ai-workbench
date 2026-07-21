@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Moon, Settings, Sun, Wifi, WifiOff, Sparkles, Cloud, ExternalLink, Copy, Check, Gift, Heart, Youtube, PlayCircle, Bell, Wand2, Globe, MessageCircle, CalendarDays, Rocket, Library, Palette, Skull, Sailboat, BookOpen, Shield, Crown, PanelLeftClose, PanelLeftOpen, Puzzle, KeyRound, Workflow, ArrowLeft } from 'lucide-react';
+import { Moon, Settings, Sun, Wifi, WifiOff, Sparkles, Cloud, ExternalLink, Copy, Check, Gift, Heart, Youtube, PlayCircle, Bell, Wand2, Globe, MessageCircle, CalendarDays, Rocket, Library, Palette, Skull, Sailboat, BookOpen, Shield, Crown, PanelLeftClose, PanelLeftOpen, Puzzle, KeyRound, Grid2x2Plus, ArrowLeft } from 'lucide-react';
 import { useThemeStore } from './stores/theme';
 import { seedDragonBallRadarForShenronTest, useDragonBallRadarStore } from './stores/dragonBallRadar';
 import { seedSaintSeiyaGoldClothsForHadesTest, useSaintSeiyaSanctuaryStore } from './stores/saintSeiyaSanctuary';
@@ -8,7 +8,7 @@ import { useApiKeysStore } from './stores/apiKeys';
 import { useShortcutStore } from './stores/shortcuts';
 import { useCanvasStore } from './stores/canvas';
 import Sidebar from './components/Sidebar';
-import type { AddNodeFn, InsertWorkflowFn } from './components/Canvas';
+import type { AddNodeFn, GetCanvasSelectionFn, InsertWorkflowFn } from './components/Canvas';
 import AppUpdaterButton from './components/AppUpdaterButton';
 import MaterialContextMenu from './components/MaterialContextMenu';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -28,11 +28,14 @@ import { matchesAnyShortcut } from './utils/keyboardShortcuts';
 import { portraitResourceToNodeData } from './utils/portraitResource';
 import { applyUiFontPreference } from './utils/uiFont';
 import { LocalModalSlot, LocalTopbarSlot } from 'virtual:t8-local-extensions';
-import { useIcdRoute } from './extensions/icdRouter';
+import { navigateIcd, useIcdCanvasRouteId, useIcdRoute } from './extensions/icdRouter';
 import { consumeIcdCanvasIntent } from './extensions/icdCanvasIntent';
 import { HomePage } from './extensions/pages/HomePage';
+import { WorkspacePage } from './extensions/pages/WorkspacePage';
 import { PromptLibraryPage } from './extensions/pages/PromptLibraryPage';
 import { CaseNavigationPage } from './extensions/pages/CaseNavigationPage';
+import { IcdToolLibrary, type IcdToolId } from './extensions/components/IcdToolLibrary';
+import { IcdToolDetailDrawer } from './extensions/components/IcdToolDetailDrawer';
 
 const Canvas = lazy(() => import('./components/Canvas'));
 const ApiSettingsModal = lazy(() => import('./components/ApiSettings'));
@@ -307,6 +310,8 @@ function App() {
   const [backendStatus, setBackendStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [resourceOpen, setResourceOpen] = useState(false);
+  const [toolLibraryOpen, setToolLibraryOpen] = useState(false);
+  const [activeIcdTool, setActiveIcdTool] = useState<IcdToolId | null>(null);
   const [drawerKey, setDrawerKey] = useState('default');
   const [pendingCanvasIntent, setPendingCanvasIntent] = useState<ReturnType<typeof consumeIcdCanvasIntent>>(null);
   const sidebarHoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -343,6 +348,7 @@ function App() {
   // 画布接收节点添加的 ref(从 Sidebar -> Canvas)
   const addNodeRef = useRef<AddNodeFn | null>(null);
   const insertWorkflowRef = useRef<InsertWorkflowFn | null>(null);
+  const getCanvasSelectionRef = useRef<GetCanvasSelectionFn | null>(null);
 
   const clearSidebarTimer = useCallback(() => {
     if (sidebarHoverTimerRef.current !== null) {
@@ -390,15 +396,51 @@ function App() {
 
   const openSidebarFromDock = useCallback(() => {
     clearSidebarTimer();
+    setResourceOpen(false);
+    setToolLibraryOpen(false);
+    setActiveIcdTool(null);
     setSidebarCollapsed(false);
   }, [clearSidebarTimer]);
 
   const openResourceDrawer = useCallback((kind: 'default' | 'workflow') => {
     clearSidebarTimer();
     setSidebarCollapsed(true);
+    setToolLibraryOpen(false);
+    setActiveIcdTool(null);
     setDrawerKey(kind);
     setResourceOpen(true);
   }, [clearSidebarTimer]);
+
+  const toggleToolLibrary = useCallback(() => {
+    clearSidebarTimer();
+    setSidebarCollapsed(true);
+    setResourceOpen(false);
+    if (toolLibraryOpen) {
+      setToolLibraryOpen(false);
+      setActiveIcdTool(null);
+    } else {
+      setToolLibraryOpen(true);
+    }
+  }, [clearSidebarTimer, toolLibraryOpen]);
+
+  const closeToolLibrary = useCallback(() => {
+    setToolLibraryOpen(false);
+    setActiveIcdTool(null);
+  }, []);
+
+  const selectIcdTool = useCallback((tool: IcdToolId) => {
+    clearSidebarTimer();
+    setSidebarCollapsed(true);
+    setResourceOpen(false);
+    setToolLibraryOpen(true);
+    setActiveIcdTool(tool);
+  }, [clearSidebarTimer]);
+
+  const addIcdToolResultNode = useCallback((type: NodeType, data: Record<string, any>) => {
+    addNodeRef.current?.(type, { data });
+  }, []);
+
+  const getIcdToolCanvasSelection = useCallback(() => getCanvasSelectionRef.current?.() || null, []);
 
   const toggleSidebarCollapsed = useCallback(() => {
     clearSidebarTimer();
@@ -838,15 +880,46 @@ function App() {
 
   // ---- ICD 产品框架路由 ----
   const icdRoute = useIcdRoute();
+  const canvasRouteId = useIcdCanvasRouteId();
+  const [canvasEntryReady, setCanvasEntryReady] = useState(false);
 
   useEffect(() => {
     if (icdRoute !== 'canvas') {
+      setCanvasEntryReady(false);
+      return;
+    }
+    if (!canvasRouteId) {
+      navigateIcd('workspace');
+      return;
+    }
+
+    let cancelled = false;
+    setCanvasEntryReady(false);
+    const canvasState = useCanvasStore.getState();
+    void canvasState.loadCanvases().then(() => {
+      if (cancelled) return;
+      const latestState = useCanvasStore.getState();
+      if (!latestState.canvases.some((canvas) => canvas.id === canvasRouteId)) {
+        navigateIcd('workspace');
+        return;
+      }
+      latestState.setActive(canvasRouteId);
+      setCanvasEntryReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [canvasRouteId, icdRoute]);
+
+  useEffect(() => {
+    if (icdRoute !== 'canvas' || !canvasEntryReady) {
       // Canvas 已卸载时不能复用旧实例的 addNode 回调。
       addNodeRef.current = null;
       return;
     }
     setPendingCanvasIntent(consumeIcdCanvasIntent());
-  }, [icdRoute]);
+  }, [canvasEntryReady, icdRoute]);
 
   useEffect(() => {
     if (!pendingCanvasIntent) return;
@@ -917,11 +990,17 @@ function App() {
   if (icdRoute === 'home') {
     return <HomePage />;
   }
+  if (icdRoute === 'workspace') {
+    return <WorkspacePage />;
+  }
   if (icdRoute === 'inspiration') {
     return <PromptLibraryPage />;
   }
   if (icdRoute === 'cases') {
     return <CaseNavigationPage />;
+  }
+  if (!canvasRouteId || !canvasEntryReady) {
+    return <div className="icd-canvas-entry-loading" role="status">正在打开项目…</div>;
   }
   // icdRoute === 'canvas' — 继续渲染 T8 画布
 
@@ -945,7 +1024,7 @@ function App() {
         }`}
       >
         <div className="flex items-center gap-3">
-          <a href="#/" className="your-brand-canvas-back" aria-label="返回首页" title="返回首页">
+          <a href="#/workspace" className="your-brand-canvas-back" aria-label="返回工作空间" title="返回工作空间">
             <ArrowLeft size={17} strokeWidth={2.2} aria-hidden="true" />
           </a>
           {isOp ? (
@@ -2286,7 +2365,10 @@ function App() {
       >
         {!sidebarCollapsed && (
           <div onMouseEnter={clearSidebarTimer} onMouseLeave={scheduleSidebarCollapse}>
-            <Sidebar onAddNode={handleAddNode} />
+            <Sidebar
+              onAddNode={handleAddNode}
+              showCanvasManager={false}
+            />
           </div>
         )}
         <nav
@@ -2317,16 +2399,36 @@ function App() {
           </button>
           <button
             type="button"
-            className="your-brand-dock__btn"
-            title="工作流"
-            onClick={() => openResourceDrawer('workflow')}
+            className={`your-brand-dock__btn${toolLibraryOpen ? ' is-active' : ''}`}
+            title="工具库"
+            aria-label="工具库"
+            aria-expanded={toolLibraryOpen}
+            data-icd-tool-library-trigger
+            onClick={toggleToolLibrary}
           >
-            <Workflow size={14} />
+            <Grid2x2Plus size={15} />
           </button>
         </nav>
+        <IcdToolLibrary
+          open={toolLibraryOpen}
+          activeTool={activeIcdTool}
+          onClose={closeToolLibrary}
+          onSelectTool={selectIcdTool}
+        />
+        <IcdToolDetailDrawer
+          tool={activeIcdTool}
+          hasCanvas={Boolean(activeId)}
+          onClose={() => setActiveIcdTool(null)}
+          onGetCanvasSelection={getIcdToolCanvasSelection}
+          onAddNode={addIcdToolResultNode}
+        />
         <ErrorBoundary fallbackTitle="画布渲染出错了，已被错误边界捕获">
           <Suspense fallback={<InfiniteCanvasBootLoading />}>
-            <Canvas onAddNodeRef={addNodeRef} onInsertWorkflowRef={insertWorkflowRef} />
+            <Canvas
+              onAddNodeRef={addNodeRef}
+              onInsertWorkflowRef={insertWorkflowRef}
+              onGetSelectionRef={getCanvasSelectionRef}
+            />
           </Suspense>
         </ErrorBoundary>
       </div>

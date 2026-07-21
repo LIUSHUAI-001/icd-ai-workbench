@@ -3,7 +3,8 @@
  *
  * 路由表：
  * - #/ 或空 hash  → 首页
- * - #/canvas       → T8 画布（现有 App 完整渲染）
+ * - #/workspace    → 项目工作空间
+ * - #/canvas/:id   → 指定项目的 T8 画布
  * - #/inspiration  → 提示词库
  * - #/cases        → 案例导航
  *
@@ -11,11 +12,12 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 
-export type IcdRoute = 'home' | 'canvas' | 'inspiration' | 'cases';
+export type IcdRoute = 'home' | 'workspace' | 'canvas' | 'inspiration' | 'cases';
 
 const ROUTE_MAP: Record<string, IcdRoute> = {
   '': 'home',
   '/': 'home',
+  '/workspace': 'workspace',
   '/canvas': 'canvas',
   '/inspiration': 'inspiration',
   '/cases': 'cases',
@@ -26,7 +28,20 @@ function parseHash(): IcdRoute {
   const raw = window.location.hash.replace(/^#/, '') || '';
   // 去掉尾部斜线
   const normalized = raw.replace(/\/+$/, '') || '';
+  if (normalized.startsWith('/canvas/')) return 'canvas';
   return ROUTE_MAP[normalized] ?? 'home';
+}
+
+function parseCanvasId(): string | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.location.hash.replace(/^#/, '').replace(/\/+$/, '');
+  const match = raw.match(/^\/canvas\/([^/?#]+)$/);
+  if (!match) return null;
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
 }
 
 const listeners = new Set<() => void>();
@@ -58,13 +73,25 @@ export function useIcdRoute(): IcdRoute {
   return route;
 }
 
-export function navigateIcd(route: IcdRoute) {
-  const hash = route === 'home' ? '#/' : `#/${route}`;
+export function useIcdCanvasRouteId(): string | null {
+  const [canvasId, setCanvasId] = useState<string | null>(parseCanvasId);
+
+  useEffect(() => subscribeHashChange(() => setCanvasId(parseCanvasId())), []);
+
+  return canvasId;
+}
+
+export function navigateIcd(route: IcdRoute, canvasId?: string) {
+  const hash = route === 'home'
+    ? '#/'
+    : route === 'canvas' && canvasId
+      ? `#/canvas/${encodeURIComponent(canvasId)}`
+      : `#/${route}`;
   if (typeof window !== 'undefined') {
     window.location.hash = hash;
   }
 }
 
 export function useIcdNavigate() {
-  return useCallback((route: IcdRoute) => navigateIcd(route), []);
+  return useCallback((route: IcdRoute, canvasId?: string) => navigateIcd(route, canvasId), []);
 }

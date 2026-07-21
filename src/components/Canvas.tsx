@@ -136,6 +136,7 @@ import {
   collectCanvasSelectionSummary,
   createCanvasResourcePackageManifest,
   prepareCanvasResourcePackageImport,
+  type CanvasSelectionSummary,
 } from '../utils/canvasCreativeWorkflow';
 import {
   VIBEX_MESSAGE_CONTRACT,
@@ -2487,6 +2488,7 @@ export interface AddNodeOptions {
 }
 
 export type AddNodeFn = (type: NodeType, options?: AddNodeOptions) => void;
+export type GetCanvasSelectionFn = () => CanvasSelectionSummary;
 
 interface RadialMenuSession {
   anchor: RadialMenuPoint;
@@ -3084,9 +3086,10 @@ function PlacementShelf({
 interface CanvasInnerProps {
   onAddNodeRef?: React.MutableRefObject<AddNodeFn | null>;
   onInsertWorkflowRef?: React.MutableRefObject<InsertWorkflowFn | null>;
+  onGetSelectionRef?: React.MutableRefObject<GetCanvasSelectionFn | null>;
 }
 
-function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
+function CanvasInner({ onAddNodeRef, onInsertWorkflowRef, onGetSelectionRef }: CanvasInnerProps) {
   const { activeId, canvases, loadCanvases, setActive } = useCanvasStore();
   const { theme, style, templateId, customTemplates } = useThemeStore();
   const shortcuts = useShortcutStore((s) => s.shortcuts);
@@ -7123,6 +7126,17 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
   }, [onInsertWorkflowRef, insertWorkflowFragment]);
 
   useEffect(() => {
+    if (onGetSelectionRef) {
+      onGetSelectionRef.current = () => collectCanvasSelectionSummary(nodesRef.current, {
+        canvasId: activeId || undefined,
+      });
+    }
+    return () => {
+      if (onGetSelectionRef) onGetSelectionRef.current = null;
+    };
+  }, [activeId, onGetSelectionRef]);
+
+  useEffect(() => {
     const findSourceFromElement = (target: EventTarget | null) => (
       target instanceof Element ? target.closest('[data-drag-source]') as HTMLElement | null : null
     );
@@ -10981,6 +10995,7 @@ function CanvasInner({ onAddNodeRef, onInsertWorkflowRef }: CanvasInnerProps) {
 interface CanvasProps {
   onAddNodeRef?: React.MutableRefObject<AddNodeFn | null>;
   onInsertWorkflowRef?: React.MutableRefObject<InsertWorkflowFn | null>;
+  onGetSelectionRef?: React.MutableRefObject<GetCanvasSelectionFn | null>;
 }
 
 export default function Canvas(props: CanvasProps) {
