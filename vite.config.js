@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 var LOCAL_EXTENSIONS_MODULE = 'virtual:t8-local-extensions';
 var LOCAL_EXTENSIONS_ENTRY = path.resolve(__dirname, 'local-private', 'extensions', 'frontend', 'index.tsx');
+var TRACKED_ICD_EXTENSIONS_ENTRY = path.resolve(__dirname, 'src', 'extensions', 'icdLocalExtensions.tsx');
 var LOCAL_REQUIRED_FRONTEND_ENTRY = path.resolve(__dirname, 'local-private', ['re', 'charge'].join(''), 'frontend', ['Re', 'charge', 'Modal.tsx'].join(''));
 var EMPTY_EXTENSIONS_ENTRY = path.resolve(__dirname, 'src', 'extensions', 'emptyLocalExtensions.tsx');
 function requireLocalPrivateFrontend() {
@@ -26,10 +27,11 @@ function localExtensionsPlugin() {
             if (process.env.T8_REQUIRE_LOCAL_PRIVATE === '1' && disabled) {
                 throw new Error('[t8-local-extensions] formal release cannot disable local private extensions');
             }
-            var enabled = !disabled;
-            return enabled && fs.existsSync(LOCAL_EXTENSIONS_ENTRY)
+            if (disabled)
+                return EMPTY_EXTENSIONS_ENTRY;
+            return fs.existsSync(LOCAL_EXTENSIONS_ENTRY)
                 ? LOCAL_EXTENSIONS_ENTRY
-                : EMPTY_EXTENSIONS_ENTRY;
+                : TRACKED_ICD_EXTENSIONS_ENTRY;
         },
     };
 }

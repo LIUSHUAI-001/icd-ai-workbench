@@ -124,9 +124,12 @@ test('formal Electron releases fail closed when required private sidecars are mi
   assert.match(distRelease, /T8_REQUIRE_LOCAL_PRIVATE:\s*['"]1['"]/);
 
   assert.match(viteConfig, /LOCAL_REQUIRED_FRONTEND_ENTRY/);
+  assert.match(viteConfig, /TRACKED_ICD_EXTENSIONS_ENTRY/);
+  assert.match(viteConfig, /src['"], ['"]extensions['"], ['"]icdLocalExtensions\.tsx/);
   assert.match(viteConfig, /process\.env\.T8_REQUIRE_LOCAL_PRIVATE !== ['"]1['"]/);
   assert.match(viteConfig, /formal release requires local private frontend/);
   assert.match(viteConfig, /formal release cannot disable local private extensions/);
+  assert.match(viteConfig, /fs\.existsSync\(LOCAL_EXTENSIONS_ENTRY\)[\s\S]*TRACKED_ICD_EXTENSIONS_ENTRY/);
 
   assert.match(encrypt, /REQUIRED_LOCAL_PRIVATE_BACKEND/);
   assert.match(encrypt, /REQUIRED_LOCAL_PRIVATE_OUTPUT/);
