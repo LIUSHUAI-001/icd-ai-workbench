@@ -14,7 +14,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { key: 'home', label: '首页' },
-  { key: 'canvas', label: '画布' },
+  { key: 'workspace', label: '工作空间' },
   { key: 'inspiration', label: '提示词库' },
   { key: 'cases', label: '设计资源库' },
 ];
@@ -70,10 +70,10 @@ export const IcdNavbar: FC = () => {
         {/* CTA — p24-button--nav */}
         <a
           className="icd-navbar__cta"
-          href="#/canvas"
-          onClick={(e) => { e.preventDefault(); navigate('canvas'); }}
+          href="#/workspace"
+          onClick={(e) => { e.preventDefault(); navigate('workspace'); }}
         >
-          进入画布
+          进入工作空间
         </a>
       </div>
     </header>

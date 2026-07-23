@@ -387,9 +387,13 @@ const FARM_STORY_ICON_BY_TYPE: Record<string, string> = {
 
 interface SidebarProps {
   onAddNode: (type: NodeType) => void;
+  showCanvasManager?: boolean;
+  canvasLabel?: string;
+  onOpenCanvas?: (id: string) => void;
+  onCreateCanvas?: () => void;
 }
 
-export default function Sidebar({ onAddNode }: SidebarProps) {
+export default function Sidebar({ onAddNode, showCanvasManager = true, canvasLabel = '画布', onOpenCanvas, onCreateCanvas }: SidebarProps) {
   const { theme, style, templateId, customTemplates } = useThemeStore();
   const currentTemplate = useMemo(
     () => resolveThemeTemplate(templateId, customTemplates),
@@ -420,12 +424,24 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
   const completionNoticeSet = useMemo(() => new Set(completionNoticeCanvasIds), [completionNoticeCanvasIds]);
 
   useEffect(() => {
-    loadCanvases();
-  }, [loadCanvases]);
+    if (showCanvasManager) loadCanvases();
+  }, [loadCanvases, showCanvasManager]);
 
   const handleCreateCanvas = async () => {
+    if (onCreateCanvas) {
+      onCreateCanvas();
+      return;
+    }
     const name = `画布 ${canvases.length + 1}`;
     await createCanvas(name);
+  };
+
+  const handleOpenCanvas = (id: string) => {
+    if (onOpenCanvas) {
+      onOpenCanvas(id);
+      return;
+    }
+    setActive(id);
   };
 
   const startEdit = (id: string, name: string) => {
@@ -531,8 +547,8 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
             : 'bg-white border-black/10'
       }`}
     >
-      {/* 画布管理(可折叠) */}
-      <div
+      {/* 画布管理(可折叠)；产品外壳可把项目管理统一收口到工作空间。 */}
+      {showCanvasManager && <div
         className={`border-b ${
           isPixel ? 'border-[#1A1410]/80' : isDark ? 'border-white/10' : 'border-black/10'
         }`}
@@ -554,7 +570,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
           >
             {canvasPanelOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             <FolderOpen size={12} />
-            <span>画布</span>
+            <span>{canvasLabel}</span>
             <span className="opacity-60 ml-1 normal-case">{canvases.length}</span>
           </button>
           <button
@@ -568,7 +584,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                       : 'hover:bg-black/10 text-zinc-700'
                   }`
             }
-            title="新建画布"
+            title={`新建${canvasLabel}`}
           >
             <Plus size={13} />
           </button>
@@ -590,7 +606,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                   isPixel ? '' : isDark ? 'text-white/40' : 'text-zinc-500'
                 }`}
               >
-                <p>还没有画布</p>
+                <p>还没有{canvasLabel}</p>
                 <button
                   onClick={handleCreateCanvas}
                   className={
@@ -599,7 +615,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
                       : 'mt-1.5 px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] hover:bg-emerald-500/30'
                   }
                 >
-                  + 新建第一个画布
+                  + 新建第一个{canvasLabel}
                 </button>
               </div>
             )}
@@ -611,7 +627,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
               return (
                 <div
                   key={c.id}
-                  onClick={() => !isEditing && setActive(c.id)}
+                  onClick={() => !isEditing && handleOpenCanvas(c.id)}
                   data-canvas-completion-notice={hasCompletionNotice ? 'true' : undefined}
                   className={`t8-sidebar-canvas-row group px-2 py-1 cursor-pointer text-[11px] transition-colors ${
                     isPixel
@@ -728,7 +744,7 @@ export default function Sidebar({ onAddNode }: SidebarProps) {
             })}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* 搜索框 */}
       <div

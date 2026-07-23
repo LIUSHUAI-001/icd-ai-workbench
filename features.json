@@ -1,14 +1,1341 @@
 {
   "$schema": "本文件为 T8-penguin-canvas 节点清单防丢失锁,任何节点删减都需要在 roadmap.md 中说明并更新本文件。",
-  "version": "2.3.8",
-  "lastUpdated": "2026-06-25-v238-electron-release",
+  "version": "2.5.5",
+  "lastUpdated": "2026-07-14-electron-release-v2.5.5",
+  "wan27DolaSeedreamModels": {
+    "version": "2.5.5",
+    "status": "released",
+    "date": "2026-07-14",
+    "description": "视频节点新增 Wan TAB 与 wan-2.7-spicy-i2v；图像节点 Seedream 的贞贞平价AI工坊来源新增 Dola Seedream 5.0 Pro 海外模型选择，并保留原国内模型和旧画布默认行为。",
+    "models": [
+      "wan-2.7-spicy-i2v",
+      "dola-seedream-5.0-pro-t2i",
+      "dola-seedream-5.0-pro-i2i"
+    ],
+    "capabilities": [
+      "Wan 使用独立 POST /v1/videos 与 GET /v1/videos/{task_id}：必须提供一张首帧图，提示词可选，时长 2-15 秒，分辨率 720p/1080p，并支持负面提示词、公开音频 URL、提示词扩写开关和随机/固定种子。",
+      "前端使用 /api/proxy/video/wan/submit 与 /api/proxy/video/wan/status/{task_id} 隔离 Wan 提交和轮询；成功 MP4 立即转存 T8 output，画布保存本地 URL。",
+      "图像节点 Seedream 的 api.seedance.nz 来源提供国内 Seedream v5 Pro 与海外 Dola Seedream 5.0 Pro 下拉选择；旧画布缺省继续使用国内模型，界面明确标注海外模型。",
+      "Dola 根据参考图数量自动选择 dola-seedream-5.0-pro-t2i 或 dola-seedream-5.0-pro-i2i，继续使用 POST /v1/image/generations、GET /v1/image/generations/{task_id} 和同一平价AI工坊 Key。",
+      "本地参考图先经 /v1/files/upload 取得临时公网 URL；Seedream 最多 10 张且单张不超过 10MB，Wan 只取第一张首帧图。"
+    ],
+    "verification": [
+      "Seedance NZ Provider、前端与图像代理专项测试 24/24 通过。",
+      "npm run type-check 与 npm run build 通过。",
+      "真实 dola-seedream-5.0-pro-t2i 成功返回 PNG 1,624,815 bytes，SHA256 84D11DEA7829A8069874CA9D3F5A46285B02D8A2C10A8715B8EA56BD561FC078。",
+      "真实 dola-seedream-5.0-pro-i2i 使用上一张结果作为参考图，成功返回 PNG 1,744,639 bytes，SHA256 A2A353695EB75E57A97539873CA46CFB834105BDCD23F381F4B4418FF41565BD。",
+      "真实 wan-2.7-spicy-i2v 使用上一张结果作为首帧，按 2 秒/720p 成功返回 MP4 838,695 bytes，SHA256 EEDAA53F6CBB8B2FB797EF4DFEAC6E402A068EB24E5805BD0EF51CEF8DCC861A。",
+      "实现参数同时核对 api.seedance.nz 官方 llms.txt 与本地 ComfyUI_Seedance 参考节点；测试 Key 未写入源码、设置、日志、文档、构建产物或 Git。"
+    ],
+    "releaseBoundary": "纳入 v2.5.5 Electron 自动更新版；公开 GitHub 只包含本功能、测试、版本记录与 release notes，私有 sidecar 仅注入加密安装包。"
+  },
+  "electronReleaseV255": {
+    "version": "2.5.5",
+    "status": "electron-release",
+    "date": "2026-07-14",
+    "description": "v2.5.5 Electron 自动更新版：新增 Wan 2.7 Spicy 图生视频和 Dola Seedream 5.0 Pro 海外文生图/图生图。",
+    "highlights": [
+      "视频节点新增 Wan TAB，wan-2.7-spicy-i2v 支持单张首帧、2-15 秒、720p/1080p、负面提示词、公开音频 URL、提示词扩写和 seed。",
+      "图像节点 Seedream 在 api.seedance.nz 来源下新增国内/海外模型族选择，Dola 海外模型按参考图自动切换 t2i/i2i。",
+      "旧画布继续默认国内 Seedream v5 Pro；Wan 与 Dola 使用独立明确的模型 ID 和代理路径，不影响 Happy Horse、Seedance、Seed Audio 或原 Seedream。",
+      "Electron 正式包继续 fail-closed 校验私有充值 sidecar、运行时归档、FFmpeg、PS/Figma/Chrome 插件和自动更新资产。"
+    ],
+    "verification": [
+      "三款新增模型均已使用临时测试 Key 完成真实 API 生成。",
+      "专项测试 24/24、type-check、public:check、rh-toolbox:check、生产构建和 Electron post-build 均纳入发布门槛。",
+      "测试 Key 未写入公开源码、文档、日志、构建产物或 Git。"
+    ],
+    "release": {
+      "tag": "v2.5.5",
+      "url": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.5",
+      "installer": "T8-PenguinCanvas-Setup-2.5.5.exe",
+      "blockmap": "T8-PenguinCanvas-Setup-2.5.5.exe.blockmap",
+      "metadata": "latest.yml"
+    }
+  },
+  "happyHorseSeedAudio": {
+    "version": "2.5.4",
+    "status": "released",
+    "date": "2026-07-13",
+    "description": "视频节点新增 Happy Horse，音频节点新增 Seed Audio；四个模型固定使用贞贞的平价AI工坊（国内）API Key，并与原视频模型、Seedance、Seedream 和 Suno 链路隔离。",
+    "models": [
+      "happyhorse-1.1-t2v",
+      "happyhorse-1.1-i2v",
+      "happyhorse-1.1-r2v",
+      "doubao-seed-audio-1.0"
+    ],
+    "capabilities": [
+      "Happy Horse 统一使用 POST /v1/videos 与 GET /v1/videos/{id}；支持 adaptive/16:9/9:16/1:1/4:3/3:4/21:9、3-15 秒以及 720p/1080p。",
+      "t2v 只发送提示词；i2v 必须有参考图并只取排序后的首图；r2v 接受 1-9 张图，提示词可使用图1/图2指代。",
+      "Seed Audio 使用独立异步 POST /v1/audio/generations 与 GET /v1/audio/generations/{id}，不是 Suno 或同步 TTS 接口。",
+      "Seed Audio 支持 wav/mp3/pcm/ogg_opus、8000-44100Hz、语速/音量/音高调节；音色 ID、单张参考图和最多三段参考音频严格互斥。",
+      "本地参考素材继续通过 /v1/files/upload 换取临时公网直链；视频和音频成功后立即转存到 T8 output，画布只保存本地 URL。",
+      "音频节点使用 Suno/Seed Audio 分段入口，保留 Suno 生成、翻唱、续写、版本、双轨输出和上传流程。"
+    ],
+    "verification": [
+      "seedance.nz Provider 与前端专项测试 19/19。",
+      "npm run type-check。",
+      "真实 happyhorse-1.1-t2v：3.162667 秒 MP4，791322 bytes。",
+      "真实 happyhorse-1.1-i2v：3.162667 秒 MP4，486821 bytes。",
+      "真实 happyhorse-1.1-r2v：3.162667 秒 MP4，551990 bytes。",
+      "真实 doubao-seed-audio-1.0：3.048 秒 MP3，24428 bytes。",
+      "真实开发画布检查 Happy Horse 三模式、Seed Audio 参数面板和 Suno 回归，验收节点完成后已删除。"
+    ],
+    "releaseBoundary": "纳入 v2.5.4 Electron 自动更新版；测试 Key 不写入源码、脚本、文档、截图、构建产物或 Git。"
+  },
+  "faceExpression3DNode": {
+    "version": "2.5.4",
+    "status": "released",
+    "date": "2026-07-12",
+    "description": "3D表情编辑节点升级为 MIT 许可的 ICT FaceKit 中性人类白模：离线 52 表情通道、人物脸部照片比例校准、中性对照、模型体检以及精确图片输出。",
+    "capabilities": [
+      "节点端口为 model3d/image/metadata 输入和 image/metadata 输出；默认使用由 USC-ICT/ICT-FaceKit 转换的离线中性人类 GLB，具有真实连续面部拓扑、眼球、牙齿、舌头、12 个材质和精确 52 morph target，也支持上游带 morph target 的 GLB/GLTF 语义映射。",
+      "完整编辑器提供表情、头眼、相机、灯光、输出、批量六个面板；常用/专业 52 模式、左右联动、替换/叠加、可复现随机、自定义预设导入导出均写入版本化状态。",
+      "中性对照按钮按住时临时显示基线白模，松开恢复当前表情且不改写状态；模型体检面板显示 52/52 映射、头颈和眼神控制、离线资源版本、体积、MIT 授权及官方来源。",
+      "人物图片先落盘到本地文件服务，再由 MediaPipe FaceLandmarker 检测 478+ 关键点和 52 blendshape；只校准可测量的脸型比例、颜色与当前表情，不宣传身份级 3D 重建。",
+      "PNG/JPEG/WebP 使用独立 Three.js renderer 按 256-4096 目标像素重绘，支持透明、纯色和图片背景；结果通过 upload-base64 落盘为 /files/output URL，不把 data URL 保存进画布。",
+      "批量支持表情/相机顺序配对或笛卡尔积，默认串行控制显存，最多 64 张，显示进度并支持停止；重新运行使用新 token，不继续旧批次。",
+      "Three.js 采用事件驱动渲染，无永久 RAF；节点卸载、模型切换和导出后释放 renderer、geometry、material 与 texture。",
+      "内置白模由 scripts/build-ict-face-glb.cjs 可复现构建；GLB、asset-manifest.json 和 ICT MIT 许可证随 Vite public 资源进入 Web 与 Electron 前端包。"
+    ],
+    "verification": [
+      "node --experimental-strip-types --test tests/faceExpression3D.test.ts：13/13，包含旧状态迁移、52 通道、GLB 结构、许可证、体积和 SHA256 完整性保护。",
+      "npm run type-check。",
+      "npm run build；dist 中 GLB 为 19616944 字节，SHA256 与 public 源文件同为 B4469D8CDEE43DCE3CA669184DB1FFBE68107E6C93A4F7E6BB1F49D00C4CC961。",
+      "真实开发画布打开完整编辑器，桌面与 390x844 窄视口无重叠；WebGL canvas 非空，白模眼睛、牙齿和笑/大笑表情均正常。",
+      "模型体检显示 52/52 和 MIT 来源；实际生成一次 1024x1024 图片并写入输出素材节点。"
+    ],
+    "futureCompatibility": [
+      "VRM 0.x/1.0、未知模型手工 morph/骨骼映射器、音频口型和视频时间线不属于本版承诺。",
+      "人物照片校准是参数化比例拟合，不是单图身份级网格重建。"
+    ]
+  },
+  "electronReleaseV254": {
+    "version": "2.5.4",
+    "status": "electron-release",
+    "date": "2026-07-13",
+    "description": "v2.5.4 Electron 自动更新版：新增 Happy Horse 三类视频、Doubao Seed Audio、ICT FaceKit 3D 表情白模、教程第十六弹和贞贞国内/海外平台统一命名。",
+    "highlights": [
+      "Happy Horse 支持 happyhorse-1.1-t2v / i2v / r2v，覆盖文生视频、单图和 1-9 张多参考图视频。",
+      "Seed Audio 支持 doubao-seed-audio-1.0、四种输出格式、五档采样率和语速/音量/音高参数，原 Suno 流程保持不变。",
+      "3D 表情编辑节点内置 MIT 许可 ICT FaceKit 中性人类白模、52 morph target、照片比例校准和 1K-4K 精确图片输出。",
+      "画布教程新增第十六弹；api.seedance.nz 与 ai.t8star.org 在 SD2.0、导演台、Seedream 和 API 设置中统一国内/海外显示名称。",
+      "Electron 正式包继续 fail-closed 校验私有充值 sidecar、运行时归档、FFmpeg、PS/Figma/Chrome 插件和自动更新资产。"
+    ],
+    "verification": [
+      "Happy Horse / Seed Audio 专项测试 19/19，四个模型真实 API 生成成功。",
+      "3D 表情编辑专项测试覆盖 52 通道、GLB 完整性、MIT 许可证和输出能力。",
+      "正式发布前执行全量测试、type-check、public:check、rh-toolbox:check、生产构建和 Electron post-build。"
+    ],
+    "release": {
+      "tag": "v2.5.4",
+      "url": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.4",
+      "installer": "T8-PenguinCanvas-Setup-2.5.4.exe",
+      "blockmap": "T8-PenguinCanvas-Setup-2.5.4.exe.blockmap",
+      "metadata": "latest.yml"
+    }
+  },
+  "electronReleaseV253": {
+    "version": "2.5.3",
+    "status": "released",
+    "date": "2026-07-12",
+    "description": "v2.5.3 Electron 自动更新版：发布 ComfyUI 多类型输出、网页素材批量采集、贞贞 SD2 的 Seedance/Seedream、新 RunningHub 国内/海外双站和顶部 API 获取入口，并修复正式包充值私有 sidecar 缺失仍可发布的问题。",
+    "highlights": [
+      "RunningHub 国内站与海外站使用独立 API Key、固定域名和应用站点选择，明确错配时可安全尝试另一站，任务轮询与取消保持原站点。",
+      "贞贞 SD2 api.seedance.nz 支持 Seedance 2.0 主力模型和 Seedream V5 Pro 文生图/图像编辑，旧贞贞工坊链路保持不变。",
+      "ComfyUI 应用支持图片、视频、音频、文本多类型输出，一个聚合输出节点继续传递完整结果。",
+      "Chrome 扩展新增 Popup/Side Panel 网页素材扫描、筛选、截图和批量导入，一个批次进入一个多图上传素材节点。",
+      "顶部新增 API获取入口，集中展示贞贞与 RunningHub 国内/海外注册说明，不直接铺设长网址。",
+      "正式 Electron 发布强制注入并验证本地私有充值前端、加密后端和 post-build 钩子；任一缺失立即阻断发布。"
+    ],
+    "releaseBoundary": [
+      "公开提交不包含 local-private/**、skill.md、roadmap.md、nodemap.md、飞书多维表格实验、VibeX 本地子项目、缓存、测试凭据或私有计费源码。",
+      "本地私有 sidecar 只以 ignored/untracked 形式注入 release worktree，参与 Vite 构建和 Electron 后端加密，不进入 Git。"
+    ]
+  },
+  "apiAcquisitionPanel": {
+    "version": "2.5.2-dev",
+    "status": "implemented-and-verified",
+    "date": "2026-07-11",
+    "description": "顶部栏在图图打标器右侧新增短标题“API获取”入口，以独立浮层集中呈现贞贞国内/海外版与 RunningHub 国内/海外版 API Key 注册说明。",
+    "capabilities": [
+      "顶部按钮与图图打标器、插件安装保持同尺寸和图标加短文字样式，不在顶栏或浮层中直接展示长网址。",
+      "浮层提供四个独立说明卡：贞贞的平价AI小屋（国内版）、贞贞的AI工坊（海外版）、RunningHub APIKEY 国内版、RunningHub APIKEY 海外版。",
+      "每张卡使用短操作按钮打开对应注册页；Electron 优先调用 t8pc.openExternal，网页端或调用失败时回退 window.open 新窗口。",
+      "弹层从按钮左侧向右展开，避免在靠左的顶部入口位置向视口外溢出；Pixel 与普通明暗主题使用现有主题分支。"
+    ],
+    "verification": [
+      "顶部栏、插件安装、更新文档和 API 设置专项 Node tests 22/22。",
+      "npm run type-check。",
+      "npm run build。",
+      "真实开发画布已确认按钮顺序为图图打标器、API获取、插件安装，四张卡完整位于视口内。"
+    ],
+    "releaseBoundary": "本轮只完成源码、测试和文档，不打 Electron、不推送 GitHub、不创建 tag 或 Release。"
+  },
+  "runningHubDualSite": {
+    "version": "2.5.2-dev",
+    "status": "implemented-and-verified",
+    "date": "2026-07-11",
+    "description": "RunningHub 系列节点支持国内站 runninghub.cn 与海外站 runninghub.ai 独立配置、独立取参和独立任务轮询；旧 rhApiKey 与旧应用继续默认国内站。",
+    "capabilities": [
+      "API 设置将原 RunningHub APIKEY 明确为 RH APIKEY国内，并新增 RH APIKEY海外；两个 Base URL 由前后端分别锁定到 https://www.runninghub.cn 与 https://www.runninghub.ai。",
+      "RunningHub 节点、RH 工具编辑器和 RH 工具箱制作器在获取应用参数前可选择国内站或海外站，站点字段随应用持久化；旧画布、旧 RH 应用和旧 manifest 缺少字段时统一按 cn 读取。",
+      "应用取参、素材上传、任务提交、结果轮询和取消全部使用同站点 Host、Base URL 与 API Key；任务提交后会记住实际站点和 Key，防止后续轮询串站。",
+      "选错站点或 Key 时，仅在 401/403/404、Key 无效、应用不存在、任务不存在等明确错配结果下尝试另一套已配置 Key；参数校验失败、服务繁忙、网络异常和已返回 taskId 的提交不会跨站重提，避免重复付费任务。",
+      "RH 工具的去重身份包含 rhSite + webappId，国内与海外即使 WebApp ID 或标题相同也不会在导入和 manifest 合并时互相覆盖。"
+    ],
+    "verification": [
+      "RunningHub 双站路由、RH 工具箱、文本绑定、抠图能力、API 设置与更新文档专项 Node tests 通过。",
+      "npm run type-check。",
+      "npm run build。",
+      "真实开发画布 API 设置弹窗已确认同时显示 RH APIKEY国内、RH APIKEY海外、两个固定 Base URL 与独立获取入口。"
+    ],
+    "releaseBoundary": "本轮只完成源码、测试和文档，不打 Electron、不推送 GitHub、不创建 tag 或 Release。"
+  },
+  "communityPrFeaturesSelfImplemented": {
+    "version": "2.5.1-dev",
+    "status": "implemented-and-verified",
+    "date": "2026-07-11",
+    "description": "基于社区 PR 需求在当前主线独立实现 ComfyUI 多类型输出闭环与 Chrome 网页批量素材采集；未合并原 PR，也未带入无关 Docker、Codex CLI、Topaz 或 Web 更新器改动。",
+    "comfyuiMultiOutput": [
+      "ComfyUI 工作流只要返回图片、视频、音频或文本任一类型即判定成功，四类都为空才返回 empty_output。",
+      "兼容标准 images/videos/audio/audios 以及 VHS_VideoCombine 常见的 gifs MP4/WebM 输出，返回 outputKinds 与 primaryKind。",
+      "扩展平台图像路由统一把图片、视频和音频转存到 T8 output，保留 remote*Urls 诊断字段并报告部分转存失败。",
+      "ComfyUI 超市节点运行前清空四类旧结果，同屏预览图片、视频、音频和文本，显示真实计数，并通过一个多类型端口及一个聚合输出素材节点继续下游。"
+    ],
+    "webAssetCollector": [
+      "Chrome 扩展升级到 1.2.0，新增 Popup 与 Side Panel，扫描 img/currentSrc/srcset/picture、CSS background、canvas 和 data/blob 素材。",
+      "支持尺寸筛选、全选/清空、当前视口截图、可选懒加载滚动并恢复原位置、最多展示 200 项、单批导入 50 项和失败项重试。",
+      "新增本机 /api/web-assets/import：会话令牌、本机来源校验、DNS 绑定、重定向重验、私网拦截、流式 30MB 单项/300MB 批次限制、Sharp 解码、格式白名单、文件名清洗和内容哈希去重。",
+      "导入成功后通过 reference 桥接只创建一个多图上传素材节点，节点显示网页采集来源，并继续支持下载、资源库和拆散能力。"
+    ],
+    "verification": [
+      "ComfyUI provider、路由、节点、网页采集、桥接与插件说明专项 Node tests 61/61。",
+      "npm run type-check。",
+      "npm run build。",
+      "真实 Chromium 加载未打包扩展：扫描 img/canvas、浅色与暗色 Side Panel、后端导入、reference 桥接通过。",
+      "真实开发画布：两张 reference 素材只新增一个上传图像节点，未新增输出素材节点。"
+    ],
+    "releaseBoundary": "本轮只完成源码、测试和文档，不打 Electron、不推送 GitHub、不创建 tag 或 Release。"
+  },
+  "seedreamNzImageSource": {
+    "version": "2.5.1-dev",
+    "status": "implemented-and-live-tested",
+    "date": "2026-07-11",
+    "description": "图像节点 Seedream TAB 新增独立的贞贞 SD2 · api.seedance.nz 来源；默认继续使用原贞贞工坊 Seedream，旧画布和旧请求不迁移、不改写。",
+    "capabilities": [
+      "新来源使用官方 POST /v1/image/generations 与 GET /v1/image/generations/{task_id} 异步协议，和原贞贞工坊 /v1/images/generations 同步协议完全隔离。",
+      "无参考图自动使用 seedream-v5-pro-t2i；1-10 张参考图自动使用 seedream-v5-pro-i2i，本地素材先通过 /v1/files/upload 换取 24 小时公网直链。",
+      "支持 1K、2K、Custom 240-8192 宽高以及 PNG/JPEG；提示词限制 5-2000 字符，参考图本地上传限制单张 10MB 和 JPG/PNG/WebP。",
+      "任务完成后立即把临时图片下载到 T8 output；节点停止仅终止本地轮询，不影响远端任务，后续重新生成会轮询新任务。",
+      "API 设置中的贞贞的 SD2 API Key 同时供 Seedance 2.0、导演分镜台和本 Seedream 新来源使用。"
+    ],
+    "verification": [
+      "官方 llms.txt 与网页版文档协议核对完成。",
+      "Provider、独立代理路由、旧 Seedream 回归、图像节点来源与 API 设置专项测试通过。",
+      "npm run type-check、npm run build 与真实 Chromium Seedream TAB UI 验收通过。",
+      "真实 T8 代理文生图：seedream-v5-pro-t2i，任务成功并本地转存 1024x1024 PNG，1,434,505 bytes。",
+      "真实 T8 代理图像编辑：使用文生图结果作为参考图，自动切换 seedream-v5-pro-i2i，任务成功并本地转存 1024x1024 PNG，1,628,233 bytes；两次输出 SHA256 不同。"
+    ]
+  },
+  "seedanceNzMainApi": {
+    "version": "2.5.1-dev",
+    "status": "implemented-and-live-tested",
+    "date": "2026-07-11",
+    "description": "新增独立的贞贞 SD2 主力 API，固定接入 api.seedance.nz；SD2.0 节点与导演分镜台支持国内/Global 的 Standard、Fast、Mini 及 t2v、i2v、multi 共 18 个 Seedance 2.0 模型，同时完整保留旧贞贞工坊链路。",
+    "capabilities": [
+      "API 设置中新增贞贞的 SD2 API Key，独立保存、脱敏、清空和导入导出，Base URL 前后端锁定为 https://api.seedance.nz。",
+      "新增专用后端适配器，支持官方 /v1/videos、/v1/videos/{id}、/v1/files/upload，素材上传缓存、节流、状态归一和成功视频本地转存。",
+      "SD2.0 节点与导演分镜台可选择自动主力、新贞贞 SD2 或旧贞贞工坊；旧画布无来源字段时继续使用旧协议。",
+      "按素材自动推导 t2v、i2v、multi；multi 支持图片、视频、音频，并规范 @Image 1、@Video 1、@Audio 1 引用。",
+      "补充 Let’s Encrypt Root YR 信任链以兼容当前 Node/Electron CA，仍保持主机名和证书签名严格校验。"
+    ],
+    "verification": [
+      "真实 API：t2v 成功并下载有效 H.264 MP4。",
+      "真实 API：单图 i2v 成功并下载有效 H.264 MP4。",
+      "真实 API：恰好 1 图 + 1 视频 + 1 音频的 multi 成功并下载有效 H.264 MP4。",
+      "npx tsx --test tests/seedanceNzProvider.test.ts tests/seedanceNzFrontend.test.ts tests/directorStoryboard.test.ts tests/generationStopControls.test.ts tests/apiSettingsTheme.test.ts",
+      "npm run type-check",
+      "npm run build"
+    ]
+  },
+  "electronReleaseV252": {
+    "version": "2.5.2",
+    "status": "electron-release",
+    "date": "2026-07-10",
+    "description": "v2.5.2 Electron 自动更新版：庭院守卫新增沉浸大屏游玩模式，并同步顶部画布教程第十五弹公告链接。",
+    "highlights": [
+      "植物大战僵尸主题的庭院守卫 HUD 新增沉浸大屏按钮，体验对齐俄罗斯方块主题的大屏玩法入口。",
+      "沉浸大屏使用 React Portal 挂到 document.body，固定覆盖视口，不调用浏览器原生 Fullscreen API。",
+      "大屏按照 1280×720 战场和当前窗口尺寸自动计算缩放，保留安全边距，宽屏和紧凑窗口都避免裁切。",
+      "进入大屏不会重载 Phaser 场景或重置当前战局；退出后回到右上任务栏下方原面板。",
+      "Esc 在关卡 / 升级 / 图鉴面板开启时先关闭面板，再次按下才退出沉浸大屏。",
+      "大屏状态会锁定页面滚动并在离开主题或卸载组件时清理 body class，避免影响其他主题。",
+      "顶部“画布教程”新增教程第十五弹，包含 Bilibili 与 YouTube 链接。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.5.2.md",
+      "src/App.tsx",
+      "src/features/garden-defense/GardenDefenseExperience.tsx",
+      "src/styles/theme-garden-defense.css",
+      "tests/gardenDefenseTheme.test.ts",
+      "tests/updateMdRegressions.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.5.2 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.5.2.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.5.2.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.5.2 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.2",
+      "photoshopPlugin": "Electron extraResources 继续复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge，并由后置检查确认 manifest、HTML、CSS 与 boot/state/net/ps/app 脚本存在。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、nodemap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "飞书多维表格、VibeX、本地维护者工具和本地缓存仍不纳入 v2.5.2 公开提交。",
+      "tools/ffmpeg-runtime/*.exe 与 runtime archives 只作为本地 Electron sidecar 打包，不进入公开提交；Photoshop UXP 插件源码继续允许公开并随安装包分发。"
+    ],
+    "verification": [
+      "node --test --test-reporter=spec tests/gardenDefenseEngine.test.ts tests/gardenDefenseTheme.test.ts tests/themeRoutes.test.ts tests/updateMdRegressions.test.ts",
+      "node -c electron/_post_build.cjs",
+      "node -c electron/main.cjs",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.5.2 npm run dist:release",
+      "npm run release:verify -- v2.5.2"
+    ]
+  },
+  "electronReleaseV251": {
+    "version": "2.5.1",
+    "status": "electron-release",
+    "date": "2026-07-10",
+    "description": "v2.5.1 Electron 自动更新版：新增完整庭院守卫主题与按需加载的 Phaser 塔防面板，并为图像节点接入独立 Seedream V5 Pro 文生图 / 多图编辑协议。",
+    "highlights": [
+      "新增第 14 套植物大战僵尸主题 · 庭院守卫，覆盖顶栏、侧栏、节点、端口、连线、MiniMap、上下文菜单、浅色与深色模式。",
+      "庭院守卫内置 5×9 草坪、阳光经济、8 种植物、8 种入侵者、15 关、昼夜波次、清道器、升级、图鉴、长期档案和每画布战局恢复。",
+      "Phaser 3 仅在进入庭院守卫主题后按需加载；游戏面板位于右上任务栏下方，可独立隐藏，并在鼠标离开、窗口失焦或画布拖动时自动暂停。",
+      "庭院守卫主题默认启用 Grasswalk 音乐，保留 garden-march 合成备选；主题切换手势和浏览器自动播放限制均有恢复逻辑。",
+      "庭院守卫画布背景采用低对比草坪路径与羊皮纸规划线方案，减轻大面积亮绿和重复网格对工作流节点的干扰。",
+      "图像节点新增 Seedream 标签与 seedream-v5-pro 模型，支持文生图、图像编辑、多图编辑、PNG / JPEG 和最多 10 张参考图。",
+      "Seedream 提供 1024×1024、1536×1024、1024×1536、2048×2048、4096×4096 及 Custom，自定义尺寸以 WIDTHxHEIGHT 传给上游并在前后端校验。",
+      "Seedream 使用独立 JSON /v1/images/generations 分支，不改动 GPT2、香蕉、Grok 与 MJ 的既有统一 / 官方协议。",
+      "Electron 后置打包新增 garden-defense-grasswalk 前端资源校验，并继续校验 Photoshop UXP 插件源码完整随包分发。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "electron/_post_build.cjs",
+      "backend/src/config.js",
+      "backend/src/routes/proxy.js",
+      "backend/src/routes/themes.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.5.1.md",
+      "docs/theme-design-guide.md",
+      "src/assets/garden-defense/**",
+      "src/assets/theme-music/garden-defense-grasswalk.mp3",
+      "src/components/Canvas.tsx",
+      "src/components/ThemeMusicToggle.tsx",
+      "src/components/ThemeTemplateManager.tsx",
+      "src/components/nodes/ImageNode.tsx",
+      "src/features/garden-defense/**",
+      "src/providers/models.ts",
+      "src/services/generation.ts",
+      "src/styles/index.css",
+      "src/styles/theme-garden-defense.css",
+      "src/theme/defaultTemplates.ts",
+      "src/theme/musicAutoplay.ts",
+      "src/theme/types.ts",
+      "tests/gardenDefenseEngine.test.ts",
+      "tests/gardenDefenseTheme.test.ts",
+      "tests/imageModelMapping.test.ts",
+      "tests/seedreamImageRoute.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.5.1 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.5.1.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.5.1.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.5.1 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.1",
+      "photoshopPlugin": "Electron extraResources 继续复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；后置与发布校验检查 plugin/manifest.json、index.html、style.css 及 boot/state/net/ps/app 脚本。",
+      "gardenAssets": "生产前端必须包含 garden-defense 战场、植物、入侵者、HUD 和 garden-defense-grasswalk 音乐散列资源。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、nodemap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "飞书多维表格仍是规划 / 实验内容，不纳入 v2.5.1；backend/src/routes/feishuBitable.js、src/components/nodes/FeishuBitable*、tests/feishuBitable.test.ts 不得进入发布提交。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地缓存和维护者工具继续不提交。",
+      "tools/ffmpeg-runtime/*.exe 与 runtime archives 仅作为本地 Electron sidecar 打包，不进入公开 Git；Photoshop UXP 插件源码继续允许公开并随安装包分发。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test --test-reporter=spec tests/imageModelMapping.test.ts tests/seedreamImageRoute.test.ts tests/gardenDefenseEngine.test.ts tests/gardenDefenseTheme.test.ts",
+      "node -c backend/src/routes/proxy.js",
+      "node -c backend/src/routes/themes.js",
+      "node -c electron/_post_build.cjs",
+      "node -c electron/main.cjs",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.5.1 npm run dist:release",
+      "npm run release:verify -- v2.5.1"
+    ]
+  },
+  "gardenDefenseCanvasTheme": {
+    "status": "released-v2.5.1",
+    "date": "2026-07-10",
+    "description": "第 14 套庭院守卫主题：原创植物防线美术、木质藤蔓 UI、低对比草坪规划画布和右上任务栏下的完整横向塔防面板。",
+    "protocol": {
+      "visualStyle": "garden-defense",
+      "iconPack": "garden-guard",
+      "canvasPattern": "defense-lawn",
+      "nodeFrame": "garden-card",
+      "musicPreset": "garden-march",
+      "renderer": "Phaser 3.90.0（按主题懒加载）"
+    },
+    "gameplay": {
+      "board": "5 行 × 9 列，内部 1280×720，右上角任务栏下响应式缩放",
+      "campaign": "15 关，包含昼夜、特殊波次和无尽关",
+      "plants": 8,
+      "zombies": 8,
+      "systems": [
+        "阳光收集、种植消耗、冷却、占位、移栽与清道器",
+        "普通、冰冻、范围、连锁、治疗和时间减速能力",
+        "奔跑、护盾、地道、指挥、首领、分波与胜负结算",
+        "叶章升级、图鉴、关卡解锁、长期档案和战局恢复"
+      ]
+    },
+    "interaction": [
+      "任务栏独立开关默认展开并持久化显隐，折叠不销毁 Phaser 场景。",
+      "鼠标离开、窗口失焦、画布移动、节点拖动或隐藏面板时自动暂停；手动暂停不会被自动恢复。",
+      "阳光拾取、攻击、命中、升级、波次和清道器提供动效与限频 WebAudio 反馈。"
+    ],
+    "files": [
+      "src/features/garden-defense/**",
+      "src/assets/garden-defense/**",
+      "src/assets/theme-music/garden-defense-grasswalk.mp3",
+      "src/styles/theme-garden-defense.css",
+      "src/theme/defaultTemplates.ts",
+      "src/components/Canvas.tsx",
+      "tests/gardenDefenseEngine.test.ts",
+      "tests/gardenDefenseTheme.test.ts"
+    ],
+    "releaseBoundary": "v2.5.1 已纳入公开源码、Electron 自动更新包和 GitHub Release；不包含原作截图、角色素材或第三方游戏代码。"
+  },
+  "electronReleaseV250": {
+    "version": "2.5.0",
+    "status": "electron-release",
+    "date": "2026-07-10",
+    "description": "v2.5.0 Electron 自动更新版：收口随机路由并发执行、即梦 CLI v1.4.10 图像批量与 Seedance 新模型/分辨率、批量打标图图入口与输出路径查看、以及 Photoshop 画布发送队列和插件资产渲染。",
+    "highlights": [
+      "随机路由节点新增 executionMode / randomRouteExecutionMode，支持并发生成和顺序生成；默认并发触发本次随机命中的多路下游，未命中分支继续不进入运行队列。",
+      "即梦 CLI 图像生成支持 text2image / image2image 的 generate_num 参数，一次生成 1-10 张图；参数可从 providerParams.generate_num、generateNum 或 n 传入并做 1-10 限制。",
+      "即梦 CLI 视频模型兼容 Seedance 2.0 mini、seedance2.0_vip 4K、Seedance 1.5 Pro / 1.0 Fast / 1.0 新命名，并保留旧 3.x Web 命名别名映射。",
+      "批量打标节点新增图图打标器入口、最近打标文件定位和全部输出绝对路径查看；顶部独立“图图打标器”卡片也可打开 https://zhaotutu.xyz。",
+      "批量打标输出目录打开逻辑从“打开旧 batch-tags 目录”改为优先定位最近生成文件，浏览器授权目录和上传副本目录会给出明确提示。",
+      "画布素材右键“发送到 Photoshop”改为调用后端 /api/photoshop-bridge/send-to-photoshop 队列，前端提示用户查看 PS 面板置入状态。",
+      "Photoshop bridge 状态接口返回 canvasFrontendUrl，PS 插件“打开 T8 画布”使用前端地址而不是后端 API 端口；资产缩略图改用 UXP 可渲染的数据源。",
+      "PS 插件 placeImage 只在 Photoshop 确认新增图层后上报完成，避免画布显示发送成功但 PS 没有置入图像。",
+      "Electron 后置打包继续校验 resources/tools/photoshop-bridge/plugin，确保新版 PS 插件源码随自动更新包分发。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "electron/_post_build.cjs",
+      "backend/src/config.js",
+      "backend/src/providers/jimengCli.js",
+      "backend/src/providers/registry.js",
+      "backend/src/routes/batchTags.js",
+      "backend/src/routes/files.js",
+      "backend/src/routes/photoshopBridge.js",
+      "backend/src/server.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.5.0.md",
+      "src/App.tsx",
+      "src/components/ApiSettings.tsx",
+      "src/components/Canvas.tsx",
+      "src/components/MaterialContextMenu.tsx",
+      "src/components/nodes/BatchTaggerNode.tsx",
+      "src/components/nodes/ImageNode.tsx",
+      "src/components/nodes/RandomRouteNode.tsx",
+      "src/components/nodes/VideoNode.tsx",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/services/api.ts",
+      "src/services/imageOps.ts",
+      "src/styles/index.css",
+      "src/types/canvas.ts",
+      "src/utils/advancedProviders.ts",
+      "src/utils/randomRoute.ts",
+      "src/utils/topologicalSort.ts",
+      "tests/advancedProviderFrontend.test.ts",
+      "tests/advancedProviders.test.ts",
+      "tests/batchTagger.test.ts",
+      "tests/canvasTutorialPluginInstall.test.ts",
+      "tests/jimengCliProvider.test.ts",
+      "tests/mediaMaterialDeleteUi.test.ts",
+      "tests/photoshopBridge.test.ts",
+      "tests/randomRoute.test.ts",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/index.html",
+      "tools/photoshop-bridge/plugin/style.css",
+      "tools/photoshop-bridge/plugin/js/boot.js",
+      "tools/photoshop-bridge/plugin/js/state.js",
+      "tools/photoshop-bridge/plugin/js/net.js",
+      "tools/photoshop-bridge/plugin/js/ps.js",
+      "tools/photoshop-bridge/plugin/js/app.js"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.5.0 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.5.0.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.5.0.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.5.0 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.5.0",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；v2.5.0 后置与发布校验确认 plugin/manifest.json、index.html、style.css、boot/state/net/ps/app 脚本均在包内。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、nodemap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "飞书多维表格本轮仍是规划 / 实验内容，不纳入 v2.5.0 公开提交和 Electron 发布；backend/src/routes/feishuBitable.js、src/components/nodes/FeishuBitable*、tests/feishuBitable.test.ts 等未跟踪文件不得 stage。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从本地发布工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 继续允许公开提交；本轮必须在 Electron 安装包内完成资源存在性校验。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\randomRoute.test.ts tests\\jimengCliProvider.test.ts tests\\batchTagger.test.ts tests\\canvasTutorialPluginInstall.test.ts tests\\photoshopBridge.test.ts tests\\advancedProviders.test.ts tests\\advancedProviderFrontend.test.ts tests\\mediaMaterialDeleteUi.test.ts tests\\directorStoryboard.test.ts tests\\videoOpsIntegration.test.cjs tests\\videoEditNode.test.ts tests\\videoEditTimeline.test.ts",
+      "node -c backend\\src\\providers\\jimengCli.js",
+      "node -c backend\\src\\providers\\registry.js",
+      "node -c backend\\src\\routes\\batchTags.js",
+      "node -c backend\\src\\routes\\files.js",
+      "node -c backend\\src\\routes\\photoshopBridge.js",
+      "node -c backend\\src\\routes\\videoOps.js",
+      "node -c backend\\src\\server.js",
+      "node -c electron\\_post_build.cjs",
+      "node -c electron\\main.cjs",
+      "node -c electron\\preload.cjs",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\boot.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.5.0 npm run dist:release",
+      "npm run release:verify -- v2.5.0"
+    ]
+  },
+  "electronReleaseV249": {
+    "version": "2.4.9",
+    "status": "electron-release",
+    "date": "2026-07-10",
+    "description": "v2.4.9 Electron 自动更新维护版：修复视频剪辑转场后源视频音频错位、重叠和尾段无声问题，并给导演分镜台补齐 seedance-2.0-mini 模型；Electron 打包继续校验 Photoshop 插件随包分发。",
+    "highlights": [
+      "视频剪辑合成不再把已绑定源视频的音频拆出来按旧 timeline 位置二次混音，避免拖动片段后再加转场导致声音重叠或位移。",
+      "源视频原声会跟随 xfade / acrossfade 后的真实片段时长进入合成，转场压缩时间线后尾段仍保持可听。",
+      "独立音频轨和 BGM 仍会在最终阶段叠加到保留的源视频原声上，不覆盖原始视频声音。",
+      "新增真实 ffmpeg 回归测试，构造两段带不同频率音频的视频并验证 xfade 后第二段尾部仍有声音。",
+      "导演分镜台模型列表新增 seedance-2.0-mini，和 SD2.0 节点的 Seedance 2.0 模型选项保持一致。",
+      "Electron 后置打包继续检查 resources/tools/photoshop-bridge/plugin，确保新版 PS 插件目录随自动更新安装包分发。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "backend/src/routes/videoOps.js",
+      "src/components/nodes/DirectorStoryboardNode.tsx",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.9.md",
+      "tests/directorStoryboard.test.ts",
+      "tests/videoOpsIntegration.test.cjs",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/index.html",
+      "tools/photoshop-bridge/plugin/style.css",
+      "tools/photoshop-bridge/plugin/js/boot.js",
+      "tools/photoshop-bridge/plugin/js/state.js",
+      "tools/photoshop-bridge/plugin/js/net.js",
+      "tools/photoshop-bridge/plugin/js/ps.js",
+      "tools/photoshop-bridge/plugin/js/app.js"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.9 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.9.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.9.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.9 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.9",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；v2.4.9 继续通过后置与发布校验确认 plugin/manifest.json、index.html、style.css、boot/state/net/ps/app 脚本均在包内。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、nodemap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从本地发布工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 继续允许公开提交；本轮无插件源码改动，但必须在 Electron 安装包内完成资源存在性校验。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node -c backend\\src\\routes\\videoOps.js",
+      "node --test --test-reporter=dot tests\\directorStoryboard.test.ts tests\\videoOpsIntegration.test.cjs tests\\videoEditNode.test.ts tests\\videoEditTimeline.test.ts tests\\photoshopBridge.test.ts",
+      "node -c electron\\_post_build.cjs",
+      "node -c electron\\main.cjs",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\boot.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.9 npm run dist:release",
+      "npm run release:verify -- v2.4.9"
+    ]
+  },
+  "electronReleaseV248": {
+    "version": "2.4.8",
+    "status": "electron-release",
+    "date": "2026-07-08",
+    "description": "v2.4.8 Electron 自动更新版：补齐插件安装入口、批量打标保存与模型体验、视频素材 RH 能力轨、Photoshop 插件 0.1.3 打包校验，并收口 ComfyUI 应用制作工具、IME 输入、聚合解析运行时和视频剪辑临时入口。",
+    "highlights": [
+      "顶部工具条在“画布教程”左侧新增独立“插件安装”按钮，集中说明 Photoshop UXP、Figma Bridge 与网页图片反推 Chrome 扩展安装路径。",
+      "批量打标节点补齐素材队列单项删除、LLM/Vision 预设模型、自定义模型、ModelScope Qwen3-VL 235B 推荐、统一触发词、TXT/JSON 互斥和原素材目录保存。",
+      "批量打标系统提示词按训练素材输出收口：TAG、描述、短句由顶部打标方式控制，JSON 模式按 Ideogram-4 结构化 caption 输出，不再把 TXT/JSON 写成同一内容。",
+      "上传素材和输出素材在视频类型下新增首尾帧获取、英伟达极速超分、FlashVsr 质量超分按钮，复用 RH 工具箱能力层和持久化 manifest。",
+      "视频剪辑节点临时隐藏“打开剪辑台”按钮，并修复片段选中、短片段时间线预览、浅色 RH 主题按钮像说明文字的问题。",
+      "Photoshop 插件升级到 0.1.3：新增 boot.js 启动诊断、资产分页、搜索输入高度和面板边界护栏，Manifest v5 label 改为 Adobe 示例兼容对象格式。",
+      "Electron 后置打包校验新增 Photoshop plugin/js/boot.js，确保新的 PS 插件诊断脚本随自动更新包一起分发。",
+      "ComfyUI 应用制作工具修复同一配置项重复出现且删除不掉的问题；聚合解析运行时归档解压增加 Node extract-zip 兜底，降低抖音解析“运行时归档解压失败”。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "electron/preload.cjs",
+      "electron/_post_build.cjs",
+      "backend/src/config.js",
+      "backend/src/routes/batchTags.js",
+      "backend/src/routes/files.js",
+      "backend/src/utils/runtimeArchive.js",
+      "scripts/check-rh-toolbox-release.cjs",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.8.md",
+      "src/App.tsx",
+      "src/components/Canvas.tsx",
+      "src/components/MaterialContextMenu.tsx",
+      "src/components/PromptExpandModal.tsx",
+      "src/components/PromptTextarea.tsx",
+      "src/components/RhVideoCapabilityRail.tsx",
+      "src/components/nodes/BatchTaggerNode.tsx",
+      "src/components/nodes/CodexCliAgentNode.tsx",
+      "src/components/nodes/MentionPromptInput.tsx",
+      "src/components/nodes/OutputNode.tsx",
+      "src/components/nodes/UploadNode.tsx",
+      "src/components/nodes/VideoEditNode.tsx",
+      "src/data/rhToolboxManifest.ts",
+      "src/services/imageOps.ts",
+      "src/services/rhToolboxCapabilities.ts",
+      "src/styles/index.css",
+      "src/styles/theme-rh.css",
+      "src/utils/batchTagger.ts",
+      "src/utils/comfyuiApps.ts",
+      "src/utils/imeComposition.ts",
+      "src/utils/rhToolboxCapabilities.ts",
+      "src/vite-env.d.ts",
+      "tests/batchTagger.test.ts",
+      "tests/canvasTutorialPluginInstall.test.ts",
+      "tests/codexCliAgent.test.ts",
+      "tests/comfyuiProvider.test.ts",
+      "tests/grokOAuthAgent.test.ts",
+      "tests/imeComposition.test.ts",
+      "tests/mediaMaterialDeleteUi.test.ts",
+      "tests/photoshopBridge.test.ts",
+      "tests/promptEditor.test.ts",
+      "tests/rhToolbox.test.ts",
+      "tests/runtimeArchive.test.ts",
+      "tests/themeRegistry.test.ts",
+      "tests/videoEditNode.test.ts",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/index.html",
+      "tools/photoshop-bridge/plugin/style.css",
+      "tools/photoshop-bridge/plugin/js/boot.js",
+      "tools/photoshop-bridge/plugin/js/state.js",
+      "tools/photoshop-bridge/plugin/js/net.js",
+      "tools/photoshop-bridge/plugin/js/ps.js",
+      "tools/photoshop-bridge/plugin/js/app.js"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.8 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.8.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.8.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.8 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.8",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；v2.4.8 后置与发布校验必须确认 plugin/js/boot.js、assetPager、manifest 0.1.3 和 UXP 面板护栏均在包内。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、nodemap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 继续允许公开提交；它只连接本机 localhost / 127.0.0.1 的有限端口范围，不包含用户密钥、Cookie、私有计费或远端中转配置。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\canvasTutorialPluginInstall.test.ts tests\\batchTagger.test.ts tests\\rhToolbox.test.ts tests\\runtimeArchive.test.ts tests\\videoEditNode.test.ts tests\\mediaMaterialDeleteUi.test.ts tests\\photoshopBridge.test.ts tests\\comfyuiProvider.test.ts tests\\imeComposition.test.ts tests\\promptEditor.test.ts tests\\codexCliAgent.test.ts",
+      "node --test --test-reporter=dot --test-name-pattern \"topbar canvas tutorial panel\" tests\\updateMdRegressions.test.ts",
+      "node -c backend\\src\\routes\\batchTags.js",
+      "node -c backend\\src\\routes\\files.js",
+      "node -c backend\\src\\utils\\runtimeArchive.js",
+      "node -c electron\\_post_build.cjs",
+      "node -c electron\\main.cjs",
+      "node -c electron\\preload.cjs",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\boot.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.8 npm run dist:release",
+      "npm run release:verify -- v2.4.8"
+    ]
+  },
+  "electronReleaseV247": {
+    "version": "2.4.7",
+    "status": "electron-release",
+    "date": "2026-07-07",
+    "description": "v2.4.7 Electron 自动更新热修版：继续收口 Photoshop 联动体验，修复 T8 Photoshop Link 面板紧凑宽度下刷新 / 连接按钮文字竖排的问题，并补强插件 UI 自动化覆盖资产库、生成、设置、PS 当前画面上传回 T8 与画布发送到 PS。",
+    "highlights": [
+      "修复 Photoshop 插件资产页刷新按钮、设置页连接按钮在 430px 宽面板下被挤成竖排的问题。",
+      "插件按钮增加 white-space nowrap、稳定最小宽度和 flex 固定宽度，输入框 / 下拉框允许在同一行内收缩，窄面板下关键操作保持可读。",
+      "Playwright Photoshop 插件 QA 扩展到资产库加载、资产置入 PS、设置页、PS 当前画面上传回 T8、生成 provider/model、生成结果展示、生成后置入 PS 和画布命令队列置入 PS。",
+      "单元测试新增插件中文按钮不换行和紧凑按钮最小宽度护栏。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.7.md",
+      "tests/photoshopBridge.test.ts",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/style.css"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.7 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.7.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.7.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.7 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.7",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；v2.4.7 后置与发布校验需要确认 plugin/style.css 带按钮不换行护栏。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 继续允许公开提交；它只连接本机 localhost / 127.0.0.1 的有限端口范围，不包含用户密钥、Cookie、私有计费或远端中转配置。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\photoshopBridge.test.ts",
+      "node -c backend\\src\\routes\\photoshopBridge.js",
+      "node -c backend\\src\\server.js",
+      "node -c backend\\src\\config.js",
+      "node -c electron\\_post_build.cjs",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "Playwright Photoshop 插件 mock UI QA 带 UXP manifest fetch 权限门禁，确认连接、资产 / 生成 / 设置页、PS 当前画面上传、生成结果展示、置入命令完成和无 Agent 页。",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.7 npm run dist:release",
+      "npm run release:verify -- v2.4.7"
+    ]
+  },
+  "electronReleaseV246": {
+    "version": "2.4.6",
+    "status": "electron-release",
+    "date": "2026-07-07",
+    "description": "v2.4.6 Electron 自动更新热修版：修复 T8 Photoshop Link 在 Photoshop UXP Manifest v5 下访问本机 T8 后台被 Permission denied / Manifest entry not found 拦截的问题；插件网络白名单改为带协议和端口的本机 origin，并增加 18766-18776 本机端口 fallback。",
+    "highlights": [
+      "修复 T8 Photoshop Link 连接 http://127.0.0.1:18766/api/photoshop-bridge/status 时被 UXP manifest 网络权限预检拦截的问题。",
+      "Photoshop 插件 manifest 的 requiredPermissions.network.domains 改为显式允许 http://127.0.0.1:18766-18776 与 http://localhost:18766-18776，并继续禁止 all 权限和远端网络白名单。",
+      "插件连接 T8 后台时会在本机端口范围内 fallback：如果 18766 被旧 node src/server.js 或其他旧后端占用返回 404，会自动尝试后续端口并保存成功端口。",
+      "Photoshop 插件 mock UI QA 增加 UXP manifest fetch 权限门禁模拟，避免浏览器环境误放过真实 Photoshop UXP 才会出现的 Manifest entry not found。",
+      "回归测试新增 manifest 本机端口白名单和 net.connect fallback 断言，锁定用户安装插件后无法连接的真实场景。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.6.md",
+      "tests/photoshopBridge.test.ts",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/js/net.js"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.6 npm run dist:release",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.6.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.6.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.6 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.6",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；v2.4.6 后置与发布校验需要确认 plugin/manifest.json 带本机端口白名单、js/net.js 带 fallback 逻辑。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 继续允许公开提交；它只连接本机 localhost / 127.0.0.1 的有限端口范围，不包含用户密钥、Cookie、私有计费或远端中转配置。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。"
+    ],
+    "verification": [
+      "TDD 红灯：node --test --test-reporter=dot tests\\photoshopBridge.test.ts 先失败于 manifest 缺 http://127.0.0.1:18767 与 net.connect 未 fallback。",
+      "node --test --test-reporter=dot tests\\photoshopBridge.test.ts",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "当前源码临时后端端口 18991 冒烟：/api/photoshop-bridge/status 返回 service=t8-photoshop-bridge，/api/photoshop-bridge/image-providers 返回脱敏 provider 列表。",
+      "Playwright Photoshop 插件 mock UI QA 带 UXP manifest fetch 权限门禁，确认连接、资产 / 生成 / 设置页、生成结果展示、置入命令完成和无 Agent 页。",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.6 npm run dist:release",
+      "npm run release:verify -- v2.4.6"
+    ]
+  },
+  "electronReleaseV245": {
+    "version": "2.4.5",
+    "status": "electron-release",
+    "date": "2026-07-07",
+    "description": "v2.4.5 Electron 自动更新版：新增 Photoshop UXP 联动插件与 /api/photoshop-bridge 本机桥接，支持 PS 图层回传画布、画布图像发送到 Photoshop、插件内资产浏览和扩展 API 图像生成 / 编辑；同时修复随机路由透传素材时误自动生成独立输出素材节点。",
+    "highlights": [
+      "新增 T8 Photoshop Link UXP 插件，Electron 包会携带 resources/tools/photoshop-bridge/plugin，用户可用 Adobe UXP Developer Tool 导入 manifest.json。",
+      "后端新增 /api/photoshop-bridge，提供状态、资产库、扩展图像 provider 列表、PS base64 上传、PS->画布消息队列、画布->PS 命令队列和插件内图像生成 / 编辑接口。",
+      "发送素材弹窗新增“发送到 Photoshop”，只接收图像素材，成功后进入本机命令队列并由 PS 面板自动置入当前文档。",
+      "Photoshop 面板保留资产、生成、设置三个页签；资产页浏览最近输出 / 上传素材 / 资源库图像，生成页复用 T8 扩展 API 图像模型并支持当前图层参考图编辑。",
+      "PS->画布和画布->PS 队列均有 in-flight、complete、fail、lease 和重试，避免生成或置入过程中断后任务丢失。",
+      "Electron 后置检查新增 backend-enc/routes/photoshopBridge.t8c 与 Photoshop 插件静态文件检查，自动更新包不会漏带 PS 联动能力。",
+      "随机路由作为透传节点时加入 auto-output 跳过列表，并清理旧版本自动生成的未移动 output-auto 节点，避免后面已有生成节点时额外弹出输入素材输出节点。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "backend/src/server.js",
+      "backend/src/routes/photoshopBridge.js",
+      "electron/_post_build.cjs",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.5.md",
+      "src/components/Canvas.tsx",
+      "src/components/SendMaterialsModal.tsx",
+      "src/services/api.ts",
+      "src/utils/photoshopBridge.ts",
+      "tests/photoshopBridge.test.ts",
+      "tests/randomRoute.test.ts",
+      "tools/photoshop-bridge/plugin/manifest.json",
+      "tools/photoshop-bridge/plugin/index.html",
+      "tools/photoshop-bridge/plugin/style.css",
+      "tools/photoshop-bridge/plugin/js/state.js",
+      "tools/photoshop-bridge/plugin/js/net.js",
+      "tools/photoshop-bridge/plugin/js/ps.js",
+      "tools/photoshop-bridge/plugin/js/app.js"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.5 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.5.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.5.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.5 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.5",
+      "photoshopPlugin": "Electron extraResources 会复制 tools/photoshop-bridge 到 resources/tools/photoshop-bridge；后置脚本校验 plugin/manifest.json、index.html、style.css、js/state.js、js/net.js、js/ps.js、js/app.js。"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Photoshop UXP 插件源码 tools/photoshop-bridge/plugin/** 是本轮公开发布范围；它只连接本机 localhost / 127.0.0.1，不包含用户密钥、Cookie、私有计费或远端中转配置。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-07 R525 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron、发布自动更新新版 Release，并注意把新的 PS 插件打包进去，允许设置 T8_RELEASE_APPROVAL=release-2.4.5。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\photoshopBridge.test.ts tests\\randomRoute.test.ts tests\\updateMdRegressions.test.ts",
+      "node -c backend\\src\\routes\\photoshopBridge.js",
+      "node -c backend\\src\\server.js",
+      "node -c backend\\src\\config.js",
+      "node -c electron\\_post_build.cjs",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\state.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\net.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\ps.js",
+      "node -c tools\\photoshop-bridge\\plugin\\js\\app.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8')); JSON.parse(require('fs').readFileSync('tools/photoshop-bridge/plugin/manifest.json','utf8'))\"",
+      "Playwright mock 检查 Photoshop 插件资产 / 生成 / 设置页、生成结果展示、置入命令完成和无 Agent 页",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.5 npm run dist:release",
+      "npm run release:verify -- v2.4.5"
+    ]
+  },
+  "electronReleaseV244": {
+    "version": "2.4.4",
+    "status": "electron-release",
+    "date": "2026-07-06",
+    "description": "v2.4.4 Electron 自动更新版：新增随机路由节点，支持 1-100 动态输出口与精确随机命中分支执行；补齐上传多素材打散按钮常显，并修复微信输入法组合输入时 Prompt 多出拼音字母的问题。",
+    "highlights": [
+      "工具节点新增“随机路由”，左侧接受任意上游素材，右侧按 total_outputs 动态生成 1-100 个输出口。",
+      "random_pass_count 每次运行都会精确随机命中不重复输出口，未命中分支不进入运行队列；支持单节点 RUN、批量运行、组运行和循环器下游链路。",
+      "随机路由会透传文本、图像、视频、音频和 3D 素材字段，命中输出口在节点 UI 内高亮，并记录上次路由结果。",
+      "上传素材节点的合集打散按钮改为常显，上传多个视频、图片或音频后无需悬停也能直接拆成独立素材节点。",
+      "富文本 Prompt 输入框抽出 IME 组合输入保护工具，微信输入法提交中文时会清理前置泄漏拼音，避免图像节点输入框多出英文字母。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.4.md",
+      "src/components/Canvas.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/nodes/LoopNode.tsx",
+      "src/components/nodes/MentionPromptInput.tsx",
+      "src/components/nodes/RandomRouteNode.tsx",
+      "src/components/nodes/UploadNode.tsx",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/types/canvas.ts",
+      "src/utils/imeComposition.ts",
+      "src/utils/nodePlacement.ts",
+      "src/utils/randomRoute.ts",
+      "tests/imeComposition.test.ts",
+      "tests/mediaCollection.test.ts",
+      "tests/randomRoute.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.4 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.4.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.4.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.4 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.4"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-06 R524 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.4。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\randomRoute.test.ts tests\\imeComposition.test.ts tests\\mediaCollection.test.ts",
+      "node -c backend\\src\\config.js",
+      "node -c electron\\_post_build.cjs",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "Playwright 截图检查随机路由 10 输出口 RUN 命中 2 个与 100 输出口布局",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.4 npm run dist:release",
+      "npm run release:verify -- v2.4.4"
+    ]
+  },
+  "electronReleaseV243": {
+    "version": "2.4.3",
+    "status": "electron-release",
+    "date": "2026-07-06",
+    "description": "v2.4.3 Electron 自动更新版：上传素材节点移除 20MB 应用层上传限制，/api/files/upload 不再给 multer 设置 fileSize，上限仅受磁盘、系统和运行环境约束。",
+    "highlights": [
+      "上传素材节点支持大体积本地图片、视频、音频和通用素材，不再因超过 20MB 显示“请压缩后重试”。",
+      "后端 /api/files/upload 移除 multer limits.fileSize；config.MAX_FILE_SIZE 保留为 0，作为“不设置应用层大小上限”的明确配置语义。",
+      "上传错误处理移除 LIMIT_FILE_SIZE / file_too_large 专用分支，避免继续把大文件误判成 20MB 超限。",
+      "回归测试锁定上传接口不再包含 fileSize 限制、LIMIT_FILE_SIZE、file_too_large 和 20MB 超限文案。",
+      "已做 21MB multipart 实际上传冒烟，接口返回 200 success，并清理测试生成的 input 临时文件。",
+      "Electron 自动更新仍发布 NSIS 安装包、blockmap 与 latest.yml，安装继续使用前台向导。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "backend/src/routes/files.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.3.md",
+      "tests/imageLoadingPerformance.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.3 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.3.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.3.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.3 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.3"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-06 R523 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.3。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\imageLoadingPerformance.test.ts",
+      "node -c backend\\src\\routes\\files.js",
+      "node -c backend\\src\\config.js",
+      "node -c electron\\_post_build.cjs",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "真实后端上传冒烟：临时端口 POST /api/files/upload 上传 21MB 文件返回 200 success",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.3 npm run dist:release",
+      "npm run release:verify -- v2.4.3"
+    ]
+  },
+  "electronReleaseV242": {
+    "version": "2.4.2",
+    "status": "electron-release",
+    "date": "2026-07-06",
+    "description": "v2.4.2 Electron 自动更新版：新增批量打标节点，支持图像 / 视频批量导入、上游素材收集、TAG / 描述 / 短句 / JSON 打标、txt/json 同名前缀 sidecar 保存，并补齐 ModelScope Qwen3-VL 235B 真实 API 验证与 Electron 打包路由护栏。",
+    "highlights": [
+      "工具箱新增“批量打标”节点，支持本地多文件、文件夹 webkitdirectory、拖拽和上游 image / video / text prompt 素材进入队列。",
+      "打标模式覆盖 TAG、自然语言描述、短句 caption、标准 JSON 和自定义 Prompt；输出保存到 output/batch-tags，按原素材文件名前缀生成 .txt / .json sidecar。",
+      "后端新增 /api/batch-tags/tag，复用扩展 API provider 与 LLM 多模态 normalizer；视频默认 frames 关键帧抽帧，并保留 URL / Base64 高级模式。",
+      "ModelScope 扩展 API 推荐 Qwen/Qwen3-VL-235B-A22B-Instruct，误选 Qwen/Qwen3-235B-A22B 文本模型时会自动切到 VL 视觉模型。",
+      "节点支持并发 1-4、失败继续、重试失败项、本地停止队列、打开输出目录和节点 outputText / metadata 结果输出。",
+      "已用真实贞贞 LLM 独立 Key与真实 ModelScope Key 验证打标 API；已用 Playwright 截图确认批量打标节点布局无明显溢出。",
+      "Electron 后置检查新增 backend-enc/routes/batchTags.t8c，避免桌面端用户包漏带批量打标后端能力。"
+    ],
+    "releaseFiles": [
+      ".gitignore",
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "electron/_post_build.cjs",
+      "backend/src/config.js",
+      "backend/src/server.js",
+      "backend/src/routes/batchTags.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.2.md",
+      "src/components/Canvas.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/nodes/BatchTaggerNode.tsx",
+      "src/components/nodes/LoopNode.tsx",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/types/canvas.ts",
+      "src/utils/batchTagger.ts",
+      "src/utils/nodePlacement.ts",
+      "tests/batchTagger.test.ts",
+      "tests/batchProcessor.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.2 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.2.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.2.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.2 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.2"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-06 R522 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.2。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\batchTagger.test.ts tests\\batchProcessor.test.ts tests\\advancedProviders.test.ts tests\\advancedProviderFrontend.test.ts tests\\llmVideoInput.test.ts",
+      "node -c backend\\src\\routes\\batchTags.js",
+      "node -c backend\\src\\server.js",
+      "node -c electron\\_post_build.cjs",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "真实 API 测试：贞贞 LLM 独立 Key + ModelScope Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "Playwright 截图检查批量打标节点布局",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.2 npm run dist:release",
+      "npm run release:verify -- v2.4.2"
+    ]
+  },
+  "electronReleaseV241": {
+    "version": "2.4.1",
+    "status": "electron-release",
+    "date": "2026-07-05",
+    "description": "v2.4.1 Electron 自动更新版：修复扩展 API 平台 Agnes AI 专用图像编辑字段兼容，imageUrls / imageUrl / image 等别名都会按官方格式进入 extra_body.image，并补齐路由级回归和真实 API 验证。",
+    "highlights": [
+      "Agnes AI 专用适配器继续使用 /v1/images/generations JSON；图像编辑参考图统一写入 extra_body.image，response_format 统一写入 extra_body.response_format。",
+      "扩展平台图像编辑入口兼容 images、image、imageUrl、image_url、imageUrls、image_urls、referenceImages、reference_images，避免部分入口传图字段不一致导致 Agnes 图生图失败或退化。",
+      "无参考图且请求 b64_json 时才使用 return_base64；不向 Agnes 图生图发送顶层 response_format 或 tags。",
+      "已用真实 Agnes API 验证专用扩展平台文生图与 imageUrls 别名图像编辑均成功返回远端 URL 并转存本地输出。",
+      "新增 Agnes adapter 单测和 /api/proxy/external/image 路由级回归，锁定专用 Agnes 图像编辑请求体。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "backend/src/providers/agnes.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.1.md",
+      "tests/agnesProvider.test.ts",
+      "tests/externalProvidersGenerationRoute.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.1 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.1.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.1.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.1 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.1"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-05 R521 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.1。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\openaiCompatibleProvider.test.ts tests\\agnesProvider.test.ts tests\\externalProvidersGenerationRoute.test.ts tests\\advancedProviders.test.ts tests\\advancedProviderFrontend.test.ts",
+      "node --test --test-reporter=dot tests\\promptTemplateLibrary.test.ts tests\\generationStopControls.test.ts tests\\imageModelMapping.test.ts tests\\geminiOfficialImageRoute.test.ts tests\\modelUsageHelp.test.ts tests\\resourceLibraryDrawer.test.ts tests\\electronPackaging.test.ts",
+      "node -c backend\\src\\providers\\agnes.js",
+      "node -c backend\\src\\providers\\openaiCompatible.js",
+      "node -c backend\\src\\routes\\externalProviders.js",
+      "node -c backend\\src\\routes\\proxy.js",
+      "node -c backend\\src\\server.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.1 npm run dist:release",
+      "npm run release:verify -- v2.4.1"
+    ]
+  },
+  "electronReleaseV240": {
+    "version": "2.4.0",
+    "status": "electron-release",
+    "date": "2026-07-05",
+    "description": "v2.4.0 Electron 自动更新版：修复 Agnes 在 OpenAI 兼容配置下图像编辑 503，提示词库 / 素材右键分类弹窗改为 Electron 内联表单，并给图像、视频、SD2.0 节点补齐停止生成。",
+    "highlights": [
+      "Agnes 专用适配器和 OpenAI 兼容配置 Agnes 均按官方文档走 /v1/images/generations JSON；参考图放入 extra_body.image，response_format 放入 extra_body.response_format，不再误用 /v1/images/edits multipart。",
+      "已用真实 Agnes API 验证文生图与 Data URI 图像编辑两条路径成功返回输出 URL；保留普通 OpenAI 兼容平台带参考图时的 /v1/images/edits multipart 行为。",
+      "提示词库和素材右键菜单不再调用 window.prompt()；新增模板分类、资源分类、缺失提示词补录和分类重命名均改为内联表单，避免 Electron 报 prompt() is not supported。",
+      "图像、视频、SD2.0 节点生成中显示停止按钮；停止会取消本地轮询并让旧任务回包失效，用户可立即重新发起新任务，远端已提交任务仍可能自然完成。",
+      "版本号按三段 0-9 规则从 2.3.9 进位到 2.4.0，并继续发布 NSIS 安装包、blockmap 与 latest.yml 自动更新资产。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "vite.config.ts",
+      "vite.config.js",
+      "electron/main.cjs",
+      "backend/src/config.js",
+      "backend/src/providers/openaiCompatible.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.4.0.md",
+      "src/components/MaterialContextMenu.tsx",
+      "src/components/PromptTemplateLibraryModal.tsx",
+      "src/components/nodes/ImageNode.tsx",
+      "src/components/nodes/VideoNode.tsx",
+      "src/components/nodes/SeedanceNode.tsx",
+      "tests/openaiCompatibleProvider.test.ts",
+      "tests/promptTemplateLibrary.test.ts",
+      "tests/generationStopControls.test.ts"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.4.0 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.4.0.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.4.0.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.4.0 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.4.0"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-05 R520 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.4.0。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\openaiCompatibleProvider.test.ts tests\\agnesProvider.test.ts tests\\externalProvidersGenerationRoute.test.ts tests\\advancedProviders.test.ts tests\\advancedProviderFrontend.test.ts tests\\promptTemplateLibrary.test.ts tests\\generationStopControls.test.ts",
+      "node --test --test-reporter=dot tests\\imageModelMapping.test.ts tests\\geminiOfficialImageRoute.test.ts tests\\modelUsageHelp.test.ts tests\\resourceLibraryDrawer.test.ts tests\\electronPackaging.test.ts",
+      "node -c backend\\src\\providers\\openaiCompatible.js",
+      "node -c backend\\src\\routes\\proxy.js",
+      "node -c backend\\src\\server.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.4.0 npm run dist:release",
+      "npm run release:verify -- v2.4.0"
+    ]
+  },
+  "electronReleaseV239": {
+    "version": "2.3.9",
+    "status": "electron-release",
+    "date": "2026-07-04",
+    "description": "v2.3.9 Electron 自动更新版：补齐 Gemini 官方图像模型 generateContent 链路、OpenAI 兼容 /v1/images/edits、资源库分类本地上传，并发布完整剪辑台宽屏实底体验与 ffprobe/xfade 打包校验。",
+    "highlights": [
+      "图像节点香蕉2新增 gemini-3.1-flash-lite-image，香蕉 Pro 新增 gemini-3-pro-image；两个精确模型使用 Gemini 官方 /v1/models/{model}:generateContent JSON 格式，旧 nano-banana-pro / 2k / 4k / fal 等模型继续保持原统一图像格式。",
+      "Gemini 官方图像返回解析新增 candidates[].content.parts[].inlineData 支持，并覆盖上游同步转异步任务后 data.data[].url 的 SUCCESS 结果；lite 模型固定提交官方支持的 1K 图像尺寸。",
+      "OpenAI 兼容扩展新增 /v1/images/edits：图像生成带参考图时自动提交 multipart 编辑请求，无参考图继续走 /v1/images/generations；API 设置说明同步补充 edits 端点。",
+      "资源库“我的资产”新增本地上传按钮，用户选择具体分类后可上传本地图像、视频、音频或全景资产到该分类，避免误入全部分类。",
+      "完整视频剪辑台继续收口为 screen-first 宽屏实底布局，补齐 63 个转场、音频曲线、任务失败/取消提示、快捷键安全态和多主题布局验收。",
+      "Electron 打包资源新增 shared/videoTransitions.json 与 ffprobe sidecar，后置检查会验证 ffprobe JSON 探测和 packaged ffmpeg 对 native xfade 转场目录的支持。"
+    ],
+    "releaseFiles": [
+      "package.json",
+      "package-lock.json",
+      "electron/main.cjs",
+      "electron/_post_build.cjs",
+      "backend/src/config.js",
+      "backend/src/providers/llmMedia.js",
+      "backend/src/providers/openaiCompatible.js",
+      "backend/src/routes/proxy.js",
+      "backend/src/routes/videoOps.js",
+      "features.json",
+      "README.md",
+      "release-notes/v2.3.8.md",
+      "release-notes/v2.3.9.md",
+      "shared/videoTransitions.json",
+      "src/components/ApiSettings.tsx",
+      "src/components/ResourceLibraryDrawer.tsx",
+      "src/components/nodes/VideoEditNode.tsx",
+      "src/config/portTypes.ts",
+      "src/providers/models.ts",
+      "src/services/api.ts",
+      "src/services/videoOps.ts",
+      "src/utils/nodePlacement.ts",
+      "src/utils/videoEdit.ts",
+      "src/utils/videoTimeline.ts",
+      "tests/advancedProviderFrontend.test.ts",
+      "tests/electronPackaging.test.ts",
+      "tests/externalProvidersGenerationRoute.test.ts",
+      "tests/geminiOfficialImageRoute.test.ts",
+      "tests/imageModelMapping.test.ts",
+      "tests/openaiCompatibleProvider.test.ts",
+      "tests/resourceLibraryDrawer.test.ts",
+      "tests/videoEditNode.test.ts",
+      "tests/videoEditTimeline.test.ts",
+      "tests/videoOpsIntegration.test.cjs",
+      "tests/videoTransitions.test.cjs"
+    ],
+    "packaging": {
+      "script": "T8_RELEASE_APPROVAL=release-2.3.9 npm run dist:release（本轮来自用户明确发布授权）",
+      "installer": "dist_electron/T8-PenguinCanvas-Setup-2.3.9.exe",
+      "blockmap": "dist_electron/T8-PenguinCanvas-Setup-2.3.9.exe.blockmap",
+      "latestYml": "dist_electron/latest.yml",
+      "updater": "GitHub Release v2.3.9 作为 latest.yml 自动更新源；安装继续使用前台 NSIS 向导，不静默安装。",
+      "releaseUrl": "https://github.com/T8mars/T8-penguin-canvas/releases/tag/v2.3.9"
+    },
+    "releaseBoundary": [
+      "公开源码继续禁止 skill.md、roadmap.md、local-private/**、hermes-agent/**、comfyui-anima-t8/**、Electron 缓存目录、artifacts/**、vibex/** 本地完整子项目、本地维护者工具源码和任何私有计费/支付/充值/分组令牌实现进入 GitHub。",
+      "backend/src/routes/vibex.js、src/components/nodes/RHToolRunnerPanel.tsx、tests/rechargeModalLayer.test.ts、update.md、vibex.zip、本地素材 / 缓存目录以及超过 GitHub 普通 Git 限制的 ffmpeg / ffprobe 本地 sidecar 继续保持未提交；Electron Release 资产从当前本地工作区打包这些 sidecar。",
+      "Release 资产只上传 NSIS 安装包、blockmap 与 latest.yml。",
+      "2026-07-04 R519 正式发布授权：本轮来自用户明确要求更新 skill.md / features.json、推送 GitHub、打包 Electron 并发布自动更新 Release，允许设置 T8_RELEASE_APPROVAL=release-2.3.9。"
+    ],
+    "verification": [
+      "node --test --test-reporter=dot tests\\imageModelMapping.test.ts tests\\geminiOfficialImageRoute.test.ts tests\\modelUsageHelp.test.ts tests\\openaiCompatibleProvider.test.ts tests\\externalProvidersGenerationRoute.test.ts tests\\resourceLibraryDrawer.test.ts tests\\advancedProviderFrontend.test.ts tests\\electronPackaging.test.ts",
+      "node --test --test-reporter=dot tests\\videoEditNode.test.ts tests\\videoEditTimeline.test.ts tests\\videoOpsIntegration.test.cjs tests\\videoTransitions.test.cjs",
+      "node -c backend\\src\\routes\\proxy.js",
+      "node -c backend\\src\\routes\\videoOps.js",
+      "node -c backend\\src\\server.js",
+      "node -e \"JSON.parse(require('fs').readFileSync('features.json','utf8')); JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('package-lock.json','utf8'))\"",
+      "npm run type-check",
+      "npm run public:check",
+      "npm run rh-toolbox:check",
+      "npm run build",
+      "git diff --cached --check",
+      "T8_RELEASE_APPROVAL=release-2.3.9 npm run dist:release",
+      "npm run release:verify -- v2.3.9"
+    ]
+  },
   "electronReleaseV238": {
     "version": "2.3.8",
     "status": "electron-release",
     "date": "2026-06-25",
-    "description": "v2.3.8 Electron 自动更新版：新增轻量视频剪辑核心节点，完善跨画布视频追加、ffmpeg 异步合成、批量素材 RH 并发 1-10、教程第十四弹、Gemini 正式模型名与 videoOps 打包校验。",
+    "description": "v2.3.8 Electron 自动更新版：新增高质量视频剪辑核心节点，完善宽屏实底剪辑台、63 个 ffmpeg xfade 转场、跨画布视频追加、ffmpeg 异步合成、批量素材 RH 并发 1-10、教程第十四弹、Gemini 正式模型名与 videoOps 打包校验。",
     "highlights": [
       "新增核心视频剪辑节点：支持多视频上传、上游导入、跨画布追加、单片段预览、缩略图时间线、片段排序、入点/出点裁剪、拆分、转场、滤镜、音频策略和下载成片。",
+      "视频剪辑节点与独立剪辑台改为 screen-first 宽屏实底布局：顶部大屏预览，底部素材篮 / 时间线细剪 / 输出处理三栏 LIST，避免细长高塔和半透明叠层。",
+      "内置 63 个视频转场，其中 62 个为真实 ffmpeg native xfade 转场；合成时使用 xfade + acrossfade，不再用插黑/插白假转场兜底。",
       "新增 /api/video-ops probe / compose / jobs / cancel，复用打包 ffmpeg 输出 /files/output/video_edit_*.mp4，并支持异步合成进度与取消任务。",
       "视频剪辑节点输出标准 videoUrl / videoUrls / directVideoUrl / directVideoUrls，可继续连接输出素材节点或其他视频节点。",
       "发送弹窗新增视频剪辑目标模式，上传素材、输出素材、VibeX 回传和普通视频结果可追加到当前画布或跨画布指定视频剪辑节点。",
@@ -87,16 +1414,22 @@
     "version": "2.3.8",
     "status": "included-in-electron-release",
     "date": "2026-06-25",
-    "description": "新增核心节点“视频剪辑”：轻量收集多个视频、裁剪排序、缩略图时间线、创作者预设、转场滤镜、音频策略，并通过本地 ffmpeg 合成为标准视频素材。",
+    "description": "新增核心节点“视频剪辑”：用宽屏实底剪辑台收集多个视频、裁剪排序、缩略图时间线、创作者预设、63 个高质量 xfade 转场、滤镜和音频策略，并通过本地 ffmpeg 合成为标准视频素材。",
     "highlights": [
-      "新增 video-edit 节点类型、核心节点注册、video 输入 / 输出端口和 760x520 默认尺寸。",
+      "新增 video-edit 节点类型、核心节点注册、video / audio 输入输出端口和 1120x640 宽屏默认尺寸。",
+      "视频剪辑节点后续升级为 1120x640 宽屏节点；独立剪辑台采用顶部大屏 + 底部三栏 LIST deck，覆盖 pixel / rh / farm-story / saint-seiya 全主题实机截图验收。",
       "视频剪辑节点支持上传多个视频、从上游视频导入、单 video 预览、缩略图时间线、片段拖拽排序、入点 / 出点裁剪、选中片段一键拆分、转场、滤镜、音频策略、下载成片和可选自动创建输出素材节点。",
+      "转场目录沉淀 63 个选项，后端 videoOps 使用 ffmpeg xfade 和音频 acrossfade 输出高质量跨片段转场，并在 Electron 打包中全量校验 shared/videoTransitions.json、ffprobe/ffmpeg sidecar 与每个 native xfade 名称。",
       "输出预设新增抖音/快手、B站/YouTube、方形社媒、3:4 竖版海报、4:3 横版展示、21:9 电影宽屏、2:1 宽幅/全景；按用户要求不提供 4:5 预设。",
       "一键模板新增快速混剪、口播混剪、产品展示、前后对比和批量合集，快速套用比例、转场、滤镜和音频策略。",
       "合成流程改为异步任务：前端显示进度与后端消息，支持取消合成；后端 /api/video-ops/compose 支持 async 模式并通过 jobs 轮询返回结果。",
       "发送弹窗新增“视频剪辑”模式，视频素材可追加到当前画布或跨画布的指定视频剪辑节点；没有目标时自动新建。",
       "后端新增 /api/video-ops probe / compose / jobs / cancel，复用打包 ffmpeg，输出 /files/output/video_edit_*.mp4。",
-      "真实 ffmpeg 集成测试覆盖音轨结构不一致的视频拼接、新比例 target size 和异步 compose job 轮询结果，确认会为无音频片段补静音轨后稳定 concat。"
+      "真实 ffmpeg 集成测试覆盖音轨结构不一致的视频拼接、新比例 target size 和异步 compose job 轮询结果，确认会为无音频片段补静音轨后稳定 concat。",
+      "完整剪辑台新增音频淡入淡出与音量曲线：时间线 item、预览、底部音频快控和 ffmpeg timeline audio mix 统一支持 flat / linear-up / linear-down / duck。",
+      "完整剪辑台最终回归补强导出边界：不可合成状态统一显示明确阻断提示，按钮外入口和批量套餐导出不再静默返回，小屏 QA 覆盖空素材提示不遮挡输出面板。",
+      "完整剪辑台最终回归补强任务异常提示和快捷键状态：失败 / 取消 job 会在右侧输出面板内稳定提示，小屏 QA 覆盖失败、取消、空素材和正常布局；忙碌态或快捷键面板打开时编辑类快捷键不会误改时间线。",
+      "完整剪辑台最终总体验收完成：真实浏览器覆盖响应式小屏、异常 job、快捷键输入态、面板态、多选/框选、批量属性、吸附、播放头、裁剪、轨道同步、PIP 拖动和预览效果，关键截图人工复核未发现重叠或布局错位。"
     ],
     "files": [
       "src/types/canvas.ts",
@@ -104,6 +1437,7 @@
       "src/config/portTypes.ts",
       "src/utils/nodePlacement.ts",
       "src/utils/videoEdit.ts",
+      "src/utils/videoTimeline.ts",
       "src/services/videoOps.ts",
       "src/components/nodes/VideoEditNode.tsx",
       "src/components/Canvas.tsx",
@@ -112,11 +1446,24 @@
       "backend/src/server.js",
       "backend/src/routes/videoOps.js",
       "tests/videoEditNode.test.ts",
+      "tests/videoEditTimeline.test.ts",
       "tests/videoOpsIntegration.test.cjs",
       "roadmap.md"
     ],
     "verification": [
-      "node --test tests\\videoEditNode.test.ts tests\\videoOpsIntegration.test.cjs tests\\batchProcessor.test.ts",
+      "node --test --test-reporter=dot tests\\videoEditNode.test.ts tests\\videoEditTimeline.test.ts",
+      "node --test --test-reporter=dot --test-name-pattern \"job notices|blocks editing shortcuts\" tests\\videoEditNode.test.ts",
+      "node --test --test-reporter=dot tests\\videoOpsIntegration.test.cjs",
+      "node --test --test-reporter=dot tests\\videoOpsIntegration.test.cjs tests\\videoTransitions.test.cjs",
+      "node --check artifacts\\video-edit-qa\\verify-workbench-responsive.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-responsive.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-track-item-move.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-layout-v7.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-playhead-seek.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-track-item-trim.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-track-sync.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-pip-drag.cjs",
+      "node artifacts\\video-edit-qa\\verify-workbench-preview-effects.cjs",
       "node -c backend\\src\\routes\\videoOps.js",
       "node -c backend\\src\\server.js",
       "npm run type-check"
@@ -2092,6 +3439,94 @@
       "npm run build"
     ]
   },
+  "batchTaggerNode": {
+    "status": "electron-release-v2.4.2",
+    "date": "2026-07-06",
+    "releaseVersion": "2.4.2",
+    "nodeType": "batch-tagger",
+    "category": "toolbox",
+    "description": "工具箱新增“批量打标”节点：支持图像 / 视频多文件、文件夹和上游素材批量进入队列，调用贞贞 LLM 独立 Key或扩展 API 视觉模型生成 TAG、自然语言描述、短句或标准 JSON，并按原素材文件名前缀保存到 output/batch-tags 的 .txt / .json sidecar 文件。",
+    "ports": {
+      "inputs": [
+        "image",
+        "video",
+        "text"
+      ],
+      "outputs": [
+        "text",
+        "metadata"
+      ]
+    },
+    "capabilities": [
+      "导入方式覆盖本地多文件、文件夹 webkitdirectory、拖拽和连接上游 image/video 素材。",
+      "打标模式覆盖 TAG、自然语言描述、短句 caption、标准 JSON 和自定义 Prompt。",
+      "默认支持贞贞 LLM 独立 Key；扩展 API 支持 OpenAI 兼容、ModelScope、火山、Agnes 等 LLM provider，其中 ModelScope 会推荐 Qwen/Qwen3-VL-235B-A22B-Instruct。",
+      "视频默认使用关键帧抽帧，另提供 URL 和 Base64 高级模式；远端 API 已提交的请求无法真正中断，停止按钮会取消本地队列和后续回写。",
+      "输出 sidecar 使用原素材同名前缀，支持 .txt / .json、失败继续、重试失败项、并发 1-4、覆盖开关和打开 output/batch-tags。",
+      "节点输出 outputText 与 metadata，便于下游继续使用批量结果；大素材本体不写入画布数据。"
+    ],
+    "sourceFiles": [
+      "src/components/nodes/BatchTaggerNode.tsx",
+      "src/utils/batchTagger.ts",
+      "backend/src/routes/batchTags.js",
+      "backend/src/server.js",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/components/Canvas.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/nodes/LoopNode.tsx",
+      "src/utils/nodePlacement.ts",
+      "tests/batchTagger.test.ts"
+    ],
+    "verification": [
+      "node --test tests\\batchTagger.test.ts",
+      "node -c backend\\src\\routes\\batchTags.js",
+      "npm run type-check",
+      "真实 API 测试：贞贞 LLM 独立 Key + ModelScope Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "Playwright 截图检查批量打标节点布局"
+    ]
+  },
+  "randomRouteNode": {
+    "status": "electron-release-v2.4.4",
+    "date": "2026-07-06",
+    "releaseVersion": "2.4.4",
+    "nodeType": "random-route",
+    "category": "utility",
+    "description": "工具节点新增“随机路由”：左侧接受任意数量、任意类型上游素材，右侧动态生成 1-100 个输出口；每次运行按 random_pass_count 精确随机命中不重复输出口，只继续执行命中口后面的下游分支，未命中分支保持不运行。",
+    "ports": {
+      "inputs": [
+        "any"
+      ],
+      "outputs": [
+        "any"
+      ]
+    },
+    "capabilities": [
+      "total_outputs 默认 10，支持 1-100；random_pass_count 默认 1，并自动限制在 1-total_outputs。",
+      "所有输出口透传同一份上游聚合素材，支持文本、图像、视频、音频和 3D 模型字段。",
+      "每次 RUN 都重新随机，命中输出口在节点 UI 中高亮，并记录上次路由和下游执行节点数。",
+      "Canvas 批量运行、组运行和节点浮动 RUN 都会先触发随机路由节点本身，再由随机路由按本轮命中结果调度下游子图，避免未命中分支误执行。",
+      "随机路由可出现在循环器下游；循环器内部排序会让随机路由节点接管自己的分支。"
+    ],
+    "sourceFiles": [
+      "src/components/nodes/RandomRouteNode.tsx",
+      "src/utils/randomRoute.ts",
+      "src/config/nodeRegistry.ts",
+      "src/config/portTypes.ts",
+      "src/types/canvas.ts",
+      "src/components/Canvas.tsx",
+      "src/components/NodeActionBar.tsx",
+      "src/components/nodes/LoopNode.tsx",
+      "src/utils/nodePlacement.ts",
+      "tests/randomRoute.test.ts"
+    ],
+    "verification": [
+      "node --test tests\\randomRoute.test.ts",
+      "npm run type-check",
+      "npm run build",
+      "Playwright 截图和 DOM 检查随机路由节点布局与 10/100 输出口状态"
+    ]
+  },
   "codexCliCreatorAgent": {
     "status": "implemented",
     "date": "2026-06-12",
@@ -2718,94 +4153,6 @@
     "verification": [
       "node --test tests\\falToolbox.test.ts",
       "node --check backend\\src\\routes\\proxy.js",
-      "npm run type-check",
-      "npm run build"
-    ]
-  },
-  "canvasTutorialTopbarPanel": {
-    "status": "implemented",
-    "date": "2026-06-14",
-    "description": "顶部栏在“最新应用”左侧新增“画布教程”入口，按第一弹到第十四弹整理 T8 画布教程 Bilibili / Youtube 链接；“最新应用 · RunningHub”弹窗移除“获取 RH ApiKey”快捷入口，只保留 RunningHub 国内/海外站和邀请码提示。",
-    "paths": [
-      "src/App.tsx",
-      "tests/updateMdRegressions.test.ts",
-      "features.json",
-      "skill.md"
-    ],
-    "tutorials": [
-      {
-        "title": "基础功能教程第一弹1.2.3版",
-        "bilibili": "https://www.bilibili.com/video/BV18sG76AE9Y/",
-        "youtube": "https://www.youtube.com/watch?v=V8oCBhemmCQ"
-      },
-      {
-        "title": "教程第二弹（循环系统，RH超市等）",
-        "bilibili": "https://www.bilibili.com/video/BV1CVGx6kEMV/",
-        "youtube": "https://www.youtube.com/watch?v=hSpoXclezqw"
-      },
-      {
-        "title": "教程第三弹（节点回避算法，资产库，自定义主题等）",
-        "bilibili": "https://www.bilibili.com/video/BV1qeVP6kEZi/",
-        "youtube": "https://www.youtube.com/watch?v=oJUbD88kvnk"
-      },
-      {
-        "title": "教程第四弹（RH主题隐藏模式Red,素材集节点，导演节点三件套，多角度可视化，图像对比，高级版多宫格剪裁）",
-        "bilibili": "https://www.bilibili.com/video/BV1gfGm6HERH/",
-        "youtube": "https://www.youtube.com/watch?v=9Bn0BjsfwlE"
-      },
-      {
-        "title": "教程第五弹（人造人系统，灵魂画手控制系统，贞贞无限画布！火影忍者，EVA，幽游白书主题，设计师专属优化多画布及Eagle发送）",
-        "bilibili": "https://www.bilibili.com/video/BV1KhVY6MEFP/",
-        "youtube": "https://www.youtube.com/watch?v=_lmRmlPZ2y0"
-      },
-      {
-        "title": "教程第六弹（灌篮高手主题上线！新Red隐藏模式，姿势大师节点，全新交互及连线方式）",
-        "bilibili": "https://www.bilibili.com/video/BV1RjVZ69En1/",
-        "youtube": "https://www.youtube.com/watch?v=pSLqhcpmpn8"
-      },
-      {
-        "title": "教程第七弹（即梦CLI调用，Seedance2.0不卡人脸！支持modelscope免费版生成，OpenAI兼容调用，RH超市，画板功能再升级！宫格编辑！新增AI检测消除功能）",
-        "bilibili": "https://www.bilibili.com/video/BV18eVz68ENs/",
-        "youtube": "https://www.youtube.com/watch?v=PQ5rKtOZ-tM"
-      },
-      {
-        "title": "教程第八弹（本地Comfyui植入贞贞的无限画布！超简单超好用！新增足球小将主题，视频解析功能，节点对齐，即梦CLI修复多参，免费版魔搭API Lora支持，素材黏贴新模式，APIKEY导入导出功能）",
-        "bilibili": "https://www.bilibili.com/video/BV1ha7R6DES5/",
-        "youtube": "https://www.youtube.com/watch?v=LViGXsMTFhs"
-      },
-      {
-        "title": "教程第九弹（新增3D全景功能及资产库，一键自动更新功能，输入框放大按钮，修复即梦CLI的多参问题，AI去水印节点功能升级，新增聚合解析功能，可获取17个平台无水印视频，优化启动速度，优化画布加载如慢加载，支持自定义快捷键设置）",
-        "bilibili": "https://www.bilibili.com/video/BV1gSEA6GEDQ/",
-        "youtube": "https://www.youtube.com/watch?v=-nmX9oB-MX"
-      },
-      {
-        "title": "教程第十弹（3D全景功能增强，Figma联动，支持阿里云Oss及腾讯云Cos，新增放置栏，修正新香蕉的模型映射，上传素材的上限从10M到20M，新增veo-omni模型，新增提示词模板系统及增强功能，comfyui支持remote模式，新增newapi分组令牌高级模式，LLM/VISIOIN节点支持流式删除，分类独立APIKEY支持删除功能，新增画布教程模块，支持上游文本联动生成节点@模式，即梦CLI模型补全，素材支持直接拖到浏览器外文件夹）",
-        "bilibili": "https://www.bilibili.com/video/BV1N9Eg6QEHs/",
-        "youtube": "https://www.youtube.com/watch?v=zIW7PbEWQAs"
-      },
-      {
-        "title": "教程第十一弹（新增圣斗士星矢双主题，加强本地comfyui节点和参数解析，修复不支持LIST的问题，新增画布内图片素材按鼠标左右键拖动到文件夹，新增Fal超市功能，新增grok agent节点，含创作台和简易版，新增3D素材上传和预览功能）",
-        "bilibili": "https://www.bilibili.com/video/BV1gGEz6VEDA/",
-        "youtube": "https://www.youtube.com/watch?v=oRT59Qf65KY"
-      },
-      {
-        "title": "教程第十二弹（grok agent的节点修复图生视频功能，新增视频延展及视频编辑功能，新增codex cli agent节点，简约模式和创作台模式，新增Codex生图工作台节点，新增自定义快捷圆盘，FAL超市新增10多个新模型，视频节点新增3个grok video 1.5模型，解锁成就系统所有隐藏模式的奖励影片，新增俄罗斯方块主题及小游戏）",
-        "bilibili": "https://www.bilibili.com/video/BV1phJs6oE2g/",
-        "youtube": "https://www.youtube.com/watch?v=BKV8YA-kKK4"
-      },
-      {
-        "title": "教程第十三弹（新增牧场物语主题及养成游戏，放置栏可收缩，修复侧边栏按钮常驻BUG，3D全景节点新增2:1尺寸，修复部分用户无法新增资源库分类，新增画板及图像编辑功能shift正圆，正方形及实心素材，抠图功能等，新增chrome插件支持任意网络图像反推生成并发送画布，新增跨画布完成通知，优化comfyui节点，新增自定义系统字体，支持agens apikey多模态模型免费使用，新增历史记录）",
-        "bilibili": "https://www.bilibili.com/video/BV1tYjy6jEuG/",
-        "youtube": "https://www.youtube.com/watch?v=AH24lGHA9E0"
-      },
-      {
-        "title": "教程第十四弹（新增VibeX联动发送功能及节点，增强chrome反推插件（需更新安装，支持vibex以及修复反推发送问题），修复ID连线方式，新增区域连线方式，新增目标框节点，重写画布底层大幅度优化节点太多卡顿问题，图像编辑模式画板新增标签改图功能，全局去掉字体模糊效果，批量素材节点完善扩图，高清放大，抠图等功能（需填写RH APIKEY））",
-        "bilibili": "https://www.bilibili.com/video/BV1mj7h6CEYx/",
-        "youtube": "https://www.youtube.com/watch?v=wCOoTtuxQPM"
-      }
-    ],
-    "verification": [
-      "node --test tests\\updateMdRegressions.test.ts",
       "npm run type-check",
       "npm run build"
     ]
@@ -3573,11 +4920,11 @@
       "T8_RUNTIME_CACHE_DIR": "可选，覆盖运行时归档解压缓存目录；默认打包模式为 %APPDATA%/t8-penguin-canvas/runtime-cache",
       "T8_ENABLE_LOCAL_PRIVATE": "可选，0=强制关闭本机 local-private/extensions 私有扩展；默认只要本机 ignored 私有扩展存在，开发环境和本机打包 release 都会自动带入。GitHub/clean clone 因为没有 local-private 目录，所以不会带充值实现。"
     },
-    "version": "2.3.8",
-    "semverVersion": "2.3.8",
+    "version": "2.5.2",
+    "semverVersion": "2.5.2",
     "versionNumberPolicy": "T8 版本号仍采用 x.y.z 三段，但每一段只允许 0-9；任一段到 9 后下一次发布必须向左进位，禁止任一段出现两位数字。例：1.9.9 的下一版必须是 2.0.0。",
-    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.3.8，新增轻量视频剪辑核心节点、跨画布视频追加、ffmpeg 异步合成、批量素材 RH 并发 1-10、教程第十四弹、Gemini 正式模型名和 videoOps 打包校验；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
-    "installer": "v2.3.8 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.3.8 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
+    "versionNote": "v1.3.0 起统一采用三段阶段号 x.y.z；当前发布版本为 v2.5.2，新增庭院守卫沉浸大屏和教程第十五弹公告链接；公开源码仍排除本地私有计费/支付/充值/分组令牌实现。",
+    "installer": "v2.5.2 作为 Electron 自动更新发布版本：npm run dist:release 与 npm run release:github 继续带 T8_RELEASE_APPROVAL=release-2.5.2 防误触闸，只有用户明确要求发布后才能设置该变量并发布自动更新资产。",
     "updaterInstallMode": "自动更新下载完成后不得静默安装：main.cjs 必须设置 autoInstallOnAppQuit=false，显式安装调用 quitAndInstall(false,true)；electron/build-resources/installer.nsh 通过 SetSilent normal 让新版 NSIS 安装器即使收到旧客户端传入的 /S 也尽量切回前台安装向导。",
     "installerShortcutPolicy": "安装完成后必须创建桌面和开始菜单快捷方式：package.json build.nsis.createDesktopShortcut 必须为 \"always\"，createStartMenuShortcut 必须为 true；electron/build-resources/installer.nsh 必须保留 customInstall 兜底 CreateShortCut \"$newStartMenuLink\" 与 \"$DESKTOP\\${SHORTCUT_NAME}.lnk\"，防止更新安装/keepShortcuts 路径遗漏入口。",
     "updaterEntryPolicy": "顶栏桌面更新入口不得只因 window.t8pc.updater 缺失就静默消失；Electron UA 或 t8pc.getInfo/openExternal 可用时必须显示诊断入口，提示重新安装完整桌面包，Web/纯浏览器环境才隐藏。状态为 not-available 时按钮仍保留“更新”字样，避免用户误以为自动更新入口被删除。",
@@ -3619,7 +4966,7 @@
       "backend/src/ 任何文件修改后必须重新 npm run encrypt 再打包",
       "main.cjs 的窗口标题 / log 窗口 / IPC version 三处版本号，以及 backend/src/config.js APP_VERSION 必须与 package.json 同步",
       "安装包必须创建桌面和开始菜单快捷方式：createDesktopShortcut=\"always\"、createStartMenuShortcut=true，installer.nsh customInstall 兜底 CreateShortCut 不得删除",
-      "_post_build.cjs 验证后端 .t8c 必存在: server/config + routes/{canvas,settings,proxy,externalProviders,files,imageOps,resources,themes,eagle,figma,aiWatermark,cloudUploads,parseHub,achievements} + achievements/store + providers/{registry,mediaResolver,llmMedia,adapters,openaiCompatible,modelscope,volcengine,comfyui,jimengCli} + cloudUploads/{settings,uploader} + tools/aiWatermark/{runner,media} + utils/duckPayload/parseHubBridge",
+      "_post_build.cjs 验证后端 .t8c 必存在: server/config + routes/{canvas,settings,proxy,externalProviders,files,imageOps,resources,themes,eagle,figma,aiWatermark,cloudUploads,parseHub,achievements,batchTags} + achievements/store + providers/{registry,mediaResolver,llmMedia,adapters,openaiCompatible,modelscope,volcengine,comfyui,jimengCli} + cloudUploads/{settings,uploader} + tools/aiWatermark/{runner,media} + utils/duckPayload/parseHubBridge",
       "_post_build.cjs 必须验证 providers/llmMedia.t8c 与 resources/tools/ffmpeg/ffmpeg.exe；LLM 视频输入默认使用内置 ffmpeg sidecar 按整段视频均匀抽取可配置数量的关键帧发送给 LLM，native-base64 / compressed-base64 模式才缩放压缩后转原生 video_url Base64，用户包不得依赖系统 PATH 自带 ffmpeg",
       "_post_build.cjs 验证 resources/frontend/index.html + assets/ 必存在",
       "_post_build.cjs 必须检查 resources/shared/achievementManifest.json；成就后端加密包会从该共享 manifest 读取规则，Electron extraResources 不能漏带 shared/achievementManifest.json",
@@ -3641,7 +4988,7 @@
     "imagePreviewPipeline": {
       "frontend": "高频节点预览统一使用 SmartImage + previewImageUrl，本地 /files/input 与 /files/output 图片接近视口后才请求 /api/files/thumbnail，原始素材 URL 保留在 data-full-src 与拖拽/下载/下游数据中。",
       "backend": "backend/src/routes/files.js 提供 GET /api/files/thumbnail?url=&size=，用 sharp 生成 webp 缩略图并缓存到 THUMBNAILS_DIR，Cache-Control=immutable；同一 target 通过 thumbnailInflight 去重，生成并发由 T8PC_THUMBNAIL_CONCURRENCY 控制，默认 2、最高 4。",
-      "upload": "POST /api/files/upload multipart 上传上限对齐到 20MB；multer 超限返回 413 JSON(code=file_too_large)，避免 10MB 以上 ComfyUI PNG 被误报为 HTTP 500。",
+      "upload": "POST /api/files/upload multipart 不设置应用层大小上限；上传素材节点可接收大体积本地素材，实际容量只受磁盘、系统和运行环境约束。",
       "exceptions": "裁剪、去水印框选、图片编辑、图片对比等依赖原图像素或细节的视图继续使用原图。"
     },
     "edgeMotion": {
@@ -4218,7 +5565,7 @@
       "自动更新到带新影片的版本后，旧成就数据仍能解锁并播放新资源。"
     ]
   },
-  "totalNodes": 53,
+  "totalNodes": 54,
   "phases": {
     "phase0": {
       "label": "基础设施",
@@ -6397,7 +7744,7 @@
     },
     "utility": {
       "label": "工具节点",
-      "count": 14,
+      "count": 15,
       "nodes": [
         {
           "type": "drawing-board",
@@ -6430,6 +7777,11 @@
           "type": "loop",
           "label": "循环器",
           "description": "v1.2.8 新增。接多个同类型素材(text/image/video/audio)，两种模式: 串联逐个注入自身进发下游可执行子图 / 并联克隆 (N-1) 份子图并发跱发。采集输出位序位填 null，永久保留克隆节点，克隆块垂直堆叠(yOffset = i × blockH)，使用 runBus.runningIds + triggerRunMany 多节点并发触发。双主题 violet 调"
+        },
+        {
+          "type": "random-route",
+          "label": "随机路由",
+          "description": "v2.4.4 新增。接受任意上游素材，动态提供 1-100 个输出口；每次运行按 random_pass_count 随机命中不重复输出口，仅继续执行命中口后面的下游分支，未命中分支不进入运行队列"
         },
         {
           "type": "pick-from-set",
@@ -6513,7 +7865,7 @@
     },
     "toolbox": {
       "label": "工具箱",
-      "count": 9,
+      "count": 10,
       "nodes": [
         {
           "type": "cinematic",
@@ -6549,6 +7901,11 @@
           "type": "batch-processor",
           "label": "批量素材处理",
           "description": "批量导入文件或文件夹，也可连接上游素材；在节点内执行原名/改名、去除上下黑边、批量抠图、扩图、高清放大和格式转换，完成后只显示节点内进度和结果，不自动生成输出素材节点"
+        },
+        {
+          "type": "batch-tagger",
+          "label": "批量打标",
+          "description": "批量导入图像/视频或连接上游素材，调用贞贞 LLM 独立 Key / 扩展 API 视觉模型生成 TAG、自然语言、短句或 JSON，并保存同名前缀 .txt / .json 到 output/batch-tags"
         },
         {
           "type": "topaz-image-upscale",
@@ -7185,6 +8542,7 @@
     "frame-pair",
     "upload",
     "loop",
+    "random-route",
     "pick-from-set",
     "drawing-board",
     "panorama-3d",
@@ -7195,6 +8553,7 @@
     "pose-master",
     "aggregate-parser",
     "batch-processor",
+    "batch-tagger",
     "topaz-image-upscale",
     "topaz-video-upscale",
     "remove-ai-watermark"
@@ -7475,6 +8834,104 @@
     ],
     "verification": [
       "node --test tests\\placementShelf.test.ts tests\\themeRegistry.test.ts"
+    ]
+  },
+  "canvasTutorialTopbarPanel": {
+    "status": "implemented",
+    "date": "2026-06-14",
+    "description": "顶部栏在“最新应用”左侧新增“画布教程”入口，按第一弹到第十六弹整理 T8 画布教程 Bilibili / Youtube 链接；“最新应用 · RunningHub”弹窗移除“获取 RH ApiKey”快捷入口，只保留 RunningHub 国内/海外站和邀请码提示。",
+    "paths": [
+      "src/App.tsx",
+      "tests/updateMdRegressions.test.ts",
+      "features.json",
+      "skill.md"
+    ],
+    "tutorials": [
+      {
+        "title": "基础功能教程第一弹1.2.3版",
+        "bilibili": "https://www.bilibili.com/video/BV18sG76AE9Y/",
+        "youtube": "https://www.youtube.com/watch?v=V8oCBhemmCQ"
+      },
+      {
+        "title": "教程第二弹（循环系统，RH超市等）",
+        "bilibili": "https://www.bilibili.com/video/BV1CVGx6kEMV/",
+        "youtube": "https://www.youtube.com/watch?v=hSpoXclezqw"
+      },
+      {
+        "title": "教程第三弹（节点回避算法，资产库，自定义主题等）",
+        "bilibili": "https://www.bilibili.com/video/BV1qeVP6kEZi/",
+        "youtube": "https://www.youtube.com/watch?v=oJUbD88kvnk"
+      },
+      {
+        "title": "教程第四弹（RH主题隐藏模式Red,素材集节点，导演节点三件套，多角度可视化，图像对比，高级版多宫格剪裁）",
+        "bilibili": "https://www.bilibili.com/video/BV1gfGm6HERH/",
+        "youtube": "https://www.youtube.com/watch?v=9Bn0BjsfwlE"
+      },
+      {
+        "title": "教程第五弹（人造人系统，灵魂画手控制系统，贞贞无限画布！火影忍者，EVA，幽游白书主题，设计师专属优化多画布及Eagle发送）",
+        "bilibili": "https://www.bilibili.com/video/BV1KhVY6MEFP/",
+        "youtube": "https://www.youtube.com/watch?v=_lmRmlPZ2y0"
+      },
+      {
+        "title": "教程第六弹（灌篮高手主题上线！新Red隐藏模式，姿势大师节点，全新交互及连线方式）",
+        "bilibili": "https://www.bilibili.com/video/BV1RjVZ69En1/",
+        "youtube": "https://www.youtube.com/watch?v=pSLqhcpmpn8"
+      },
+      {
+        "title": "教程第七弹（即梦CLI调用，Seedance2.0不卡人脸！支持modelscope免费版生成，OpenAI兼容调用，RH超市，画板功能再升级！宫格编辑！新增AI检测消除功能）",
+        "bilibili": "https://www.bilibili.com/video/BV18eVz68ENs/",
+        "youtube": "https://www.youtube.com/watch?v=PQ5rKtOZ-tM"
+      },
+      {
+        "title": "教程第八弹（本地Comfyui植入贞贞的无限画布！超简单超好用！新增足球小将主题，视频解析功能，节点对齐，即梦CLI修复多参，免费版魔搭API Lora支持，素材黏贴新模式，APIKEY导入导出功能）",
+        "bilibili": "https://www.bilibili.com/video/BV1ha7R6DES5/",
+        "youtube": "https://www.youtube.com/watch?v=LViGXsMTFhs"
+      },
+      {
+        "title": "教程第九弹（新增3D全景功能及资产库，一键自动更新功能，输入框放大按钮，修复即梦CLI的多参问题，AI去水印节点功能升级，新增聚合解析功能，可获取17个平台无水印视频，优化启动速度，优化画布加载如慢加载，支持自定义快捷键设置）",
+        "bilibili": "https://www.bilibili.com/video/BV1gSEA6GEDQ/",
+        "youtube": "https://www.youtube.com/watch?v=-nmX9oB-MX"
+      },
+      {
+        "title": "教程第十弹（3D全景功能增强，Figma联动，支持阿里云Oss及腾讯云Cos，新增放置栏，修正新香蕉的模型映射，上传素材的上限从10M到20M，新增veo-omni模型，新增提示词模板系统及增强功能，comfyui支持remote模式，新增newapi分组令牌高级模式，LLM/VISIOIN节点支持流式删除，分类独立APIKEY支持删除功能，新增画布教程模块，支持上游文本联动生成节点@模式，即梦CLI模型补全，素材支持直接拖到浏览器外文件夹）",
+        "bilibili": "https://www.bilibili.com/video/BV1N9Eg6QEHs/",
+        "youtube": "https://www.youtube.com/watch?v=zIW7PbEWQAs"
+      },
+      {
+        "title": "教程第十一弹（新增圣斗士星矢双主题，加强本地comfyui节点和参数解析，修复不支持LIST的问题，新增画布内图片素材按鼠标左右键拖动到文件夹，新增Fal超市功能，新增grok agent节点，含创作台和简易版，新增3D素材上传和预览功能）",
+        "bilibili": "https://www.bilibili.com/video/BV1gGEz6VEDA/",
+        "youtube": "https://www.youtube.com/watch?v=oRT59Qf65KY"
+      },
+      {
+        "title": "教程第十二弹（grok agent的节点修复图生视频功能，新增视频延展及视频编辑功能，新增codex cli agent节点，简约模式和创作台模式，新增Codex生图工作台节点，新增自定义快捷圆盘，FAL超市新增10多个新模型，视频节点新增3个grok video 1.5模型，解锁成就系统所有隐藏模式的奖励影片，新增俄罗斯方块主题及小游戏）",
+        "bilibili": "https://www.bilibili.com/video/BV1phJs6oE2g/",
+        "youtube": "https://www.youtube.com/watch?v=BKV8YA-kKK4"
+      },
+      {
+        "title": "教程第十三弹（新增牧场物语主题及养成游戏，放置栏可收缩，修复侧边栏按钮常驻BUG，3D全景节点新增2:1尺寸，修复部分用户无法新增资源库分类，新增画板及图像编辑功能shift正圆，正方形及实心素材，抠图功能等，新增chrome插件支持任意网络图像反推生成并发送画布，新增跨画布完成通知，优化comfyui节点，新增自定义系统字体，支持agens apikey多模态模型免费使用，新增历史记录）",
+        "bilibili": "https://www.bilibili.com/video/BV1tYjy6jEuG/",
+        "youtube": "https://www.youtube.com/watch?v=AH24lGHA9E0"
+      },
+      {
+        "title": "教程第十四弹（新增VibeX联动发送功能及节点，增强chrome反推插件（需更新安装，支持vibex以及修复反推发送问题），修复ID连线方式，新增区域连线方式，新增目标框节点，重写画布底层大幅度优化节点太多卡顿问题，图像编辑模式画板新增标签改图功能，全局去掉字体模糊效果，批量素材节点完善扩图，高清放大，抠图等功能（需填写RH APIKEY））",
+        "bilibili": "https://www.bilibili.com/video/BV1mj7h6CEYx/",
+        "youtube": "https://www.youtube.com/watch?v=wCOoTtuxQPM"
+      },
+      {
+        "title": "教程第十五弹（新增植物大战僵尸主题，新增PS插件支持Photoshop和画布发送及生成，图像节点新增seedream模块，修复agnes图像编辑报错，新增即梦cli，导演台，SD2.0节点的sd2.0mini和原生4K，新增随机路由节点，新增批量打标节点，新增视频剪辑节点，优化提示库模板功能，视频类素材左侧新增首尾帧，极速放大及质量放大功能）",
+        "bilibili": "https://www.bilibili.com/video/BV1RoN76RE9m/",
+        "youtube": "https://www.youtube.com/watch?v=K65BqvSTfh4"
+      },
+      {
+        "title": "教程第十六弹（支持贞贞的平价AI小屋，全国内站模型比海外站便宜5-7.5折，支持宽审核，每日更新模型，RH API分离设置）",
+        "bilibili": "https://www.bilibili.com/video/BV11zNM6jEQR/",
+        "youtube": "https://www.youtube.com/watch?v=_G9xLFd0DN0"
+      }
+    ],
+    "verification": [
+      "node --test tests\\updateMdRegressions.test.ts",
+      "npm run type-check",
+      "npm run build"
     ]
   }
 }

@@ -6,11 +6,12 @@
 - 个人仓库：`https://github.com/LIUSHUAI-001/icd-ai-workbench`
 - `origin`：个人修改版仓库，用于日常推送
 - `upstream`：原作者仓库 `https://github.com/T8mars/T8-penguin-canvas.git`
-- 当前发布提交：`57dd9d7 chore: rename project as ICD AI workbench`
+- 当前发布提交：`aa9bba0 docs: document repository rename and upgrade workflow`
 - 当前开发分支：`codex/icd-ui-prompt-library`
+- 当前隔离升级分支：`codex/upgrade-t8-v2.5.5`
 - 个人仓库的 `main` 已指向当前修改版本
 
-旧本地目录 `T8-penguin-canvas` 不再作为工作目录。旧的空仓库已改名为 `icd-ai-workbench-staging`，不参与开发。
+`/Users/liushuai/Documents/GitHub/T8-penguin-canvas` 是 2026-07-15 重新建立的官方上游体验副本，只用于对照体验，不作为 ICD 开发工作目录。旧的空仓库 `icd-ai-workbench-staging` 已删除。
 
 ## 日常开发
 

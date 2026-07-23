@@ -6,6 +6,7 @@ import {
   submitSeedance,
   querySeedance,
   type SeedanceSubmitRequest,
+  type SeedanceTaskProvider,
 } from '../../services/generation';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useHasAutoOutput } from './useHasAutoOutput';
@@ -35,6 +36,20 @@ import {
   normalizeExcludedMaterialIds,
 } from '../../utils/materialExclusion';
 import { LocalNodeAddonSlot } from 'virtual:t8-local-extensions';
+import {
+  LEGACY_SEEDANCE_MODEL_OPTIONS as MODEL_OPTIONS,
+  LEGACY_SEEDANCE_RATIO_OPTIONS as RATIO_OPTIONS,
+  LEGACY_SEEDANCE_RESOLUTION_OPTIONS as RESOLUTION_OPTIONS,
+  SEEDANCE_DURATION_OPTIONS as DURATION_OPTIONS,
+  SEEDANCE_NZ_DURATION_OPTIONS,
+  SEEDANCE_NZ_MODEL_OPTIONS,
+  SEEDANCE_NZ_NATIVE_RESOLUTION_OPTIONS,
+  SEEDANCE_NZ_RATIO_OPTIONS,
+  SEEDANCE_NZ_RESOLUTION_OPTIONS,
+  isSeedanceBuiltinSource,
+  isSeedanceNzStandardModel,
+  type SeedanceBuiltinSource,
+} from '../../config/seedance';
 
 /**
  * SeedanceNode — 字节 Seedance 2.0 视频分镜节点
@@ -53,14 +68,6 @@ import { LocalNodeAddonSlot } from 'virtual:t8-local-extensions';
  *   - 多张同时可用作 first_frame / last_frame (UI 中按顺序取第 1、2 张)
  */
 
-const MODEL_OPTIONS = [
-  { value: 'doubao-seedance-2-0-fast-260128', label: 'seedance-2-0-fast' },
-  { value: 'doubao-seedance-2-0-260128', label: 'seedance-2-0' },
-  { value: 'doubao-seedance-2.0-mini', label: 'seedance-2.0-mini' },
-];
-const RATIO_OPTIONS = ['16:9', '9:16', '1:1', '4:3', '3:4', '21:9', '9:21', 'adaptive'];
-const RESOLUTION_OPTIONS = ['480p', '720p', 'native1080p', 'native4K', '1080p', '2k', '4k'];
-const DURATION_OPTIONS = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 const SEEDANCE_POLL_TIMEOUT_SECONDS = 3600;
 type SeedanceFrameMode = 'auto' | 'first' | 'firstlast' | 'multiframe';
 const seedanceMinPollCount = (intervalMs: number) =>
@@ -71,6 +78,8 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
   const hasAutoOutput = useHasAutoOutput(id);
   const [error, setError] = useState<string | null>(null);
   const pollTimer = useRef<number | null>(null);
+  const pollRejectRef = useRef<((reason?: any) => void) | null>(null);
+  const generationRunRef = useRef(0);
   const src = `seedance:${id.slice(0, 6)}`;
 
   // 主题适配
@@ -81,6 +90,7 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
   const d = (data as any) || {};
   const providerParams = (d?.providerParams && typeof d.providerParams === 'object') ? d.providerParams : {};
   const advancedProviders = useApiKeysStore((s) => s.settings.advancedProviders);
+  const hasSeedanceNzKey = useApiKeysStore((s) => !!String(s.settings.zhenzhenSd2ApiKey || '').trim());
   const videoAdvancedProviders = useMemo(
     () => advancedProvidersForNode(advancedProviders, 'video'),
     [advancedProviders],
@@ -100,7 +110,16 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
     ? advancedProviderModelOptions(providerSelection.provider, 'video')
     : [];
   const externalProviderModel = providerSelection.providerModel || externalModelOptions[0] || '';
+  const savedBuiltinSource = String(d?.seedanceApiSource || '');
+  const builtinSource: SeedanceBuiltinSource = isSeedanceBuiltinSource(savedBuiltinSource)
+    ? savedBuiltinSource
+    : 'zhenzhen-legacy';
+  const effectiveTaskProvider: Exclude<SeedanceTaskProvider, 'auto'> = builtinSource === 'auto'
+    ? (hasSeedanceNzKey ? 'seedance-nz' : 'zhenzhen-legacy')
+    : builtinSource;
+  const isSeedanceNzSelected = !isExternalSelected && effectiveTaskProvider === 'seedance-nz';
   const model: string = d.model || MODEL_OPTIONS[0].value;
+  const seedanceNzModel: string = d.seedanceNzModel || 'fast';
   const duration: number = typeof d.duration === 'number' ? d.duration : 5;
   const ratio: string = d.ratio || '16:9';
   const resolution: string = d.resolution || '480p';
@@ -111,6 +130,15 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
   const seed: number = typeof d.seed === 'number' ? d.seed : -1;
   const maxPoll: number = typeof d.maxPoll === 'number' ? d.maxPoll : 360;
   const pollInt: number = typeof d.pollInt === 'number' ? d.pollInt : 10;
+  const builtinModel = isSeedanceNzSelected ? seedanceNzModel : model;
+  const activeRatioOptions = isSeedanceNzSelected ? SEEDANCE_NZ_RATIO_OPTIONS : RATIO_OPTIONS;
+  const activeDurationOptions = isSeedanceNzSelected ? SEEDANCE_NZ_DURATION_OPTIONS : DURATION_OPTIONS;
+  const seedanceNzIsStandard = isSeedanceNzStandardModel(seedanceNzModel);
+  const activeResolutionOptions = isSeedanceNzSelected
+    ? (seedanceNzIsStandard ? SEEDANCE_NZ_NATIVE_RESOLUTION_OPTIONS : SEEDANCE_NZ_RESOLUTION_OPTIONS)
+    : RESOLUTION_OPTIONS;
+  const builtinRatio = activeRatioOptions.includes(ratio as any) ? ratio : '16:9';
+  const builtinResolution = activeResolutionOptions.includes(resolution as any) ? resolution : '720p';
   // 首/末帧使用模式: Jimeng CLI additionally supports explicit intelligent multi-frame.
   const rawFrameMode = String(d.frameMode || 'auto');
   const frameMode: SeedanceFrameMode = (
@@ -237,20 +265,49 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
     }
   };
 
-  useEffect(() => () => stopPoll(), []);
+  const nextGenerationRun = () => {
+    generationRunRef.current += 1;
+    return generationRunRef.current;
+  };
+  const isCurrentGenerationRun = (runId: number) => generationRunRef.current === runId;
+  const rejectStoppedGeneration = (reject: (reason?: any) => void) => {
+    if (pollRejectRef.current === reject) {
+      pollRejectRef.current = null;
+      stopPoll();
+    }
+    reject(new Error('用户已停止生成'));
+  };
+  const cancelActivePoll = () => {
+    const reject = pollRejectRef.current;
+    pollRejectRef.current = null;
+    stopPoll();
+    if (reject) reject(new Error('用户已停止生成'));
+  };
+
+  useEffect(() => () => cancelActivePoll(), []);
 
   // v1.2.9.11: 返回 Promise，调用方 await 直到任务真正成功/失败/超时才 resolve/reject。
   //   在循环器中使用时，不 await 会导致 useRunTrigger 提前 markDone → LoopNode 读不到 videoUrl → result=null → failCount++。
-  const startPolling = (tid: string): Promise<void> => {
+  const startPolling = (
+    tid: string,
+    runId: number,
+    taskProvider?: Exclude<SeedanceTaskProvider, 'auto'>,
+  ): Promise<void> => {
     stopPoll();
     return new Promise<void>((resolve, reject) => {
+      pollRejectRef.current = reject;
       let elapsed = 0;
       const POLL_MS = Math.max(2, pollInt) * 1000;
       const MAX = Math.max(10, maxPoll, seedanceMinPollCount(POLL_MS));
       let lastProgress = '';
       pollTimer.current = window.setInterval(async () => {
         elapsed += 1;
+        if (!isCurrentGenerationRun(runId)) {
+          rejectStoppedGeneration(reject);
+          return;
+        }
         if (elapsed > MAX) {
+          pollRejectRef.current = null;
           stopPoll();
           update({ status: 'error', error: '轮询超时' });
           setError('轮询超时');
@@ -259,7 +316,11 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
           return;
         }
         try {
-          const r = await querySeedance(tid);
+          const r = await querySeedance(tid, taskProvider);
+          if (!isCurrentGenerationRun(runId)) {
+            rejectStoppedGeneration(reject);
+            return;
+          }
           // 进度条估算 (对齐主项目: 30 + a*65/max)
           const pct = Math.min(95, Math.round(30 + (elapsed * 65) / MAX));
           if (r.progress && r.progress !== lastProgress) {
@@ -269,12 +330,21 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
             logBus.debug(`[${elapsed}/${MAX}] status=${r.status}`, src);
           }
           if (r.status === 'succeeded' && r.videoUrl) {
+            pollRejectRef.current = null;
             stopPoll();
-            update({ status: 'success', videoUrl: r.videoUrl, progress: '100%' });
+            update({
+              status: 'success',
+              videoUrl: r.videoUrl,
+              progress: '100%',
+              taskProvider: r.taskProvider || taskProvider,
+              resolvedModel: r.model || d?.resolvedModel,
+              taskType: r.taskType || d?.taskType,
+            });
             logBus.success(`任务完成 → ${r.videoUrl}`, src);
             taskCompletionSound.notifyComplete(id, 'seedance');
             resolve();
           } else if (r.status === 'failed') {
+            pollRejectRef.current = null;
             stopPoll();
             const msg = r.failReason || '生成失败';
             update({ status: 'error', error: msg });
@@ -285,6 +355,10 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
             update({ status: 'polling', progress: `${pct}%` });
           }
         } catch (e: any) {
+          if (!isCurrentGenerationRun(runId)) {
+            rejectStoppedGeneration(reject);
+            return;
+          }
           // 偶发失败不停止
           console.warn('Seedance 轮询出错', e?.message);
         }
@@ -302,6 +376,8 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
       logBus.error('生成中止: 缺少 prompt', src);
       return;
     }
+    const runId = nextGenerationRun();
+    cancelActivePoll();
     taskCompletionSound.primeAudio();
     update({ status: 'submitting', error: null, videoUrl: null, taskId: null });
 
@@ -339,6 +415,7 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
                 frameMode: activeFrameMode,
               },
         });
+        if (!isCurrentGenerationRun(runId)) return;
         const nextVideoUrl = r.videoUrls[0];
         if (!nextVideoUrl) throw new Error('扩展平台没有返回视频。');
         update({
@@ -373,16 +450,26 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
         refImages = imageUrls;
       }
 
+      if (isSeedanceNzSelected && activeFrameMode === 'first'
+        && (imageUrls.length !== 1 || videoUrls.length > 0 || audioUrls.length > 0)) {
+        throw new Error('贞贞的平价AI工坊（国内）的首帧模式只接受 1 张图片；混合素材请改为“自动/多参”');
+      }
+      if (isSeedanceNzSelected && activeFrameMode === 'firstlast'
+        && (imageUrls.length !== 2 || videoUrls.length > 0 || audioUrls.length > 0)) {
+        throw new Error('贞贞的平价AI工坊（国内）的首尾帧模式只接受 2 张图片；混合素材请改为“自动/多参”');
+      }
+
       const payload: SeedanceSubmitRequest = {
-        model,
+        model: builtinModel,
         prompt: finalPrompt,
         duration,
-        ratio,
-        resolution,
+        ratio: builtinRatio,
+        resolution: builtinResolution,
         generate_audio: generateAudio,
         return_last_frame: returnLastFrame,
         watermark,
         web_search: webSearch,
+        taskProvider: builtinSource,
         providerParams,
       };
       if (seed !== -1) payload.seed = seed;
@@ -393,7 +480,7 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
       if (audioUrls.length) payload.audios = audioUrls;
 
       logBus.info(
-          `提交 Seedance2.0: model=${model} ${duration}s ${ratio} ${resolution} ` +
+          `提交 Seedance2.0: provider=${effectiveTaskProvider} model=${builtinModel} ${duration}s ${builtinRatio} ${builtinResolution} ` +
           `audio=${generateAudio} retLast=${returnLastFrame} ` +
           `frame=${activeFrameMode} refs=${refImages.length}` +
           (firstFrame ? ' +first' : '') +
@@ -405,11 +492,22 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
       );
 
       const r = await submitSeedance(payload);
-      update({ status: 'polling', taskId: r.taskId, lastPrompt: finalPrompt, progress: '15%' });
+      if (!isCurrentGenerationRun(runId)) return;
+      const submittedProvider = r.taskProvider || effectiveTaskProvider;
+      update({
+        status: 'polling',
+        taskId: r.taskId,
+        taskProvider: submittedProvider,
+        resolvedModel: r.model || builtinModel,
+        taskType: r.taskType || null,
+        lastPrompt: finalPrompt,
+        progress: '15%',
+      });
       logBus.info(`异步任务已提交 taskId=${r.taskId}, 进入轮询…`, src);
       // v1.2.9.11: await 让 useRunTrigger 等到任务真正完成才 markDone，循环器才能拿到 videoUrl
-      await startPolling(r.taskId);
+      await startPolling(r.taskId, runId, submittedProvider);
     } catch (e: any) {
+      if (!isCurrentGenerationRun(runId)) return;
       const msg = e?.message || '提交失败';
       setError(msg);
       update({ status: 'error', error: msg });
@@ -418,9 +516,18 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
   };
 
   const handleStop = () => {
-    stopPoll();
-    update({ status: 'idle' });
-    logBus.warn('用户主动停止', src);
+    generationRunRef.current += 1;
+    cancelActivePoll();
+    setError(null);
+    update({
+      status: 'idle',
+      progress: '已停止',
+      error: null,
+      lastTaskId: taskId || d?.lastTaskId || null,
+      lastTaskProvider: d?.taskProvider || d?.lastTaskProvider || null,
+      taskId: null,
+    });
+    logBus.warn('用户主动停止：已停止本地轮询，远端任务可能仍会完成', src);
   };
 
   // 批量运行接入
@@ -492,32 +599,49 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
           <div className="text-[10px] text-white/40">
             {isExternalSelected && providerSelection.provider
               ? `${providerSelection.provider.label || providerSelection.provider.id} · ${externalProviderModel || '未选模型'}`
-              : 'Seedance 2.0 · 字节'}
+              : (isSeedanceNzSelected
+                ? `贞贞的平价AI工坊（国内） · ${seedanceNzModel}`
+                : '贞贞的AI工坊（海外） · Seedance 2.0')}
           </div>
         </div>
       </div>
 
       <div className="p-2.5 space-y-2" onMouseDown={(e) => e.stopPropagation()}>
-        {videoAdvancedProviders.length > 0 && (
+        {(
           <div className="rounded border border-white/10 bg-white/[0.03] p-2 space-y-2">
             <button
               type="button"
               onClick={() => update({ advancedProviderOpen: !d?.advancedProviderOpen })}
               className="w-full flex items-center justify-between text-[10px] font-semibold text-white/70 hover:text-white"
             >
-              <span>高级来源</span>
-              <span>{isExternalSelected && providerSelection.provider ? providerSelection.provider.label : '默认 SD2.0'}</span>
+              <span>API 来源</span>
+              <span>
+                {isExternalSelected && providerSelection.provider
+                  ? providerSelection.provider.label
+                  : (builtinSource === 'auto'
+                    ? `主力自动 · ${effectiveTaskProvider === 'seedance-nz' ? '国内平价工坊' : '海外AI工坊'}`
+                    : (effectiveTaskProvider === 'seedance-nz' ? '贞贞的平价AI工坊（国内）' : '贞贞的AI工坊（海外）'))}
+              </span>
             </button>
             {d?.advancedProviderOpen && (
               <div className="space-y-2">
                 <div>
                   <label className="text-[10px] text-white/50 block mb-1">平台</label>
                   <select
-                    value={isExternalSelected ? providerSelection.providerId : 'zhenzhen'}
+                    value={isExternalSelected ? providerSelection.providerId : `builtin:${builtinSource}`}
                     onChange={(e) => {
                       const nextId = e.target.value;
-                      if (nextId === 'zhenzhen') {
-                        update({ providerSource: 'zhenzhen', providerId: '', providerModel: '' });
+                      if (nextId.startsWith('builtin:')) {
+                        const nextSource = nextId.slice('builtin:'.length) as SeedanceBuiltinSource;
+                        const nextUsesSeedanceNz = nextSource === 'seedance-nz' || (nextSource === 'auto' && hasSeedanceNzKey);
+                        update({
+                          providerSource: 'zhenzhen',
+                          providerId: '',
+                          providerModel: '',
+                          seedanceApiSource: nextSource,
+                          ratio: nextUsesSeedanceNz && ratio === '9:21' ? '9:16' : ratio,
+                          resolution: nextUsesSeedanceNz && resolution === 'native4K' ? 'native4k' : resolution,
+                        });
                         return;
                       }
                       const provider = videoAdvancedProviders.find((item) => item.id === nextId);
@@ -532,7 +656,15 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
                     style={{ background: '#18181b', color: '#ffffff' }}
                     className="w-full rounded border border-white/10 px-2 py-1 text-xs outline-none focus:border-white/30"
                   >
-                    <option value="zhenzhen" style={{ background: '#18181b', color: '#ffffff' }}>贞贞工坊 SD2.0（默认）</option>
+                    <option value="builtin:auto" style={{ background: '#18181b', color: '#ffffff' }}>
+                      主力 API（自动：优先国内平价工坊）
+                    </option>
+                    <option value="builtin:seedance-nz" style={{ background: '#18181b', color: '#ffffff' }}>
+                      贞贞的平价AI工坊（国内） · api.seedance.nz
+                    </option>
+                    <option value="builtin:zhenzhen-legacy" style={{ background: '#18181b', color: '#ffffff' }}>
+                      贞贞的AI工坊（海外） · ai.t8star.org
+                    </option>
                     {videoAdvancedProviders.map((provider) => (
                       <option key={provider.id} value={provider.id} style={{ background: '#18181b', color: '#ffffff' }}>
                         {provider.label || provider.id}
@@ -580,15 +712,39 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
         ) : (
           <div>
             <label className="text-[10px] text-white/50 block mb-1">Model</label>
-            <select
-              value={model}
-              onChange={(e) => update({ model: e.target.value })}
-              className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
-            >
-              {MODEL_OPTIONS.map((m) => (
-                <option key={m.value} value={m.value} className="bg-zinc-900">{m.label}</option>
-              ))}
-            </select>
+            {isSeedanceNzSelected ? (
+              <select
+                value={seedanceNzModel}
+                onChange={(e) => {
+                  const nextModel = e.target.value;
+                  const nextStandard = isSeedanceNzStandardModel(nextModel);
+                  update({
+                    seedanceNzModel: nextModel,
+                    resolution: !nextStandard && String(resolution).startsWith('native') ? '720p' : resolution,
+                  });
+                }}
+                className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+              >
+                {SEEDANCE_NZ_MODEL_OPTIONS.map((m) => (
+                  <option key={m.value} value={m.value} className="bg-zinc-900">{m.label}</option>
+                ))}
+              </select>
+            ) : (
+              <select
+                value={model}
+                onChange={(e) => update({ model: e.target.value })}
+                className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+              >
+                {MODEL_OPTIONS.map((m) => (
+                  <option key={m.value} value={m.value} className="bg-zinc-900">{m.label}</option>
+                ))}
+              </select>
+            )}
+            {isSeedanceNzSelected && !hasSeedanceNzKey && (
+              <div className="mt-1 text-[10px] text-amber-200">
+                尚未配置“贞贞的平价AI工坊（国内） API Key”，请先到 API 设置填写。
+              </div>
+            )}
           </div>
         )}
 
@@ -598,11 +754,11 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
           data={d}
           update={update}
           context={{
-            providerSource: isExternalSelected ? providerSelection.providerSource : 'zhenzhen',
+            providerSource: isExternalSelected ? providerSelection.providerSource : effectiveTaskProvider,
             providerId: providerSelection.providerId,
-            providerModel: isExternalSelected ? externalProviderModel : model,
-            model,
-            apiModel: model,
+            providerModel: isExternalSelected ? externalProviderModel : builtinModel,
+            model: builtinModel,
+            apiModel: builtinModel,
             providerKind: 'seedance',
           }}
         />
@@ -616,19 +772,19 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
               onChange={(e) => update({ duration: Number(e.target.value) })}
               className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
             >
-              {DURATION_OPTIONS.map((s) => (
-                <option key={s} value={s} className="bg-zinc-900">{s}s</option>
+              {activeDurationOptions.map((s) => (
+                <option key={s} value={s} className="bg-zinc-900">{s === -1 ? '自动 (-1)' : `${s}s`}</option>
               ))}
             </select>
           </div>
           <div>
             <label className="text-[10px] text-white/50 block mb-1">Ratio</label>
             <select
-              value={ratio}
+              value={builtinRatio}
               onChange={(e) => update({ ratio: e.target.value })}
               className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
             >
-              {RATIO_OPTIONS.map((r) => (
+              {activeRatioOptions.map((r) => (
                 <option key={r} value={r} className="bg-zinc-900">{r}</option>
               ))}
             </select>
@@ -640,11 +796,11 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
           <div>
             <label className="text-[10px] text-white/50 block mb-1">Resolution</label>
             <select
-              value={resolution}
+              value={builtinResolution}
               onChange={(e) => update({ resolution: e.target.value })}
               className="w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
             >
-              {RESOLUTION_OPTIONS.map((r) => (
+              {activeResolutionOptions.map((r) => (
                 <option key={r} value={r} className="bg-zinc-900">{r}</option>
               ))}
             </select>
@@ -699,24 +855,26 @@ const SeedanceNode = ({ id, data, selected }: NodeProps) => {
             />
             返回末帧
           </label>
-          <label className="flex items-center gap-1 text-[10px] text-white/60 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={webSearch}
-              onChange={(e) => update({ webSearch: e.target.checked })}
-              className="accent-fuchsia-400"
-            />
-            Web Search
-          </label>
-          <label className="flex items-center gap-1 text-[10px] text-white/60 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={watermark}
-              onChange={(e) => update({ watermark: e.target.checked })}
-              className="accent-fuchsia-400"
-            />
-            水印
-          </label>
+          {!isSeedanceNzSelected && <>
+            <label className="flex items-center gap-1 text-[10px] text-white/60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={webSearch}
+                onChange={(e) => update({ webSearch: e.target.checked })}
+                className="accent-fuchsia-400"
+              />
+              Web Search
+            </label>
+            <label className="flex items-center gap-1 text-[10px] text-white/60 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={watermark}
+                onChange={(e) => update({ watermark: e.target.checked })}
+                className="accent-fuchsia-400"
+              />
+              水印
+            </label>
+          </>}
         </div>}
 
         {/* 轮询参数 */}

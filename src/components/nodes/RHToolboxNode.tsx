@@ -184,7 +184,10 @@ const RHToolboxNode = ({ id, data, selected }: NodeProps) => {
   );
   const activeTool = useMemo(() => {
     if (!baseActiveTool) return undefined;
-    if (!activeToolAppInfoFields.length) return baseActiveTool;
+    const resolvedSite: 'cn' | 'intl' = activeToolAppInfo?.rhSite === 'intl' ? 'intl' : (baseActiveTool.rhSite === 'intl' ? 'intl' : 'cn');
+    if (!activeToolAppInfoFields.length) {
+      return resolvedSite === baseActiveTool.rhSite ? baseActiveTool : { ...baseActiveTool, rhSite: resolvedSite };
+    }
     const enrichedParams = (baseActiveTool.userParams || []).map((param) => {
       const matchedField = activeToolAppInfoFields.find((field: any) => (
         getRhToolboxNodeInfoFieldNodeId(field) === String(param.rhNodeId || '').trim().replace(/^#/, '')
@@ -208,12 +211,15 @@ const RHToolboxNode = ({ id, data, selected }: NodeProps) => {
       ...enrichedParams,
       ...(baseActiveTool.fixedParams || []),
     ]);
-    if (enrichedParams === baseActiveTool.userParams && inferredParams.length === 0) return baseActiveTool;
+    if (enrichedParams === baseActiveTool.userParams && inferredParams.length === 0) {
+      return resolvedSite === baseActiveTool.rhSite ? baseActiveTool : { ...baseActiveTool, rhSite: resolvedSite };
+    }
     return {
       ...baseActiveTool,
+      rhSite: resolvedSite,
       userParams: [...enrichedParams, ...inferredParams],
     };
-  }, [activeToolAppInfoFields, baseActiveTool]);
+  }, [activeToolAppInfo, activeToolAppInfoFields, baseActiveTool]);
 
   const initialSize = (d?.size && typeof d.size.w === 'number') ? d.size : { w: 360, h: 460 };
   const [size, setSize] = useState<{ w: number; h: number }>(initialSize);
@@ -284,7 +290,7 @@ const RHToolboxNode = ({ id, data, selected }: NodeProps) => {
     if (!baseActiveTool?.webappId || baseActiveTool.runtime?.fetchAppInfo === false) return () => {
       disposed = true;
     };
-    fetchRhAppInfo(baseActiveTool.webappId)
+    fetchRhAppInfo(baseActiveTool.webappId, baseActiveTool.rhSite === 'intl' ? 'intl' : 'cn')
       .then((info) => {
         if (disposed) return;
         setActiveToolAppInfo(info);
@@ -720,7 +726,7 @@ const RHToolboxNode = ({ id, data, selected }: NodeProps) => {
     update({ taskId: tid, error: '正在请求取消 RH 后台任务...' });
     logBus.warn(`用户主动停止，正在请求取消 RH 后台任务 taskId=${tid}`, source);
     try {
-      await cancelRh(tid);
+      await cancelRh(tid, activeTool?.rhSite === 'intl' ? 'intl' : 'cn');
       logBus.success(`已请求取消 RH 后台任务 taskId=${tid}`, source);
       abortRef.current?.abort();
       abortRef.current = null;
@@ -785,7 +791,7 @@ const RHToolboxNode = ({ id, data, selected }: NodeProps) => {
       <div className="flex-1 min-w-0">
         <div className="font-bold leading-tight truncate" style={{ fontSize: 15 }}>RH工具箱</div>
         <div className="text-[10px] truncate" style={{ color: subText }}>
-          {activeTool ? `${activeTool.title} · ${activeTool.capabilities.map(capabilityLabel).join(' / ')}` : '维护者精选 RunningHub 工具'}
+          {activeTool ? `${activeTool.title} · ${activeTool.rhSite === 'intl' ? '海外站' : '国内站'} · ${activeTool.capabilities.map(capabilityLabel).join(' / ')}` : '维护者精选 RunningHub 工具'}
         </div>
       </div>
       {status !== 'idle' && (

@@ -18,6 +18,352 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-18 - Codex - Windows 便携版部署包生成
+
+- User goal: 安装器无法安装，提供不依赖安装器的 Windows 部署方式。
+- Files changed:
+  - `dist_electron/洲际设计AI工作台-便携版-2.5.5-v2.zip`：从 `dist_electron` 内部重新打包，解压后直接得到 `win-unpacked` 根目录，约 433 MB。
+  - `docs/progress-log.md`：记录便携包生成和使用边界。
+- Completed: Windows 兼容 ZIP 已生成；Windows 用户解压完整目录后可直接运行 `win-unpacked/洲际设计AI工作台.exe`，不需要执行安装流程。
+- Cleanup: 已清理 `dist_electron` 中旧安装器、旧 ZIP、blockmap、自动更新清单和构建元数据，仅保留当前便携 ZIP 与 `win-unpacked` 运行目录。
+- Validation:
+  - ZIP 创建成功，包含 1242 个运行文件 ✅
+  - 解压根目录为 `win-unpacked`，避免出现多余的 `dist_electron` 外层路径 ✅
+  - 压缩包包含 `win-unpacked` 完整运行目录及主程序 `.exe` ✅
+  - 便携包内主程序为 Windows x64 Electron 可执行文件 ✅
+- Core T8 files touched: 无。本次只生成部署产物和记录。
+- Risks / blockers: 便携包体积较大；程序未签名时 Windows SmartScreen 仍可能提示；`ffprobe.exe` 缺失及干净 Windows 首次运行仍需单独验收。
+- Next step: 将 ZIP 复制到 Windows，完整解压到可写目录后运行 `洲际设计AI工作台.exe`；若启动失败，收集 Windows 报错截图再针对运行时依赖修复。
+
+## 2026-07-17 - Codex - Windows 安装包首次生成
+
+- User goal: 为 Windows 同事生成可安装的 ICD AI 工作台 `.exe` 安装包。
+- Files changed:
+  - `dist_electron/洲际设计AI工作台-Setup-2.5.5.exe`：生成 Windows x64 安装包，约 382 MB。
+  - `docs/progress-log.md`：记录打包结果和后置检查问题。
+- Completed: `npm run dist` 已完成前端构建、后端加密、运行时归档、Electron Windows x64 打包和 NSIS 安装器生成；安装包与 blockmap 均已落盘。
+- Validation:
+  - `npm run rh-toolbox:check` ✅
+  - `npm run build` ✅
+  - 后端加密 54 个源文件 ✅
+  - Electron Builder Windows x64 安装器生成 ✅
+  - `dist_electron/洲际设计AI工作台-Setup-2.5.5.exe` 存在，约 382 MB ✅
+  - `electron/_post_build.cjs` 未完全通过：当前 `tools/ffmpeg-runtime` 缺少 `ffprobe.exe`；`latest.yml` 仍引用旧英文安装包文件名。
+- Core T8 files touched: 无。本次只生成发布产物，没有修改画布引擎、节点、后端或存储格式。
+- Risks / blockers: 安装包尚未在干净 Windows 电脑上安装验收；ffprobe 缺失会影响依赖视频探测的功能；自动更新清单文件名不匹配，暂不适合直接做自动更新发布。
+- Next step: 先在 Windows 电脑安装测试本地 `.exe`；若要正式发布，再补齐 `ffprobe.exe`、修正 `latest.yml` 文件名，并重新执行后置核验。
+
+## 2026-07-17 - Codex - 一键彩平补充提示词可编辑
+
+- User goal: 根据三风格真实生成结果，增加一键彩平的可编辑补充提示词，并进一步强化结构保护。
+- Files changed:
+  - `src/extensions/components/IcdToolDetailDrawer.tsx`：增加“补充要求（可选）”文本框；生成时将用户要求追加到默认风格提示词；细化墙体、门窗、家具、洁具、橱柜、灯具和绿植的结构保护规则。
+  - `src/styles/your-brand-theme.css`：增加补充提示词输入框、占位文字、聚焦态和辅助说明样式。
+  - `docs/progress-log.md`：记录本次交互与验证。
+- Completed: 用户可以直接输入例如“地面统一浅灰色，保留所有原有家具，不要添加植物”的个性化要求；默认结构保护仍然优先保留户型布局和构件数量。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测：补充要求文本框出现、可输入、提示说明显示正常；未触发生图 ✅
+- Core T8 files touched: 无。本次仅修改 ICD 工具组件和品牌样式，未修改画布引擎、节点、后端或存储格式。
+- Risks / blockers: 用户补充要求仍属于自然语言约束，模型可能在结构保护和个性化要求冲突时出现偏差；未加入复杂的提示词预设管理。
+- Next step: 用户用一张真实户型图测试一条补充要求，确认自定义要求对材质和植物等细节是否生效，再决定是否增加“保存为风格预设”。
+
+## 2026-07-17 - Codex - 一键彩平三风格真实生成验收
+
+- User goal: 使用同一张真实户型图对比现代简约、马克笔手绘和超写实 3D，确认结构保持和风格质量。
+- Files changed:
+  - `docs/progress-log.md`：记录本次真实生成结果与下一步判断。
+  - 生成结果保存在 `output/`：现代简约两张结果、马克笔手绘一张、超写实 3D 一张。
+- Completed: 使用原始户型图 `input/up_1784228724857_ikcf.png` 完成三种风格测试。现代简约与超写实 3D 保持正交俯视和主要房间关系，马克笔手绘风格最明显但局部家具与线条重绘更多。
+- Validation:
+  - GPT Image 2 图生图请求成功，三种风格均返回 HTTP 200 ✅
+  - 每次请求接口均只返回一个 URL；应用侧仍保留单结果节点保护 ✅
+  - 现代简约输出：`output/img_1784256489002_ow2q.png`、`output/img_1784256468899_095c.png`（前两次超时请求后来分别完成，形成两张结果）
+  - 马克笔手绘输出：`output/img_1784256974002_7djx.png` ✅
+  - 超写实 3D 输出：`output/img_1784257087956_4qo5.png` ✅
+- Core T8 files touched: 无。只进行了真实接口验收和进度记录，未修改画布引擎、节点、后端或存储格式。
+- Risks / blockers: 当前模型能保持大体空间布局，但不能保证每个家具、门扇和细部构件逐像素一致；尺寸文字无法可靠重建。第一次现代简约测试的客户端超时不代表任务失败，异步任务最终仍会完成，后续不能因超时立即重试。
+- Next step: 先增加“一键彩平”可编辑补充提示词，并默认把结构保护再强化为“墙体/门窗/家具只允许材质变化，不允许重绘”；暂不接 FireRed，除非后续真实项目仍出现明显结构偏移。
+
+## 2026-07-17 - Codex - 一键彩平菜单常驻与重复生成修复
+
+- User goal: 修复一键彩平参数面板点击画布空白后消失，以及一次操作出现两张结果节点的问题。
+- Files changed:
+  - `src/extensions/components/IcdToolLibrary.tsx`：移除点击工具库与参数面板外部自动关闭的监听；保留关闭按钮、工具栏切换与 Esc 主动关闭。
+  - `src/extensions/components/IcdToolDetailDrawer.tsx`：增加同步生成请求锁，并将单次工具生成固定为只向画布加入第一个有效结果。
+  - `docs/progress-log.md`：记录问题证据、修复与验证结果。
+- Completed: 一键彩平生成过程中可以继续点击和操作画布，工具库与参数面板不会自动消失；同一请求尚未完成时无法再次提交；每次成功生成只新增一个结果节点。
+- Validation:
+  - 画布数据检查：两张既有“现代简约”节点分别相隔约 35 秒写入，另一个项目同类节点相隔约 23 秒，确认是重复提交而非一次节点插入被执行两遍。
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测：打开工具库和一键彩平参数后点击真实 `.react-flow__pane` 空白区域，两个面板均保持显示 ✅
+  - 项目未配置 `npm test` 脚本，因此无自动测试可运行；未再次调用付费生图接口。
+- Core T8 files touched: 无。本次仅修改 ICD 工具组件与进度日志，未修改画布引擎、节点、后端或存储格式。
+- Risks / blockers: 防重复生成通过请求锁和单结果插入路径验证；为避免额外费用，本次未用真实模型再次生成。
+- Next step: 用户用同一户型图点击一次“立即生成”，确认处理中面板常驻且最终只增加一个节点。
+
+## 2026-07-17 - Codex - 一键彩平提示词库第一版
+
+- User goal: 将用户提供的 49 组平面转彩平提示词先整理为可实际试用的一键彩平风格，观察生成效果后再继续调整。
+- Files changed:
+  - `src/extensions/components/IcdToolDetailDrawer.tsx`：将一键彩平提示词拆分为结构保护、风格表现和输出约束三层；替换为 8 个室内高频风格并调整默认选项。
+  - `docs/progress-log.md`：记录本次提示词升级与验证结果。
+- Completed: 上线“现代简约、自然温馨、马克笔手绘、超写实 3D、黏土微缩、经典法式、意式静奢、商业矢量”8 个方向；默认选择现代简约；统一要求保留墙体、门窗、房间关系、家具数量与位置，并限制裁切、伪文字、Logo 和水印。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5` ✅
+  - 浏览器实测：工具库与一键彩平参数面板正常打开，8 个风格完整显示，现代简约默认选中，未提供输入图时生成按钮禁用 ✅
+- Core T8 files touched: 无。本次仅修改 ICD 工具参数组件与进度日志，未修改画布引擎、节点、后端或存储格式。
+- Risks / blockers: 本次未实际发起付费生成，提示词对户型结构的保持程度仍需用真实户型图比较；暂未接入同目录的 FireRed Image Edit 1.1 工作流。
+- Next step: 使用同一张真实户型图优先对比现代简约、马克笔手绘和超写实 3D，记录结构偏移与材质效果后再微调提示词或决定是否接入 FireRed 工作流。
+
+## 2026-07-17 - Codex - 画布侧边栏移除重复项目栏目
+
+- User goal: 项目新建与管理已经集中到工作空间后，移除画布侧边栏中重复的项目列表和新建按钮。
+- Files changed:
+  - `src/components/Sidebar.tsx`：增加可选的 `showCanvasManager` 外壳参数；保留 T8 原生画布管理实现，但允许产品层关闭显示与列表加载。
+  - `src/App.tsx`：ICD 画布侧边栏传入 `showCanvasManager={false}`。
+  - `docs/progress-log.md`：记录本次入口收口与验证结果。
+- Completed: 画布侧边栏不再显示“项目”标题、项目列表、节点数量和 `+` 新建入口；节点搜索与节点分类直接顶到面板顶部；当前项目名称仍显示在画布顶栏，项目管理统一回到工作空间。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5` ✅
+  - 浏览器实测项目 `01`：展开侧边栏后首项为“搜索节点”，无“项目”栏目与新建项目入口，节点分类和画布内容正常 ✅
+- Core T8 files touched: `src/components/Sidebar.tsx` 仅增加默认开启的可选显示参数，未删除原生功能；未修改画布引擎、节点、后端或存储格式。
+- Risks / blockers: 无。项目切换必须返回工作空间，符合当前唯一入口设计。
+- Next step: 用户确认画布侧边栏精简效果。
+
+## 2026-07-17 - Codex - 工作空间视觉对齐其他 ICD 页面
+
+- User goal: 将工作空间的 UI 效果与首页、提示词库和设计资源库统一。
+- Files changed:
+  - `src/styles/your-brand-theme.css`：将工作空间改用既有 p24 设计令牌、页面宽度、紧凑首屏、宋体标题、蓝色强调、搜索框、卡片圆角和弹窗样式。
+  - `docs/progress-log.md`：记录本次视觉对齐与验证结果。
+- Completed: 移除工作空间独立的青铜强调和超大标题；统一为纯黑页面背景、蓝色徽标/按钮/焦点态、42px 工具页标题、1200px 内容宽度、16px 卡片圆角和与提示词库一致的工具栏密度。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5` ✅
+  - 浏览器 1280×720 对比工作空间与提示词库：导航、徽标、标题层级、分隔线、搜索框、蓝色强调和首屏卡片密度一致 ✅
+- Core T8 files touched: 无。本次仅修改 ICD 品牌主题 CSS 和进度日志。
+- Risks / blockers: 项目卡片仍使用默认视觉封面，未改变项目数据与路由行为。
+- Next step: 用户确认统一后的页面效果；如继续完善，再选择项目封面的生成方式。
+
+## 2026-07-17 - Codex - 画布入口重构为项目工作空间
+
+- User goal: 将顶部“画布”改为“工作空间”，让画布只能从新建项目或以前的项目进入，并参考项目卡片页面建立项目管理入口。
+- Files changed:
+  - `src/extensions/pages/WorkspacePage.tsx`：新增项目工作空间、项目卡片、新建弹窗、搜索、网格/列表视图、重命名和带确认的删除入口。
+  - `src/extensions/icdRouter.ts`：增加 `#/workspace` 与带明确项目 ID 的 `#/canvas/:id` 路由。
+  - `src/extensions/pages/IcdNavbar.tsx`：顶部“画布”改为“工作空间”，右侧入口不再直达画布。
+  - `src/extensions/pages/HomePage.tsx`：新建画布改为新建项目，已有项目与新项目均通过项目 ID 进入画布。
+  - `src/extensions/pages/PromptLibraryPage.tsx`、`src/extensions/pages/InspirationPage.tsx`：加入画布前先进入工作空间选择项目，不再自动创建或偷偷打开最近画布。
+  - `src/App.tsx`：增加项目路由守卫、项目存在性检查和工作空间页面；画布返回入口改为返回工作空间。
+  - `src/components/Sidebar.tsx`：ICD 外壳下将画布列表显示为项目列表；新建返回工作空间，切换项目同步更新项目路由。
+  - `src/styles/your-brand-theme.css`：增加工作空间、项目卡片、搜索工具栏、创建弹窗与响应式布局样式。
+  - `docs/progress-log.md`：记录本次实现与验收。
+- Completed: 顶部画布一级入口已移除；现有画布无迁移地作为历史项目显示；新项目创建后进入对应画布；已有项目按 ID 打开；无项目 ID 的 `#/canvas` 会自动退回工作空间；画布内切换项目也会同步 URL；返回按钮回到工作空间。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5` ✅
+  - 浏览器实测：工作空间显示 4 个既有项目；新建项目弹窗正常；搜索、网格/列表切换正常；已有项目进入 `#/canvas/:id` 正常；画布返回工作空间正常；直接访问 `#/canvas` 会退回工作空间；画布侧边栏切换项目会更新项目 URL ✅
+- Core T8 files touched: 未修改 `Canvas.tsx` 的画布引擎、节点注册、后端或存储格式。本次仅扩展 ICD 路由/页面和 `Sidebar.tsx` 的可选项目导航回调；现有画布数据直接作为项目复用。
+- Risks / blockers: 当前项目卡片使用默认视觉封面，因为现有画布列表没有封面字段；本次浏览器验收未实际创建或删除项目，避免污染用户真实数据。
+- Next step: 用户确认工作空间布局后，再决定增加“上传项目封面”还是“自动取画布成果作为封面”。
+
+## 2026-07-17 - Codex - 工具库三项接入右侧操作面板
+
+- User goal: 点击工具库三项后，在画布右侧展开对应操作界面，并接入当前项目的真实上传、模型生成、画布取图与结果回填能力。
+- Files changed:
+  - `src/extensions/components/IcdToolLibrary.tsx`：改为受控选择状态，并保持左侧工具库与右侧操作面板联动。
+  - `src/extensions/components/IcdToolDetailDrawer.tsx`：新增一键彩平、物料清单、材质贴图提取三套参数界面和执行逻辑。
+  - `src/App.tsx`：协调侧边栏、资源库、工具库及右侧面板状态，并将生成结果插入当前画布。
+  - `src/components/Canvas.tsx`：增加只读的当前选区摘要桥接，供工具面板读取选中的图片节点。
+  - `src/styles/your-brand-theme.css`：新增右侧 392px 全高操作面板、表单、风格卡片和固定生成区样式。
+  - `docs/progress-log.md`：记录本次实现与验证结果。
+- Completed: 三项工具均可独立选择；支持本地上传或从画布选图；复用现有图像模型、LLM、上传接口与画布节点添加能力；生成结果会回填当前画布；关闭右侧面板保留左侧工具库，关闭左侧工具库会同时收起右侧面板。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5` ✅
+  - 浏览器实测 1280×720：三个工具切换、右侧固定面板、独立关闭、联动关闭、无画布禁用和无选中图片提示均正常 ✅
+- Core T8 files touched: `src/components/Canvas.tsx` 仅增加只读选区摘要 ref，不修改节点拖拽、连线、保存、加载或生成内核；其他实现位于 ICD 外层组件、App 外壳和品牌 CSS。
+- Risks / blockers: 本次未实际消耗模型额度发起生图；真实生成仍依赖用户已配置的模型 API。材质“无缝”由提示词约束生成，当前项目没有独立的贴图无缝化算法保证。
+- Next step: 在已配置 API 的真实画布中分别上传一张户型图、效果图和材质图，各执行一次端到端生成验收。
+
+## 2026-07-17 - Codex - 对齐工具库文字亮度
+
+- User goal: 修正第三个工具库的白色文字比另外两个菜单更亮的问题。
+- Files changed:
+  - `src/styles/your-brand-theme.css`：将工具库普通主文字与面板继承文字统一为 `#BAC2CC`；第三个 Dock 入口改为与其他 Dock 图标一致的 `#A1A4A5`；仅选中工具名称保留 `#F2F4F7`。
+  - `docs/progress-log.md`：记录本次文字层级调整与验证结果。
+- Completed: 工具库普通文字亮度已与侧边栏常规文字一致，选中项仍保留必要的层级区分。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器计算样式：资源库入口与工具库入口均为 `rgb(161, 164, 165)`，颜色完全一致；工具库普通主文字为 `rgb(186, 194, 204)`，选中文字为 `rgb(242, 244, 247)` ✅
+  - 控制台无 error ✅
+- Core T8 files touched: 无。仅修改 ICD 品牌主题 CSS 和进度日志。
+- Risks / blockers: 无。
+- Next step: 浏览器核对普通与选中文字的计算颜色和实际视觉。
+
+## 2026-07-17 - Codex - 工具库内部统一为侧边栏 UI
+
+- User goal: 将第三个工具库的文字大小、条目框大小和蓝色选中框全部统一为第一个侧边栏的 UI。
+- Files changed:
+  - `src/styles/your-brand-theme.css`：将工具库宽度、标题、列表行、图标、文字与交互态改为侧边栏的紧凑规格，并移除全部蓝色高亮。
+  - `docs/progress-log.md`：记录本次内部视觉统一与验证结果。
+- Completed: 工具库宽度改为 276px；标题改为 12px；工具行改为 54px 高、6px 圆角、无描边；主副文字改为 12px/10px；选中、悬停、图标、箭头和 Dock 激活态统一为 ICD 青铜色系。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测 1280×720：工具库 `276×228px`；标题 `12px`；工具行 `258×54px`；主副文字 `12px/10px`；条目无 border、无 box-shadow；选中背景、焦点轮廓、图标、箭头和 Dock 激活态均为青铜色，无蓝色残留 ✅
+  - 三项选择切换与关闭正常，控制台无 error ✅
+- Core T8 files touched: 无。仅修改 ICD 品牌主题 CSS 和进度日志，未修改画布内核、工具库交互、节点、后端、存储格式或用户数据。
+- Risks / blockers: 三项工具仍是菜单选择态，尚未绑定真实工作流。
+- Next step: 浏览器检查紧凑工具库的文字截断、列表尺寸、青铜选中态和关闭交互。
+
+## 2026-07-17 - Codex - 统一左侧三类展开菜单外壳
+
+- User goal: 将左侧三个按钮展开后的菜单统一为第一个按钮的浮层外壳。
+- Files changed:
+  - `src/styles/your-brand-theme.css`：统一侧边栏、资源库和工具库的背景、描边、圆角、阴影与模糊，并将资源库从整高抽屉调整为上下留白的浮层。
+  - `docs/progress-log.md`：记录本次视觉统一与验证结果。
+- Completed: 三类菜单统一使用黑色半透明背景、16px 圆角、1px 深灰描边、同规格阴影和 18px 背景模糊；资源库保留 440px 宽度和原内容布局，工具库保留 324px 宽度和三项工具内容。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5` ✅
+  - 浏览器实测 1280×720：侧边栏与资源库均为 `top=122px`、`bottom=702px`、`height=580px`；三类菜单计算样式均为同一背景、描边、16px 圆角、阴影与 18px 模糊；资源库内容未溢出，控制台无 error ✅
+- Core T8 files touched: 无。仅修改 ICD 品牌主题 CSS 和进度日志，未修改画布内核、资源库组件、节点、后端、存储格式或用户数据。
+- Risks / blockers: 仅统一外壳；三个菜单内部的选中颜色与内容密度仍沿用各自现有设计。
+- Next step: 浏览器同时检查三个菜单的位置、圆角、背景和内容滚动，再确认是否需要统一内部交互颜色。
+
+## 2026-07-17 - Codex - 左侧第三按钮改为紧凑工具库
+
+- User goal: 将左侧快捷栏第三个按钮替换为工具库，并按参考图实现按钮比例、三项内容和 Dock 右侧展开菜单。
+- Files changed:
+  - `src/extensions/components/IcdToolLibrary.tsx`：新增工具库面板、三项工具选择态、关闭、点击外部关闭和 Esc 关闭交互。
+  - `src/App.tsx`：将左侧第三个工作流按钮替换为工具库入口，并协调资源库、侧边栏和工具库的展开状态。
+  - `src/styles/your-brand-theme.css`：按参考图实现 54px Dock、324×300px 工具库、54px 标题栏和 68px 工具行视觉。
+  - `docs/progress-log.md`：记录本次实现与验收结果。
+- Completed: 第三个按钮使用网格加号图标；点击后在 Dock 右侧 8px 处展开“一键彩平”“物料清单”“材质贴图提取”；默认高亮一键彩平，三项可切换选择。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5` ✅
+  - 浏览器实测 1280×720：Dock `54px` 宽；工具库 `324×300px`；首行 `68px`；三项内容、默认高亮、切换与关闭均正常；无 console error ✅
+- Core T8 files touched: `src/App.tsx` 仅修改 ICD 外层 Dock；未修改 `Canvas.tsx`、`CanvasToolbar.tsx`、节点注册、后端、存储格式或用户数据。
+- Risks / blockers: 当前三项完成菜单与选择态，尚未绑定真实业务工作流；原画布顶部“工作流模板”功能保持不变。
+- Next step: 用户确认工具库视觉后，再分别定义三项工具需要调用的真实画布工作流。
+
+## 2026-07-17 - Codex - 顶部工具栏移至右上角
+
+- User goal: 将画布顶部工作栏移动到右上角，与 API 设置按钮处于同一水平行。
+- Files changed:
+  - `src/styles/your-brand-theme.css`：将 ICD 主题下的画布工具栏固定到右上角设置按钮左侧。
+  - `docs/progress-log.md`：记录本次位置调整与验证。
+- Completed: 工具栏功能和内部按钮保持不变；桌面端工具栏与设置按钮同列，二者保留 8px 间距。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测 1280×720：工具栏范围 `x=500–1226, y=7–43`，设置按钮范围 `x=1234–1266, y=11.5–43.5`，品牌区结束于 `x=224`，无重叠 ✅
+- Core T8 files touched: 无。仅修改 ICD 品牌主题 CSS，未修改 `CanvasToolbar.tsx`、画布行为、节点、后端或数据。
+- Risks / blockers: 当前按桌面端 1280px 及以上画布密度验证；极窄窗口仍可能因工具按钮数量较多出现空间不足。
+- Next step: 用户体验右上角工具栏；如需支持窄屏，再单独增加折叠或横向滚动策略。
+
+## 2026-07-16 - Codex - 区分左侧菜单展开方式
+
+- User goal: 左侧快捷菜单仅第一个侧边栏按钮悬停自动展开；资源库和工作流必须点击后才展开。
+- Files changed:
+  - `src/App.tsx`：移除资源库、工作流按钮的 `onMouseEnter` 和 `onPointerEnter`，保留点击事件；第一个侧边栏按钮的悬停事件保持不变。
+  - `docs/progress-log.md`：记录本次交互调整和验证结果。
+- Completed: 资源库和工作流经过时不再误展开，点击仍可正常打开对应抽屉；第一个按钮仍保留原有自动展开代码。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测：资源库悬停不展开、点击展开；工作流悬停不展开、点击展开；页面无 console error ✅
+- Core T8 files touched: `src/App.tsx` 仅修改 ICD 左侧快捷菜单事件绑定；未修改画布内核、资源库组件、节点、后端或数据。
+- Risks / blockers: 无。
+- Next step: 用户继续体验三个左侧按钮的展开节奏；如需调整第一个菜单的自动收起延迟，再单独修改 `220ms` 定时。
+
+## 2026-07-16 - Codex - 修正资源库抽屉展开位置
+
+- User goal: 修复左侧快捷菜单中的资源库展开后跑到窗口最右侧的问题。
+- Files changed:
+  - `src/styles/your-brand-theme.css`：在 ICD 主题下将资源库抽屉定位到左侧快捷菜单右边。
+  - `docs/progress-log.md`：记录本次修复和验证结果。
+- Completed: 资源库抽屉从窗口最右侧移到左侧 `78px`，与快捷菜单右边缘保留 `8px` 间距；上游资源库组件和交互逻辑保持不变。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `git diff --check` ✅
+  - 浏览器实测 1280×720 画布：快捷菜单范围 `16–70px`，资源库范围 `78–518px`，页面无 console error ✅
+- Core T8 files touched: 无。仅修改 ICD 品牌主题 CSS，未修改资源库组件、画布内核、节点、后端或数据。
+- Risks / blockers: 当前定位按桌面画布布局设置；后续若专门适配窄屏，需要再增加移动端抽屉宽度和边距规则。
+- Next step: 用户继续体验资源库和工作流入口；如工作流抽屉需要不同宽度，再按实际使用反馈调整。
+
+## 2026-07-16 - Codex - 隐藏上游推广快捷入口
+
+- User goal: 隐藏画布顶部对当前定制工作台无用的“图图打标器”“API获取”“插件安装”三个上游新增入口。
+- Files changed:
+  - `src/App.tsx`：增加 `SHOW_UPSTREAM_PROMO_SHORTCUTS` 开关并关闭三个顶部快捷入口。
+  - `docs/progress-log.md`：记录本次调整与验证结果。
+- Completed: 三个入口已从画布顶部隐藏；对应上游实现仍保留，后续可一键恢复；画布教程、其他常用入口和底层功能未删除。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - `node --test tests/canvasTutorialPluginInstall.test.ts`：3 passed、0 failed ✅
+  - `git diff --check` ✅
+  - 浏览器实测 `http://127.0.0.1:11422/#/canvas`：三个顶部入口均不可见，页面无 console error ✅
+- Core T8 files touched: `src/App.tsx` 仅调整画布外层顶部入口；未修改 `Canvas.tsx`、节点注册、后端、存储格式或用户数据。
+- Risks / blockers: 上游快捷入口代码仍保留为关闭状态，未来同步上游时需要继续保留该产品开关。
+- Next step: 用户继续体验当前画布；若确认其他上游宣传入口也无用，再逐项隐藏，避免一次性误删有价值功能。
+
+## 2026-07-15 - Codex - 隔离升级 T8 v2.5.5
+
+- User goal: 将上游 T8 v2.5.5 更新到洲际设计 AI 工作台，同时保留 ICD 首页、导航、主题、产品页面、私有适配器和用户数据。
+- Files changed:
+  - 在 `codex/upgrade-t8-v2.5.5` 分支合并 `upstream/main`，吸收 v2.3.9 至 v2.5.5 的前端、节点、后端、Electron、扩展和测试更新。
+  - 手工解决 `package-lock.json`、`src/App.tsx`、`src/components/nodes/MentionPromptInput.tsx`、`src/styles/index.css`、`vite.config.ts`、`vite.config.js` 冲突。
+  - `backend/src/config.js`：将健康检查版本标识同步为 `2.5.5`。
+  - `tests/themeRegistry.test.ts`：同步上游已泛化为 Farm Story / Garden Defense 的端口标注与 MiniMap 断言名称。
+  - `docs/repository-and-upgrade-guide.md`、`docs/progress-log.md`：更新仓库、升级分支和本次验证记录。
+- Completed:
+  - 保留 `src/extensions/*`、`src/styles/your-brand-theme.css`、`virtual:t8-local-extensions`、`LocalTopbarSlot` / `LocalModalSlot` 和 ICD 路由。
+  - 前后端版本统一为 `2.5.5`；现有 1 个画布、4 个节点、连线和输出素材可读取，未创建或删除用户数据。
+  - 新增能力包含 Seedance / Seedream、RunningHub / ComfyUI 更新、批量打标、随机路由、3D 人脸、Garden Defense、Web 素材与 Photoshop Bridge 等上游功能。
+- Validation:
+  - `npm run type-check` ✅
+  - `npm run build` ✅
+  - 选定 6 个关键测试文件共 70 项：70 passed、0 failed ✅
+  - `git diff --check` ✅
+  - 前端 `http://127.0.0.1:11422/` HTTP 200；后端 `/api/status` 返回 `ok: true`、`version: 2.5.5` ✅
+  - 浏览器验收：首页、提示词库、设计资源库、现有画布、资源库抽屉、API 设置均正常；无浏览器 error / warning ✅
+- Core T8 files touched: 是。上游合并更新了 `src/components/Canvas.tsx`、`src/config/nodeRegistry.ts`、`backend/src/server.js`、`backend/src/routes/*`；冲突处理未用上游文件覆盖 ICD 定制层。
+- Risks / blockers:
+  - 项目没有 `npm test` 脚本；`tests/themeRegistry.test.ts` 的完整独立运行在通过前置断言后出现上游静态正则长时间运行，已终止，未计入 70 项通过结果。
+  - `npm install` 报告 18 项依赖漏洞（1 low、1 moderate、14 high、2 critical）；未运行可能引入破坏性升级的 `npm audit fix --force`。
+  - 为保护现有数据，本轮没有创建临时节点或执行真实付费生成；画布节点新增、连线和真实生成仍需用户在升级分支体验确认。
+- Next step: 用户在 `codex/upgrade-t8-v2.5.5` 分支体验现有工作流；确认无回归后，再将升级分支合并到 `main` 并推送 GitHub。
+
 ## 2026-07-14 - Codex - 全项目 UI 审查后的首屏密度调整
 
 - User goal: 根据完整 UI 审查结果，继续优化提示词库，并保持画布内核不变。

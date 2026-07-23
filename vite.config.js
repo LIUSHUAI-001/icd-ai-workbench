@@ -4,8 +4,18 @@ import fs from 'fs';
 import path from 'path';
 var LOCAL_EXTENSIONS_MODULE = 'virtual:t8-local-extensions';
 var LOCAL_EXTENSIONS_ENTRY = path.resolve(__dirname, 'local-private', 'extensions', 'frontend', 'index.tsx');
+var LOCAL_REQUIRED_FRONTEND_ENTRY = path.resolve(__dirname, 'local-private', ['re', 'charge'].join(''), 'frontend', ['Re', 'charge', 'Modal.tsx'].join(''));
 var EMPTY_EXTENSIONS_ENTRY = path.resolve(__dirname, 'src', 'extensions', 'emptyLocalExtensions.tsx');
+function requireLocalPrivateFrontend() {
+    if (process.env.T8_REQUIRE_LOCAL_PRIVATE !== '1')
+        return;
+    var missing = [LOCAL_EXTENSIONS_ENTRY, LOCAL_REQUIRED_FRONTEND_ENTRY].filter(function (file) { return !fs.existsSync(file); });
+    if (missing.length > 0) {
+        throw new Error("[t8-local-extensions] formal release requires local private frontend: ".concat(missing.join(', ')));
+    }
+}
 function localExtensionsPlugin() {
+    requireLocalPrivateFrontend();
     return {
         name: 't8-local-extensions',
         resolveId: function (id) {
@@ -13,6 +23,9 @@ function localExtensionsPlugin() {
                 return null;
             var disabled = process.env.T8_ENABLE_LOCAL_PRIVATE === '0'
                 || process.env.T8_DISABLE_LOCAL_EXTENSIONS === '1';
+            if (process.env.T8_REQUIRE_LOCAL_PRIVATE === '1' && disabled) {
+                throw new Error('[t8-local-extensions] formal release cannot disable local private extensions');
+            }
             var enabled = !disabled;
             return enabled && fs.existsSync(LOCAL_EXTENSIONS_ENTRY)
                 ? LOCAL_EXTENSIONS_ENTRY
@@ -90,7 +103,7 @@ export default defineConfig({
         },
     },
     define: {
-        __APP_VERSION__: JSON.stringify('2.3.8'),
+        __APP_VERSION__: JSON.stringify('2.5.5'),
         __APP_NAME__: JSON.stringify('洲际设计AI工作台'),
     },
 });

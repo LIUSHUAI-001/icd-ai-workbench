@@ -13,7 +13,6 @@ import { type ChangeEvent, type FC, useRef, useState, useMemo } from 'react';
 import { IcdNavbar } from './IcdNavbar';
 import { useIcdNavigate } from '../icdRouter';
 import { queueIcdCanvasIntent } from '../icdCanvasIntent';
-import { useCanvasStore } from '../../stores/canvas';
 import { uploadFile } from '../../services/generation';
 
 /* ---- 类型 ---- */
@@ -156,7 +155,7 @@ export const InspirationPage: FC = () => {
     persist(items.map((item) => (item.id === id ? { ...item, isFavorite: !item.isFavorite } : item)));
   };
 
-  const addToCanvas = async (item: InspirationRecord) => {
+  const addToCanvas = (item: InspirationRecord) => {
     queueIcdCanvasIntent({
       kind: 'add-inspiration',
       title: item.title,
@@ -165,12 +164,7 @@ export const InspirationPage: FC = () => {
       category: item.category,
       tags: item.tags,
     });
-    await useCanvasStore.getState().loadCanvases();
-    const canvasState = useCanvasStore.getState();
-    if (!canvasState.activeId) {
-      await canvasState.createCanvas(`画布 ${canvasState.canvases.length + 1}`);
-    }
-    navigate('canvas');
+    navigate('workspace');
   };
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -322,9 +316,9 @@ export const InspirationPage: FC = () => {
                   <div className="icd-inspiration__card-actions">
                     <button
                       className="icd-btn-sm icd-btn-sm--primary"
-                      onClick={() => void addToCanvas(item)}
+                      onClick={() => addToCanvas(item)}
                     >
-                      加入画布
+                      选择项目
                     </button>
                     {item.sourceUrl && (
                       <a

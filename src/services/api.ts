@@ -321,6 +321,7 @@ export interface RHToolCategory {
 export interface RHTool {
   id: string;
   webappId: string;
+  rhSite?: 'cn' | 'intl';
   title: string;
   description: string;
   categoryId: string;
@@ -339,6 +340,7 @@ export interface RHToolsBackup {
 
 export interface AddRHToolPayload {
   webappId: string;
+  rhSite?: 'cn' | 'intl';
   title: string;
   description?: string;
   categoryId?: string;
@@ -536,6 +538,13 @@ export interface AddResourcePayload {
   favorite?: boolean;
 }
 
+export interface UploadedResourceLocalFile {
+  filename: string;
+  url: string;
+  size: number;
+  mime?: string;
+}
+
 export interface AddResourcePosePayload {
   poseBackup: Record<string, any>;
   categoryId?: string;
@@ -603,6 +612,23 @@ export function addResourceItem(payload: AddResourcePayload) {
   });
 }
 
+export async function uploadResourceLocalFile(file: File): Promise<UploadedResourceLocalFile> {
+  const fd = new FormData();
+  fd.append('file', file);
+  const res = await fetch(`${BASE}/files/upload`, {
+    method: 'POST',
+    body: fd,
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok || !json?.success) {
+    throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
+  }
+  if (!json?.data?.url) {
+    throw new Error('文件上传接口未返回可用地址');
+  }
+  return json.data;
+}
+
 export function addResourceSet(payload: AddResourceSetPayload) {
   return safeRequest<ResourceItem & { duplicate?: boolean }>(`${BASE}/resources/sets/add`, {
     method: 'POST',
@@ -660,6 +686,14 @@ export interface FigmaImportResult {
   result?: any;
 }
 
+export interface PhotoshopImportResult {
+  commandId: string;
+  queued: boolean;
+  queueSize: number;
+  sent: number;
+  skipped: number;
+}
+
 export function sendToEagle(payload: {
   materials: EagleImportMaterial[];
   tags?: string[];
@@ -678,6 +712,18 @@ export function sendToFigma(payload: {
   figmaApiBase?: string;
 }) {
   return safeRequest<FigmaImportResult>(`${BASE}/figma/import`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function sendToPhotoshop(payload: {
+  materials: EagleImportMaterial[];
+  tags?: string[];
+  sourceCanvasId?: string;
+  sourceLabel?: string;
+}) {
+  return safeRequest<PhotoshopImportResult>(`${BASE}/photoshop-bridge/send-to-photoshop`, {
     method: 'POST',
     body: JSON.stringify(payload),
   });

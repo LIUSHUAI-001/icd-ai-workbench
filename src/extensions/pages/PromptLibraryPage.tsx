@@ -2,7 +2,6 @@ import { type FC, useEffect, useMemo, useState } from 'react';
 import { IcdNavbar } from './IcdNavbar';
 import { useIcdNavigate } from '../icdRouter';
 import { queueIcdCanvasIntent } from '../icdCanvasIntent';
-import { useCanvasStore } from '../../stores/canvas';
 import { ICD_PROMPT_LIBRARY, type IcdPromptCategory, type IcdPromptRecord } from '../prompts/icdPromptLibrary';
 
 type PromptFilter = '全部' | IcdPromptCategory;
@@ -63,12 +62,9 @@ export const PromptLibraryPage: FC = () => {
     window.setTimeout(() => setCopiedId((current) => current === item.id ? null : current), 1600);
   };
 
-  const addToCanvas = async (item: IcdPromptRecord) => {
+  const addToCanvas = (item: IcdPromptRecord) => {
     queueIcdCanvasIntent({ kind: 'add-prompt', title: item.title, text: item.prompt });
-    await useCanvasStore.getState().loadCanvases();
-    const canvasState = useCanvasStore.getState();
-    if (!canvasState.activeId) await canvasState.createCanvas(`画布 ${canvasState.canvases.length + 1}`);
-    navigate('canvas');
+    navigate('workspace');
   };
 
   return (
@@ -115,7 +111,7 @@ export const PromptLibraryPage: FC = () => {
               <div className="icd-prompts__tags">{item.tags.map((tag) => <span className="icd-tag" key={tag}>{tag}</span>)}</div>
               <div className="icd-prompts__actions">
                 <button className="icd-btn-sm icd-btn-sm--primary" onClick={() => void copyPrompt(item)}>{copiedId === item.id ? '已复制' : '复制提示词'}</button>
-                <button className="icd-btn-sm icd-btn-sm--ghost" onClick={() => void addToCanvas(item)}>加入画布</button>
+                <button className="icd-btn-sm icd-btn-sm--ghost" onClick={() => addToCanvas(item)}>选择项目</button>
               </div>
             </article>
           ))}

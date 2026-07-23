@@ -31,6 +31,14 @@ const LOCAL_PRIVATE_BACKEND_DIRS = [
   path.join(LOCAL_PRIVATE_SRC, 'extensions', 'backend'),
   path.join(LOCAL_PRIVATE_SRC, 'recharge', 'backend'),
 ];
+const REQUIRED_LOCAL_PRIVATE_BACKEND = [
+  path.join(LOCAL_PRIVATE_SRC, 'extensions', 'backend', 'index.cjs'),
+  path.join(LOCAL_PRIVATE_SRC, 'recharge', 'backend', 'routes.cjs'),
+];
+const REQUIRED_LOCAL_PRIVATE_OUTPUT = [
+  path.join(OUT_DIR, 'local-private', 'extensions', 'backend', 'index.t8c'),
+  path.join(OUT_DIR, 'local-private', 'recharge', 'backend', 'routes.t8c'),
+];
 const EXCLUDED_BACKEND_FILES = new Set([
   // Local VibeX static adapter is intentionally not part of public/Electron
   // releases. The node uses the online VibeX page plus vibexBridge instead.
@@ -128,6 +136,16 @@ function main() {
 
   const localPrivateDisabled = process.env.T8_ENABLE_LOCAL_PRIVATE === '0'
     || process.env.T8_DISABLE_LOCAL_EXTENSIONS === '1';
+  const localPrivateRequired = process.env.T8_REQUIRE_LOCAL_PRIVATE === '1';
+  if (localPrivateRequired && localPrivateDisabled) {
+    throw new Error('[encrypt] formal release cannot disable local private extensions');
+  }
+  if (localPrivateRequired) {
+    const missing = REQUIRED_LOCAL_PRIVATE_BACKEND.filter((file) => !fs.existsSync(file));
+    if (missing.length > 0) {
+      throw new Error(`[encrypt] formal release requires local private backend: ${missing.join(', ')}`);
+    }
+  }
   const localPrivateEntry = path.join(LOCAL_PRIVATE_SRC, 'extensions', 'backend', 'index.cjs');
   if (!localPrivateDisabled && fs.existsSync(localPrivateEntry)) {
     const localOut = path.join(OUT_DIR, 'local-private');
@@ -139,7 +157,16 @@ function main() {
       encryptFile(f, LOCAL_PRIVATE_SRC, localOut);
     }
   } else {
+    if (localPrivateRequired) {
+      throw new Error('[encrypt] formal release skipped required local private backend');
+    }
     console.log('[encrypt] local private extensions: skipped');
+  }
+  if (localPrivateRequired) {
+    const missing = REQUIRED_LOCAL_PRIVATE_OUTPUT.filter((file) => !fs.existsSync(file));
+    if (missing.length > 0) {
+      throw new Error(`[encrypt] local private bytecode missing after encryption: ${missing.join(', ')}`);
+    }
   }
   console.log(`[encrypt] DONE → ${OUT_DIR}`);
 }

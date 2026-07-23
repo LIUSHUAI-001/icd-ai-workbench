@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Handle, Position, useNodeConnections, useNodesData, type NodeProps } from '@xyflow/react';
 import { AlertCircle, Loader2, Workflow, Wallet, Sparkles, Square, Search, RefreshCw } from 'lucide-react';
-import { submitRh, queryRh, cancelRh, fetchRhAppInfo, uploadRhAsset } from '../../services/generation';
+import { submitRh, queryRh, cancelRh, fetchRhAppInfo, uploadRhAsset, type RhSite } from '../../services/generation';
 import { useUpdateNodeData } from './useUpdateNodeData';
 import { useHasAutoOutput } from './useHasAutoOutput';
 import { useRunTrigger } from '../../hooks/useRunTrigger';
@@ -137,9 +137,7 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
   const pollTimer = useRef<number | null>(null);
   const [fetchingInfo, setFetchingInfo] = useState(false);
 
-  // v1.2.9.16: 取消 rhWalletApiKey 单独字段 —— RH 钱包应用与普通 RunningHub
-  // 节点统一使用 settings.rhApiKey。useWallet 变量仅用于 UI 区分（标题/图标/配色），
-  // 不再透传给 submitRh / queryRh / fetchRhAppInfo / uploadRhAsset。
+  // RH 钱包应用与普通 RunningHub 仍共用组件和站点 Key；钱包标志只区分 UI。
   const useWallet = type === 'runninghub-wallet';
   const titleText = useWallet ? 'RH钱包应用' : 'RunningHub';
   const TitleIcon = useWallet ? Wallet : Workflow;
@@ -150,11 +148,24 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
 
   const d = data as any;
   const webappId: string = d?.webappId || '';
+  const rhSite: RhSite = d?.rhSite === 'intl' ? 'intl' : 'cn';
+  const activeRhSiteRef = useRef<RhSite>(rhSite);
   const instanceType: string = d?.instanceType || '';
   const status: 'idle' | 'submitting' | 'polling' | 'success' | 'error' = d?.status || 'idle';
   const taskId: string | undefined = d?.taskId;
   const activeTaskIdRef = useRef<string>(taskId ? String(taskId) : '');
   const stopRequestedRef = useRef(false);
+
+  useEffect(() => {
+    activeRhSiteRef.current = rhSite;
+  }, [rhSite]);
+
+  const applyResolvedRhSite = (site?: RhSite) => {
+    if (!site || site === activeRhSiteRef.current) return;
+    activeRhSiteRef.current = site;
+    update({ rhSite: site });
+    logBus.info(`RH 站点已自动切换为${site === 'intl' ? '海外站' : '国内站'}`, src);
+  };
   const cancelInFlightRef = useRef(false);
   const [cancelling, setCancelling] = useState(false);
   const pollRejectRef = useRef<((error?: Error) => void) | null>(null);
@@ -467,7 +478,8 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
           v.startsWith('/files/input/') ||
           v.startsWith('/input/');
         if (isUrlLike) {
-          const r = await uploadRhAsset(v);
+          const r = await uploadRhAsset(v, activeRhSiteRef.current);
+          applyResolvedRhSite(r.site);
           fieldValue = r.fileName;
         } else {
           fieldValue = v;
@@ -516,7 +528,8 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
           return;
         }
         try {
-          const r = await queryRh(tid);
+          const r = await queryRh(tid, activeRhSiteRef.current);
+          applyResolvedRhSite(r.site);
           console.log('[RH/poll] taskId=', tid, 'status=', r.status, 'code=', r.code, 'urls=', r.urls?.length || 0);
           // 轮询进度写入面板：每 30s 一条 debug，避免刷屏
           if (elapsed % 6 === 0) {
@@ -586,7 +599,8 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
     }
     setFetchingInfo(true);
     try {
-      const info = await fetchRhAppInfo(webappId);
+      const info = await fetchRhAppInfo(webappId, activeRhSiteRef.current);
+      applyResolvedRhSite(info?.rhSite);
       const list: any[] = info?.nodeInfoList || [];
       // 调试日志：打印原始 nodeInfoList 结构，方便后续按实际字段名/fieldType 扩充 LIST 词典
       try {
@@ -676,14 +690,16 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
         webappId,
         nodeInfoList,
         instanceType: instanceType || undefined,
+        site: activeRhSiteRef.current,
       });
+      applyResolvedRhSite(r.site);
       activeTaskIdRef.current = r.taskId;
       console.log('[RH/submit] taskId=', r.taskId);
       if (stopRequestedRef.current) {
         logBus.warn(`停止请求已收到，提交返回后立即取消 RH 后台任务 taskId=${r.taskId}`, src);
         try {
           setCancelling(true);
-          await cancelRh(r.taskId);
+          await cancelRh(r.taskId, r.site || activeRhSiteRef.current);
           logBus.success(`已请求取消 RH 后台任务 taskId=${r.taskId}`, src);
           stopPoll(new Error('已取消'));
           stopRequestedRef.current = false;
@@ -735,7 +751,7 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
     logBus.warn(`用户主动停止，正在请求取消 RH 后台任务 taskId=${tid}`, src);
     update({ taskId: tid, error: '正在请求取消 RH 后台任务...' });
     try {
-      await cancelRh(tid);
+      await cancelRh(tid, activeRhSiteRef.current);
       logBus.success(`已请求取消 RH 后台任务 taskId=${tid}`, src);
       stopPoll(new Error('已取消'));
       stopRequestedRef.current = false;
@@ -813,6 +829,22 @@ const RunningHubNode = ({ id, data, selected, type }: NodeProps) => {
             title="上游素材 · 拖拽可调整顺序"
           />
         )}
+        <div>
+          <label className="text-[10px] text-white/50 block mb-1">RunningHub 站点</label>
+          <select
+            value={rhSite}
+            onChange={(e) => {
+              const site = e.target.value === 'intl' ? 'intl' : 'cn';
+              activeRhSiteRef.current = site;
+              update({ rhSite: site, appInfo: null, paramValues: {}, taskId: '', urls: [] });
+            }}
+            className="nodrag nowheel w-full rounded bg-white/5 border border-white/10 px-2 py-1 text-xs text-white outline-none focus:border-white/30"
+            title="国内应用使用 runninghub.cn，海外应用使用 runninghub.ai"
+          >
+            <option value="cn">国内站 · runninghub.cn</option>
+            <option value="intl">海外站 · runninghub.ai</option>
+          </select>
+        </div>
         <div>
           <label className="text-[10px] text-white/50 block mb-1">Webapp ID</label>
           <div className="flex gap-1">

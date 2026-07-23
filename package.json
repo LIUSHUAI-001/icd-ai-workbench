@@ -1,7 +1,7 @@
 {
   "name": "icd-ai-workbench",
   "private": false,
-  "version": "2.3.8",
+  "version": "2.5.5",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "洲际设计AI工作台 — AI 节点画布工作流工具（Web + Electron 桌面端）",
@@ -45,7 +45,8 @@
     "release:verify": "node scripts/verify-github-release.cjs",
     "rh-toolbox:check": "node scripts/check-rh-toolbox-release.cjs",
     "public:check": "node scripts/check-public-clean.cjs",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "face-model:build": "node scripts/build-ict-face-glb.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -59,12 +60,15 @@
     "electron-log": "^5.4.4",
     "electron-updater": "^6.8.3",
     "express": "^4.21.0",
+    "extract-zip": "^2.0.1",
     "lucide-react": "^0.468.0",
     "multer": "^2.0.2",
+    "phaser": "^3.90.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sharp": "^0.34.5",
     "three": "^0.184.0",
+    "undici": "^6.27.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
@@ -156,7 +160,8 @@
         "from": "shared",
         "to": "shared",
         "filter": [
-          "achievementManifest.json"
+          "achievementManifest.json",
+          "videoTransitions.json"
         ]
       },
       {
@@ -181,6 +186,8 @@
         "filter": [
           "ffmpeg.exe",
           "ffmpeg",
+          "ffprobe.exe",
+          "ffprobe",
           "README.md"
         ]
       },
@@ -194,6 +201,13 @@
       {
         "from": "tools/figma-bridge",
         "to": "tools/figma-bridge",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "tools/photoshop-bridge",
+        "to": "tools/photoshop-bridge",
         "filter": [
           "**/*"
         ]

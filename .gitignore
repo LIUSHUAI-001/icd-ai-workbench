@@ -46,6 +46,7 @@ _verification/
 /skill.md
 /roadmap.md
 /local-private/**
+/artifacts/**
 
 # Local-only developer tool builders. Keep these in the maintainer workspace
 # or private encrypted packaging path; never publish their source to GitHub.

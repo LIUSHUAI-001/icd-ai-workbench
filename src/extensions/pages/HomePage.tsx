@@ -35,7 +35,6 @@ export const HomePage: FC = () => {
   const [creatingCanvas, setCreatingCanvas] = useState(false);
   const {
     canvases,
-    activeId,
     loading: canvasesLoading,
     loadCanvases,
     createCanvas,
@@ -63,24 +62,19 @@ export const HomePage: FC = () => {
 
   const openCanvas = (id: string) => {
     setActive(id);
-    navigate('canvas');
+    navigate('canvas', id);
   };
 
-  const handleCreateCanvas = async () => {
+  const handleCreateProject = async () => {
     if (creatingCanvas || canvasesLoading) return;
     setCreatingCanvas(true);
-    const canvas = await createCanvas(`画布 ${canvases.length + 1}`);
+    const canvas = await createCanvas(`未命名项目 ${canvases.length + 1}`);
     setCreatingCanvas(false);
-    if (canvas) navigate('canvas');
+    if (canvas) navigate('canvas', canvas.id);
   };
 
   const openWorkspace = () => {
-    const targetId = activeId || leadCanvas?.id;
-    if (targetId) {
-      openCanvas(targetId);
-      return;
-    }
-    void handleCreateCanvas();
+    navigate('workspace');
   };
 
   const openWorkflowWorkspace = () => {
@@ -107,13 +101,13 @@ export const HomePage: FC = () => {
             <div className="icd-home__hero-actions">
               <button
                 className="icd-home__btn icd-home__btn--primary"
-                onClick={() => void handleCreateCanvas()}
+                onClick={() => void handleCreateProject()}
                 disabled={creatingCanvas || canvasesLoading}
               >
-                {creatingCanvas ? '正在创建...' : '新建画布'}
+                {creatingCanvas ? '正在创建...' : '新建项目'}
               </button>
               <button className="icd-home__btn icd-home__btn--ghost" onClick={openWorkspace} disabled={canvasesLoading}>
-                进入项目工作台
+                进入工作空间
               </button>
             </div>
           </div>

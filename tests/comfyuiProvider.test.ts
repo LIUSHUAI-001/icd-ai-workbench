@@ -94,6 +94,82 @@ function fixedNoPromptWorkflow() {
   };
 }
 
+function minimalOutputWorkflow() {
+  return {
+    '1': {
+      class_type: 'T8OutputFixture',
+      inputs: { text: 'fixture' },
+    },
+  };
+}
+
+async function runComfyOutputFixture(outputs: Record<string, any>) {
+  const provider = {
+    id: 'comfyui',
+    protocol: 'comfyui',
+    baseUrl: 'http://127.0.0.1:8188',
+    enabled: true,
+    comfyuiConfig: {
+      workflows: [{ id: 'multi-output-fixture', name: 'Multi output fixture', workflowJson: minimalOutputWorkflow() }],
+    },
+  };
+  return comfyui.generateImage(provider, { providerModel: 'multi-output-fixture' }, {
+    pollIntervalMs: 1,
+    fetchImpl: async (url: string) => {
+      if (String(url).endsWith('/prompt')) return jsonResponse({ prompt_id: 'multi-output-1' });
+      return jsonResponse({
+        'multi-output-1': {
+          status: { status_str: 'success' },
+          outputs,
+        },
+      });
+    },
+  });
+}
+
+test('ComfyUI accepts video-only, audio-only and text-only workflow outputs', async () => {
+  const video = await runComfyOutputFixture({
+    '10': { gifs: [{ filename: 'clip.mp4', type: 'output', subfolder: 'video', format: 'video/h264-mp4' }] },
+  });
+  const audio = await runComfyOutputFixture({
+    '11': { audios: [{ filename: 'voice.wav', type: 'output', subfolder: 'audio' }] },
+  });
+  const textOnly = await runComfyOutputFixture({
+    '12': { text: 'caption result' },
+  });
+
+  assert.equal(video.ok, true);
+  assert.equal(video.kind, 'video');
+  assert.deepEqual(video.outputKinds, ['video']);
+  assert.match(video.videoUrls[0], /filename=clip\.mp4/);
+  assert.equal(audio.ok, true);
+  assert.equal(audio.primaryKind, 'audio');
+  assert.deepEqual(audio.outputKinds, ['audio']);
+  assert.match(audio.audioUrls[0], /filename=voice\.wav/);
+  assert.equal(textOnly.ok, true);
+  assert.equal(textOnly.primaryKind, 'text');
+  assert.deepEqual(textOnly.outputKinds, ['text']);
+  assert.equal(textOnly.text, 'caption result');
+});
+
+test('ComfyUI reports all mixed output kinds and rejects a completed empty workflow', async () => {
+  const mixed = await runComfyOutputFixture({
+    '10': { images: [{ filename: 'image.png', type: 'output' }] },
+    '11': { videos: [{ filename: 'clip.mp4', type: 'output' }] },
+    '12': { audio: [{ filename: 'voice.mp3', type: 'output' }] },
+    '13': { texts: ['line one', 'line two'] },
+  });
+  const empty = await runComfyOutputFixture({});
+
+  assert.equal(mixed.ok, true);
+  assert.equal(mixed.primaryKind, 'image');
+  assert.deepEqual(mixed.outputKinds, ['image', 'video', 'audio', 'text']);
+  assert.equal(mixed.text, 'line one\nline two');
+  assert.equal(empty.ok, false);
+  assert.equal(empty.code, 'empty_output');
+  assert.match(empty.error, /没有返回图片、视频、音频或文本/);
+});
+
 test('ComfyUI testProvider rejects remote base url by default', async () => {
   const previousRemote = process.env.T8_COMFYUI_ALLOW_REMOTE;
   const previousPrivate = process.env.T8_COMFYUI_ALLOW_PRIVATE;
@@ -751,6 +827,54 @@ test('ComfyUI app builder scopes duplicated runtime params so one control cannot
   assert.equal(providerParams[loraNameParams[1].source], 'background-v2.safetensors');
   assert.equal(providerParams[strengthParams[0].source], 0.7);
   assert.equal(providerParams[strengthParams[1].source], 0.3);
+});
+
+test('ComfyUI app builder collapses shared prompt and size params to one visible control', () => {
+  const app = buildComfyAppFromWorkflow({
+    title: 'Shared runtime controls',
+    workflowJson: {
+      '4': {
+        class_type: 'CLIPTextEncode',
+        inputs: { text: 'blurry, low resolution, pixelated' },
+        _meta: { title: 'Negative Prompt' },
+      },
+      '34': {
+        class_type: 'TiledDiffusion',
+        inputs: {
+          negative_prompt: 'blurry, low resolution, pixelated',
+          width: 512,
+          height: 512,
+          seed: 123,
+          mode_type: 'Linear',
+        },
+        _meta: { title: 'Tile Settings' },
+      },
+      '35': {
+        class_type: 'AnotherLatentSize',
+        inputs: { width: 1024, height: 768, seed: 456 },
+        _meta: { title: 'Second Size' },
+      },
+      '99': {
+        class_type: 'SaveImage',
+        inputs: { images: ['35', 0] },
+      },
+    },
+  });
+
+  const paramsBySource = new Map<string, number>();
+  for (const param of app.userParams) {
+    paramsBySource.set(param.source, (paramsBySource.get(param.source) || 0) + 1);
+  }
+
+  assert.equal(app.fields.filter((field) => field.source === 'negative').length, 2);
+  assert.equal(app.fields.filter((field) => field.source === 'width').length, 2);
+  assert.equal(app.fields.filter((field) => field.source === 'height').length, 2);
+  assert.equal(app.fields.filter((field) => field.source === 'seed').length, 2);
+  assert.equal(paramsBySource.get('negative'), 1);
+  assert.equal(paramsBySource.get('width'), 1);
+  assert.equal(paramsBySource.get('height'), 1);
+  assert.equal(paramsBySource.get('seed'), 1);
+  assert.equal(new Set(app.userParams.map((param) => param.key)).size, app.userParams.length);
 });
 
 test('ComfyUI app manifest normalization repairs old duplicate param sources without field ids', () => {
