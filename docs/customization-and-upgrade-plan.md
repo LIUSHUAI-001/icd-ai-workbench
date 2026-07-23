@@ -25,9 +25,9 @@ ICD 产品扩展采用双层架构：
   - 不要在此文件中放入密钥或敏感信息。
 
 - `local-private/extensions/frontend/index.tsx`（被 Git 忽略）
-  - **极简本地适配器**，仅从 `src/extensions/icdLocalExtensions.tsx` re-export。
-  - 因为 `vite.config.ts` 的 `localExtensionsPlugin` 从此路径解析虚拟模块。
-  - 如果丢失，按 `docs/local-private-deployment.md` 恢复。
+  - **可选的极简本地适配器**，仅从 `src/extensions/icdLocalExtensions.tsx` re-export。
+  - 存在时由 `vite.config.ts` 优先加载；普通 GitHub clone 缺少它时，直接加载受跟踪的 ICD 扩展。
+  - 不再要求新电脑手工恢复，具体加载规则见 `docs/local-private-deployment.md`。
 
 - `src/styles/your-brand-theme.css`
   - 只覆盖 shell 颜色和你的定制 UI 样式。

@@ -7,19 +7,33 @@ ICD 产品扩展分为两层：
 | 层级 | 文件 | Git 跟踪 | 作用 |
 |---|---|---|---|
 | **生产源** | `src/extensions/icdLocalExtensions.tsx` | ✅ 已跟踪 | ICD 品牌外壳完整实现 |
-| **本地适配器** | `local-private/extensions/frontend/index.tsx` | ❌ 已忽略 | 极简 re-export 适配器 |
+| **本地适配器** | `local-private/extensions/frontend/index.tsx` | ❌ 已忽略 | 可选的极简 re-export 适配器；存在时优先加载 |
 
 ### 为什么需要这个分离
 
-1. **Vite 虚拟模块加载点**：`vite.config.ts` 的 `localExtensionsPlugin` 从 `local-private/extensions/frontend/index.tsx` 解析 `virtual:t8-local-extensions`。T8 引擎依赖这个路径约定。
+1. **Vite 虚拟模块加载点**：`vite.config.ts` 的 `localExtensionsPlugin` 解析 `virtual:t8-local-extensions`。若本机适配器存在则优先加载；缺失时直接加载受跟踪的 `src/extensions/icdLocalExtensions.tsx`。
 
 2. **公开仓库安全**：`local-private/` 被 `.gitignore` 忽略，避免将定制层提交到公开上游 fork。
 
-3. **可恢复性**：所有实现逻辑在受跟踪的 `icdLocalExtensions.tsx` 中。即使 `local-private/` 丢失，也能通过一个简单的 re-export 文件恢复。
+3. **可恢复性**：所有实现逻辑在受跟踪的 `icdLocalExtensions.tsx` 中。即使 `local-private/` 丢失，从 GitHub clone 后也会默认启用完整 ICD 产品层，无需手工恢复适配器。
 
 ## 在新机器上恢复
 
 ### 场景 A：完整 clone 后 local-private/ 不存在
+
+无需创建任何文件。直接安装依赖并启动：
+
+```bash
+npm install
+cd backend && npm install && cd ..
+npm run dev
+```
+
+默认会加载 `src/extensions/icdLocalExtensions.tsx`。页面左下角出现 `2.5.5 · 本地 · ICD 外壳` 即表示生效。
+
+### 场景 B：需要本地适配器覆盖入口
+
+只有需要保留本机专用适配层时，才创建以下文件：
 
 ```bash
 # 1. 创建目录结构
@@ -56,7 +70,7 @@ npm run type-check
 npm run build
 ```
 
-### 场景 B：T8 上游升级后恢复
+### 场景 C：T8 上游升级后检查
 
 ```bash
 # 1. 确认 vite.config.ts 仍包含 localExtensionsPlugin
@@ -68,23 +82,18 @@ grep -n 'virtual:t8-local-extensions' src/App.tsx
 # 3. 确认 tracked ICD 扩展文件存在
 ls -la src/extensions/icdLocalExtensions.tsx
 
-# 4. 如果适配器文件丢失，按场景 A 恢复
+# 4. 确认缺少适配器时仍回退到 tracked ICD 扩展，而不是空扩展
 # 5. 如果 tracked 文件冲突，按 CLAUDE.md 升级流程处理
 ```
 
-### 场景 C：部署到生产服务器
+### 场景 D：部署到生产服务器
 
 ```bash
-# 构建前确保适配器存在
-if [ ! -f "local-private/extensions/frontend/index.tsx" ]; then
-  echo "⚠  local-private 适配器缺失，正在从模板恢复..."
-  mkdir -p local-private/extensions/frontend
-  # 按场景 A 的方式创建适配器文件
-fi
-
-# 正常构建
+# 普通 Web 构建不要求 local-private 适配器；缺失时使用 tracked ICD 扩展
 npm run build
 ```
+
+正式 Electron 私有发布仍可通过 `T8_REQUIRE_LOCAL_PRIVATE=1` 强制要求私有 sidecar 完整存在；该 fail-closed 规则没有改变。
 
 ## 禁用本地扩展
 
@@ -106,13 +115,13 @@ T8_ENABLE_LOCAL_PRIVATE=0 npm run dev
 项目根目录/
 ├── src/
 │   └── extensions/
-│       ├── icdLocalExtensions.tsx    ← ✅ 受跟踪：ICD 完整实现
+│       ├── icdLocalExtensions.tsx    ← ✅ 受跟踪：ICD 完整实现及默认加载入口
 │       ├── localExtensionTypes.ts    ← ✅ 受跟踪：Slot 类型定义
 │       └── emptyLocalExtensions.tsx  ← ✅ 受跟踪：空回退
 ├── local-private/                    ← ❌ 整个目录被 Git 忽略
 │   └── extensions/
 │       └── frontend/
-│           └── index.tsx             ← ❌ 被忽略：极简 re-export 适配器
+│           └── index.tsx             ← ❌ 被忽略：可选的极简 re-export 适配器
 ├── docs/
 │   └── local-private-deployment.md   ← ✅ 受跟踪：本文档
 └── .gitignore                        ← 包含 /local-private/**

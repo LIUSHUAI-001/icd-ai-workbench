@@ -55,8 +55,8 @@ The ICD product extension uses a two-layer architecture:
 
 - `local-private/extensions/frontend/index.tsx` (ignored)
   - thin local adapter that re-exports from `src/extensions/icdLocalExtensions.tsx`
-  - loaded by `vite.config.ts` via `virtual:t8-local-extensions`
-  - if lost, restore by following `docs/local-private-deployment.md`
+  - preferred by `vite.config.ts` via `virtual:t8-local-extensions` when present
+  - optional for normal clones; when absent, Vite loads the tracked ICD implementation directly
 
 - `src/styles/your-brand-theme.css`
   - additive brand theme overrides
@@ -74,7 +74,7 @@ The ICD product extension uses a two-layer architecture:
 - `docs/local-private-deployment.md`
   - recovery and deployment instructions for the local-private adapter
 
-Note: `local-private/` is intentionally ignored by Git. The tracked ICD implementation lives in `src/extensions/icdLocalExtensions.tsx`. Do not commit `local-private/` to the public upstream fork.
+Note: `local-private/` is intentionally ignored by Git. The tracked ICD implementation lives in `src/extensions/icdLocalExtensions.tsx` and is the default fallback for normal clones. Do not commit `local-private/` to the public upstream fork.
 
 ## Execution Order
 

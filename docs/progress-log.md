@@ -18,6 +18,26 @@ Copy this block for every new entry:
 - Next step:
 ```
 
+## 2026-07-24 - Codex - GitHub clone 默认启用 ICD 产品层
+
+- User goal: 让其他电脑从 GitHub 拉取后获得与当前项目一致的画布功能和 ICD 界面入口，同时不上传私人画布、素材或 API Key。
+- Files changed:
+  - `vite.config.ts` / `vite.config.js`：本机适配器缺失时回退到受跟踪的 `src/extensions/icdLocalExtensions.tsx`，仅在显式禁用时加载空扩展。
+  - `tests/electronPackaging.test.ts`：增加 tracked ICD fallback 回归检查。
+  - `AGENTS.md`、`docs/customization-and-upgrade-plan.md`、`docs/local-private-deployment.md`：同步新的 clone、构建与私有发布边界。
+  - `docs/progress-log.md`：记录本次发布工作。
+- Completed: 普通 GitHub clone 不再依赖被忽略的 `local-private` 适配器即可加载完整 ICD 产品层；正式 Electron 私有发布的 `T8_REQUIRE_LOCAL_PRIVATE=1` fail-closed 规则保留。
+- Validation:
+  - `node --experimental-strip-types --test tests/electronPackaging.test.ts`：7/7 通过 ✅
+  - `npm run type-check`：通过 ✅
+  - `npm run build`：通过，2053 个模块完成构建 ✅
+  - `git diff --check`：通过 ✅
+  - 后端 `/api/status` 返回 `ok: true`、版本 `2.5.5`，前端返回 HTTP 200 ✅
+  - 自动浏览器复核被本地 URL 安全策略拦截，未绕过；本次未修改任何 UI 组件或画布行为。
+- Core T8 files touched: 未修改画布引擎、节点注册、后端或存储格式；仅修改 Vite 构建加载配置。
+- Risks / blockers: 画布内容、素材、API Key、本机路径和外部软件配置仍属于本机状态，不会随 GitHub 同步。
+- Next step: 在另一台电脑拉取合并后的 `main`，重新安装依赖并启动，确认页面显示 `2.5.5 · 本地 · ICD 外壳`。
+
 ## 2026-07-18 - Codex - Windows 便携版部署包生成
 
 - User goal: 安装器无法安装，提供不依赖安装器的 Windows 部署方式。
